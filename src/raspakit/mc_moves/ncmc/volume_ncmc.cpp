@@ -127,23 +127,6 @@ std::optional<RunningEnergy> MC_Moves::volumeMoveNCMC(RandomNumber &random, Syst
 
   double drift = currentEnergy.conservedEnergy() - referenceEnergy.conservedEnergy();
 
-
-  std::cout << std::format("T_Trans, T_Rot, T_Total, PotEng, KinEng, ConsEng, Volume\n{: 6.4e} {: 6.4e} {: 6.4e} {: 6.4e} {: 6.4e} {: 6.4e} {: 6.4e}\n{: 6.4e} {: 6.4e} {: 6.4e} {: 6.4e} {: 6.4e} {: 6.4e} {: 6.4e}\n", 
-    2.0 * referenceEnergy.translationalKineticEnergy / (Units::KB * static_cast<double>(system.translationalDegreesOfFreedom - system.translationalCenterOfMassConstraint)),
-    2.0 * referenceEnergy.rotationalKineticEnergy / (Units::KB * static_cast<double>(system.rotationalDegreesOfFreedom)),
-    2.0 * (referenceEnergy.translationalKineticEnergy + referenceEnergy.rotationalKineticEnergy) / (Units::KB * static_cast<double>(system.translationalDegreesOfFreedom - system.translationalCenterOfMassConstraint + system.rotationalDegreesOfFreedom)),
-    referenceEnergy.translationalKineticEnergy + referenceEnergy.rotationalKineticEnergy,
-    referenceEnergy.potentialEnergy(),
-    referenceEnergy.conservedEnergy(),
-    oldVolume,
-    2.0 * currentEnergy.translationalKineticEnergy / (Units::KB * static_cast<double>(system.translationalDegreesOfFreedom - system.translationalCenterOfMassConstraint)),
-    2.0 * currentEnergy.rotationalKineticEnergy / (Units::KB * static_cast<double>(system.rotationalDegreesOfFreedom)),
-    2.0 * (currentEnergy.translationalKineticEnergy + currentEnergy.rotationalKineticEnergy) / (Units::KB * static_cast<double>(system.translationalDegreesOfFreedom - system.translationalCenterOfMassConstraint + system.rotationalDegreesOfFreedom)),
-    currentEnergy.translationalKineticEnergy + currentEnergy.rotationalKineticEnergy,
-    currentEnergy.potentialEnergy(),
-    currentEnergy.conservedEnergy(),
-    newVolume) << std::endl;
-
   // Update constructed move counts
   system.mc_moves_statistics.addConstructed(move);
 
