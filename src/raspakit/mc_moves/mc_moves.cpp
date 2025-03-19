@@ -78,6 +78,7 @@ import mc_moves_swap_cfcmc;
 import mc_moves_swap_cfcmc_cbmc;
 import mc_moves_gibbs_swap_cbmc;
 import mc_moves_volume;
+import mc_moves_volume_ncmc;
 import mc_moves_gibbs_volume;
 import mc_moves_identity_change;
 import mc_moves_swap_cfcmc;
@@ -416,6 +417,15 @@ void MC_Moves::performRandomMove(RandomNumber &random, System &selectedSystem, S
     case MoveTypes::HybridMC:
     {
       std::optional<RunningEnergy> energy = MC_Moves::hybridMCMove(random, selectedSystem);
+      if (energy)
+      {
+        selectedSystem.runningEnergies = energy.value();
+      }
+      break;
+    }
+    case MoveTypes::VolumeNCMC:
+    {
+      std::optional<RunningEnergy> energy = MC_Moves::volumeMoveNCMC(random, selectedSystem);
       if (energy)
       {
         selectedSystem.runningEnergies = energy.value();
@@ -779,6 +789,15 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
     case MoveTypes::HybridMC:
     {
       std::optional<RunningEnergy> energy = MC_Moves::hybridMCMove(random, selectedSystem);
+      if (energy)
+      {
+        selectedSystem.runningEnergies = energy.value();
+      }
+      break;
+    }
+    case MoveTypes::VolumeNCMC:
+    {
+      std::optional<RunningEnergy> energy = MC_Moves::volumeMoveNCMC(random, selectedSystem);
       if (energy)
       {
         selectedSystem.runningEnergies = energy.value();

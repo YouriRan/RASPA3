@@ -13,6 +13,7 @@ file(GLOB SRC_CPP_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/system/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/group/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/cross_system/*.cpp
+  ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/ncmc/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/properties/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/integrators/*.cpp
@@ -31,6 +32,7 @@ file(GLOB SRC_IXX_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/system/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/group/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/cross_system/*.ixx
+  ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/ncmc/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/properties/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/integrators/*.ixx

@@ -204,7 +204,13 @@ MCMoveCpuTime::MCMoveCpuTime()
                  {
                      {"Total", std::chrono::duration<double>::zero()},
                      {"Integration", std::chrono::duration<double>::zero()},
-                 }}}
+                 }},
+                 {MoveTypes::VolumeNCMC,
+                  {
+                      {"Total", std::chrono::duration<double>::zero()},
+                      {"Volume", std::chrono::duration<double>::zero()},
+                      {"Integration", std::chrono::duration<double>::zero()},
+                  }}}
 {
 }
 

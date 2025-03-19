@@ -65,6 +65,7 @@ export struct MCMoveStatistics
     statsMapDouble[MoveTypes::ParallelTempering] = MoveStatistics<double>{};
     statsMapDouble[MoveTypes::HybridMC] =
         MoveStatistics<double>{.maxChange = 0.0005, .lowerLimit = 0.000001, .upperLimit = 0.01};
+    statsMapDouble[MoveTypes::VolumeNCMC] = MoveStatistics<double>{.maxChange=0.1, .lowerLimit=0.01, .upperLimit=1.5};
   };
 
   void clearMoveStatistics();

@@ -37,7 +37,7 @@ export struct MCMoveProbabilities
                       double gibbsSwapCBMCProbability = 0.0, double gibbsSwapCFCMCProbability = 0.0,
                       double widomProbability = 0.0, double widomCFCMCProbability = 0.0,
                       double widomCBCFCMCProbability = 0.0, double parallelTemperingProbability = 0.0,
-                      double hybridMCProbability = 0.0);
+                      double hybridMCProbability = 0.0, double volumeNCMCProbability = 0.0);
 
   // use .at such that access is const
   double getProbability(const MoveTypes &move) const { return probabilities.at(move); };

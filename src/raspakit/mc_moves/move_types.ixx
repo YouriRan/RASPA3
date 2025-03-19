@@ -35,6 +35,7 @@ export enum class MoveTypes : size_t {
   WidomCBCFCMC = 16,
   ParallelTempering = 17,
   HybridMC = 18,
+  VolumeNCMC = 19,
   Count
 };
 
@@ -58,7 +59,8 @@ export std::unordered_set<MoveTypes> componentMoves =
 export std::unordered_set<MoveTypes> systemMoves = 
 {
   MoveTypes::VolumeChange,
-  MoveTypes::HybridMC
+  MoveTypes::HybridMC,
+  MoveTypes::VolumeNCMC
 };
 
 export std::unordered_set<MoveTypes> crossSystemMoves = 
@@ -91,4 +93,6 @@ export std::map<MoveTypes, std::string> moveNames = {
     {MoveTypes::WidomCBCFCMC, "Widom (CB/CFCMC)"},
     {MoveTypes::ParallelTempering, "Parallel tempering"},
     {MoveTypes::HybridMC, "Hybrid MC"},
+     //{MoveTypes::NonEqCBMC, "Swap Non-Eq candidate CBMC"},
+    {MoveTypes::VolumeNCMC, "Volume NCMC"}
 };

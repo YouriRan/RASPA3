@@ -956,6 +956,11 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         mc_moves_probabilities.setProbability(MoveTypes::HybridMC, value["HybridMCProbability"].get<double>());
       }
 
+      if (value.contains("VolumeNCMCProbability") && value["VolumeNCMCProbability"].is_number_float())
+      {
+        mc_moves_probabilities.setProbability(MoveTypes::VolumeNCMC, value["VolumeNCMCProbability"].get<double>());
+      }
+
       if (!value.contains("Type"))
       {
         throw std::runtime_error(
@@ -1562,6 +1567,7 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::system
     "ComputePolarization",
     "ChargeMethod",
     "VolumeMoveProbability",
+    "VolumeNCMCProbability",
     "GibbsVolumeMoveProbability",
     "ParallelTemperingSwapProbability",
     "HybridMCProbability",

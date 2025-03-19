@@ -66,14 +66,14 @@ std::optional<RunningEnergy> MC_Moves::hybridMCMove(RandomNumber& random, System
     Integrators::removeCenterOfMassVelocityDrift(moleculePositions);
   }
 
-  // before getting energy, recompute current energy
-  system.precomputeTotalGradients();
-
   RunningEnergy referenceEnergy = system.runningEnergies;
   referenceEnergy.translationalKineticEnergy = Integrators::computeTranslationalKineticEnergy(moleculePositions);
   referenceEnergy.rotationalKineticEnergy =
       Integrators::computeRotationalKineticEnergy(moleculePositions, system.components);
   RunningEnergy currentEnergy = referenceEnergy;
+
+  Integrators::updateGradients(moleculeAtomPositions, system.spanOfFrameworkAtoms(), system.forceField, system.simulationBox, system.components, 
+    system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.totalEik, system.fixedFrameworkStoredEik, system.numberOfMoleculesPerComponent);
 
   // integrate for N steps
   time_begin = std::chrono::system_clock::now();
