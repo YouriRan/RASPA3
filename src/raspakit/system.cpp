@@ -100,6 +100,7 @@ import property_loading;
 import property_enthalpy;
 import property_lambda_probability_histogram;
 import property_widom;
+import property_autocorrelation;
 import property_temperature;
 import property_msd;
 import energy_factor;
@@ -313,20 +314,7 @@ void System::insertFractionalMolecule(size_t selectedComponent, [[maybe_unused]]
   translationalDegreesOfFreedom += components[selectedComponent].translationalDegreesOfFreedom;
   rotationalDegreesOfFreedom += components[selectedComponent].rotationalDegreesOfFreedom;
 
-  // set moleculesIds
-  size_t index = numberOfFrameworkAtoms;  // indexOfFirstMolecule(selectedComponent);
-  for (size_t componentId = 0; componentId < components.size(); componentId++)
-  {
-    for (size_t i = 0; i < numberOfMoleculesPerComponent[componentId]; ++i)
-    {
-      for (size_t j = 0; j < components[componentId].atoms.size(); ++j)
-      {
-        atomPositions[index].moleculeId = static_cast<uint16_t>(i);
-        atomPositions[index].componentId = static_cast<uint8_t>(componentId);
-        ++index;
-      }
-    }
-  }
+  renumberMoleculeAndComponentIds();
 }
 
 /// Inserts a molecule into the vector of atoms.
@@ -337,6 +325,22 @@ void System::insertFractionalMolecule(size_t selectedComponent, [[maybe_unused]]
 ///   - selectedComponent: the index of the component
 ///   - atoms: vector of atoms to be inserted
 /// - returns:
+void System::renumberMoleculeAndComponentIds()
+{
+  size_t idx = numberOfFrameworkAtoms;
+  for (size_t cid = 0; cid < components.size(); ++cid)
+  {
+    for (size_t m = 0; m < numberOfMoleculesPerComponent[cid]; ++m)
+    {
+      for (size_t a = 0; a < components[cid].atoms.size(); ++a, ++idx)
+      {
+        atomPositions[idx].moleculeId = static_cast<uint16_t>(m);
+        atomPositions[idx].componentId = static_cast<uint8_t>(cid);
+      }
+    }
+  }
+}
+
 void System::insertMolecule(size_t selectedComponent, [[maybe_unused]] const Molecule& molecule,
                             std::vector<Atom> atoms)
 {
@@ -370,19 +374,7 @@ void System::insertMolecule(size_t selectedComponent, [[maybe_unused]] const Mol
     totalNumberOfPseudoAtoms[static_cast<size_t>(atom.type)] += 1;
   }
 
-  size_t index = numberOfFrameworkAtoms;
-  for (size_t componentId = 0; componentId < components.size(); componentId++)
-  {
-    for (size_t i = 0; i < numberOfMoleculesPerComponent[componentId]; ++i)
-    {
-      for (size_t j = 0; j < components[componentId].atoms.size(); ++j)
-      {
-        atomPositions[index].moleculeId = static_cast<uint16_t>(i);
-        atomPositions[index].componentId = static_cast<uint8_t>(componentId);
-        ++index;
-      }
-    }
-  }
+  renumberMoleculeAndComponentIds();
 }
 
 void System::deleteMolecule(size_t selectedComponent, size_t selectedMolecule, const std::span<Atom> molecule)
@@ -413,19 +405,7 @@ void System::deleteMolecule(size_t selectedComponent, size_t selectedMolecule, c
   translationalDegreesOfFreedom -= components[selectedComponent].translationalDegreesOfFreedom;
   rotationalDegreesOfFreedom -= components[selectedComponent].rotationalDegreesOfFreedom;
 
-  size_t index = numberOfFrameworkAtoms;
-  for (size_t componentId = 0; componentId < components.size(); componentId++)
-  {
-    for (size_t i = 0; i < numberOfMoleculesPerComponent[componentId]; ++i)
-    {
-      for (size_t j = 0; j < components[componentId].atoms.size(); ++j)
-      {
-        atomPositions[index].moleculeId = static_cast<uint16_t>(i);
-        atomPositions[index].componentId = static_cast<uint8_t>(componentId);
-        ++index;
-      }
-    }
-  }
+  renumberMoleculeAndComponentIds();
 }
 
 void System::checkMoleculeIds()
@@ -572,15 +552,8 @@ size_t System::randomIntegerMoleculeOfComponent(RandomNumber& random, size_t sel
 
 std::vector<Atom>::iterator System::iteratorForMolecule(size_t selectedComponent, size_t selectedMolecule)
 {
-  size_t index{0};
-  for (size_t i = 0; i < selectedComponent; ++i)
-  {
-    size_t size = components[i].atoms.size();
-    index += size * numberOfMoleculesPerComponent[i];
-  }
-  size_t size = components[selectedComponent].atoms.size();
-  index += size * selectedMolecule + numberOfFrameworkAtoms;
-  return atomPositions.begin() + static_cast<std::vector<Atom>::difference_type>(index);
+  return atomPositions.begin() +
+         static_cast<std::vector<Atom>::difference_type>(atomsOffset(selectedComponent, selectedMolecule));
 }
 
 std::vector<Molecule>::iterator System::indexForMolecule(size_t selectedComponent, size_t selectedMolecule)
@@ -655,56 +628,38 @@ std::span<double3> System::spanOfMoleculeElectricFieldNew()
       electricFieldNew.end());
 }
 
+size_t System::atomsOffset(size_t selectedComponent, size_t selectedMolecule)
+{
+  size_t offset = numberOfFrameworkAtoms;
+  for (size_t comp = 0; comp < selectedComponent; ++comp)
+  {
+    offset += components[comp].atoms.size() * numberOfMoleculesPerComponent[comp];
+  }
+  return offset + selectedMolecule * components[selectedComponent].atoms.size();
+}
+
 std::span<Atom> System::spanOfMolecule(size_t selectedComponent, size_t selectedMolecule)
 {
-  size_t index{0};
-  for (size_t i = 0; i < selectedComponent; ++i)
-  {
-    size_t size = components[i].atoms.size();
-    index += size * numberOfMoleculesPerComponent[i];
-  }
-  size_t size = components[selectedComponent].atoms.size();
-  index += size * selectedMolecule;
-  return std::span(&atomPositions[index + numberOfFrameworkAtoms], size);
+  return std::span(&atomPositions[atomsOffset(selectedComponent, selectedMolecule)],
+                   components[selectedComponent].atoms.size());
 }
 
 const std::span<const Atom> System::spanOfMolecule(size_t selectedComponent, size_t selectedMolecule) const
 {
-  size_t index{0};
-  for (size_t i = 0; i < selectedComponent; ++i)
-  {
-    size_t size = components[i].atoms.size();
-    index += size * numberOfMoleculesPerComponent[i];
-  }
-  size_t size = components[selectedComponent].atoms.size();
-  index += size * selectedMolecule;
-  return std::span(&atomPositions[index + numberOfFrameworkAtoms], size);
+  return std::span(&atomPositions[atomsOffset(selectedComponent, selectedMolecule)],
+                   components[selectedComponent].atoms.size());
 }
 
 std::span<double3> System::spanElectricFieldNew(size_t selectedComponent, size_t selectedMolecule)
 {
-  size_t index{0};
-  for (size_t i = 0; i < selectedComponent; ++i)
-  {
-    size_t size = components[i].atoms.size();
-    index += size * numberOfMoleculesPerComponent[i];
-  }
-  size_t size = components[selectedComponent].atoms.size();
-  index += size * selectedMolecule;
-  return std::span(&electricFieldNew[index + numberOfFrameworkAtoms], size);
+  return std::span(&electricFieldNew[atomsOffset(selectedComponent, selectedMolecule)],
+                   components[selectedComponent].atoms.size());
 }
 
 const std::span<const double3> System::spanElectricFieldNew(size_t selectedComponent, size_t selectedMolecule) const
 {
-  size_t index{0};
-  for (size_t i = 0; i < selectedComponent; ++i)
-  {
-    size_t size = components[i].atoms.size();
-    index += size * numberOfMoleculesPerComponent[i];
-  }
-  size_t size = components[selectedComponent].atoms.size();
-  index += size * selectedMolecule;
-  return std::span(&electricFieldNew[index + numberOfFrameworkAtoms], size);
+  return std::span(&electricFieldNew[atomsOffset(selectedComponent, selectedMolecule)],
+                   components[selectedComponent].atoms.size());
 }
 
 size_t System::indexOfFirstMolecule(size_t selectedComponent)
@@ -1663,6 +1618,22 @@ void System::sampleProperties(size_t currentBlock, size_t currentCycle)
   if (propertyDensityGrid.has_value())
   {
     propertyDensityGrid->sample(frameworkComponents, simulationBox, spanOfMoleculeAtoms(), currentCycle);
+  }
+
+  if (propertyAutocorrelation.contains("PotentialEnergy"))
+  {
+    propertyAutocorrelation["PotentialEnergy"].addSample(currentCycle, runningEnergies.potentialEnergy());
+    propertyAutocorrelation["PotentialEnergy"].writeOutput(systemId, currentCycle);
+  }
+  if (propertyAutocorrelation.contains("Volume"))
+  {
+    propertyAutocorrelation["Volume"].addSample(currentCycle, simulationBox.volume);
+    propertyAutocorrelation["Volume"].writeOutput(systemId, currentCycle);
+  }
+  if (propertyAutocorrelation.contains("NumberOfMolecules"))
+  {
+    propertyAutocorrelation["NumberOfMolecules"].addSample(currentCycle, static_cast<double>(numberOfMolecules));
+    propertyAutocorrelation["NumberOfMolecules"].writeOutput(systemId, currentCycle);
   }
 
   std::chrono::system_clock::time_point t2 = std::chrono::system_clock::now();

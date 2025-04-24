@@ -77,6 +77,7 @@ import property_energy_histogram;
 import property_number_of_molecules_histogram;
 import property_msd;
 import property_vacf;
+import property_autocorrelation;
 import thermostat;
 
 int3 parseInt3(const std::string& item, auto json)
@@ -1346,6 +1347,63 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         }
       }
 
+      if (value.contains("ComputeAutocorrelation") && value["ComputeAutocorrelation"].is_boolean())
+      {
+        if (value["ComputeAutocorrelation"].get<bool>())
+        {
+          size_t sampleAutocorrelationEvery{10};
+          if (value.contains("SampleAutocorrelationEvery") && value["SampleAutocorrelationEvery"].is_number_unsigned())
+          {
+            sampleAutocorrelationEvery = value["SampleAutocorrelationEvery"].get<size_t>();
+          }
+
+          size_t writeAutocorrelationEvery{5000};
+          if (value.contains("WriteAutocorrelationEvery") && value["WriteAutocorrelationEvery"].is_number_unsigned())
+          {
+            writeAutocorrelationEvery = value["WriteAutocorrelationEvery"].get<size_t>();
+          }
+
+          size_t numberOfBuffersAutocorrelation{20};
+          if (value.contains("NumberOfBuffersAutocorrelation") && value["NumberOfBuffersAutocorrelation"].is_number_unsigned())
+          {
+            numberOfBuffersAutocorrelation = value["NumberOfBuffersAutocorrelation"].get<size_t>();
+          }
+
+          size_t bufferLengthAutocorrelation{1000};
+          if (value.contains("BufferLengthAutocorrelation") && value["BufferLengthAutocorrelation"].is_number_unsigned())
+          {
+            bufferLengthAutocorrelation = value["BufferLengthAutocorrelation"].get<size_t>();
+          }
+
+          if (value.contains("AutocorrelationValue") && value["AutocorrelationValue"].is_array())
+          {
+            std::vector<std::string> string_list = value["AutocorrelationValue"].get<std::vector<std::string>>();
+            for (std::string s : string_list)
+            {
+              if (!autocorrelationOptions.contains(s))
+              {
+                throw std::runtime_error(std::format("Error: no autocorrelation calculation available for '{}'\n", s));
+              }
+
+              systems[systemId].propertyAutocorrelation[s] = PropertyAutocorrelation(numberOfBuffersAutocorrelation, bufferLengthAutocorrelation, sampleAutocorrelationEvery, writeAutocorrelationEvery, s);
+            }
+            
+          }
+          else if (value.contains("AutocorrelationValue") && value["AutocorrelationValue"].is_string())
+          {
+            std::string s = value["AutocorrelationValue"].get<std::string>();
+              
+            if (!autocorrelationOptions.contains(s))
+              {
+                throw std::runtime_error(std::format("Error: no autocorrelation calculation available for '{}'\n", s));
+              }
+            systems[systemId].propertyAutocorrelation[s] = PropertyAutocorrelation(numberOfBuffersAutocorrelation, bufferLengthAutocorrelation, sampleAutocorrelationEvery, writeAutocorrelationEvery, s);
+
+          }
+        }
+      }
+
+
       if (value.contains("OutputPDBMovie") && value["OutputPDBMovie"].is_boolean())
       {
         if (value["OutputPDBMovie"].get<bool>())
@@ -1358,6 +1416,14 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
           systems[systemId].samplePDBMovie = SampleMovie(systemId, sampleMovieEvery);
         }
+      }
+
+      if (value.contains("VolumeMaxChange") && value["VolumeMaxChange"].is_number_float())
+      {
+        systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::VolumeChange, value["VolumeMaxChange"].get<double>());
+        systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::VolumeNCMC, value["VolumeMaxChange"].get<double>());
+        systems[systemId].mc_moves_statistics.statsMapDouble[MoveTypes::VolumeChange].optimize = false;
+        systems[systemId].mc_moves_statistics.statsMapDouble[MoveTypes::VolumeNCMC].optimize = false;
       }
 
       if (value.contains("Ensemble") && value["Ensemble"].is_string())
@@ -1620,6 +1686,13 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::system
     "DensityGridSize",
     "DensityGridPseudoAtomsList",
     "DensityGridNormalization",
+    "ComputeAutocorrelation",
+    "AutocorrelationValue",
+    "SampleAutocorrelationEvery",
+    "WriteAutocorrelationEvery",
+    "BufferLengthAutocorrelation",
+    "NumberOfBuffersAutocorrelation",
+    "VolumeMaxChange",
     "OutputPDBMovie",
     "SampleMovieEvery",
     "Ensemble",
@@ -1654,6 +1727,14 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::compon
     "ThermodynamicIntegration",
     "LambdaBiasFileName",
     "BlockingPockets"};
+
+
+const std::set<std::string, InputReader::InsensitiveCompare> InputReader::autocorrelationOptions = {
+  "PotentialEnergy",
+  "Volume",
+  "NumberOfMolecules"
+};
+
 
 void InputReader::validateInput(const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {

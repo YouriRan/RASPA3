@@ -275,4 +275,6 @@ export struct InputReader
    * the presence of only known component-specific keys.
    */
   static const std::set<std::string, InsensitiveCompare> componentOptions;
+
+  static const std::set<std::string, InsensitiveCompare> autocorrelationOptions;
 };

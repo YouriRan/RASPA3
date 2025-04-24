@@ -1,12 +1,12 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <exception>
 #include <format>
 #include <fstream>
@@ -430,6 +430,19 @@ void MC_Moves::performRandomMove(RandomNumber &random, System &selectedSystem, S
       {
         selectedSystem.runningEnergies = energy.value();
       }
+      break;
+    }
+    case MoveTypes::SwapNCMC:
+    {
+      size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
+
+      const auto [energyDifference, Pacc] =
+          MC_Moves::swapNCMC(random, selectedSystem, selectedComponent, selectedMolecule);
+      if (energyDifference)
+      {
+        selectedSystem.runningEnergies += energyDifference.value();
+      }
+      selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
     case MoveTypes::Count:

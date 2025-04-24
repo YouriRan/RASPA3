@@ -73,6 +73,7 @@ import property_temperature;
 import property_energy_histogram;
 import property_number_of_molecules_histogram;
 import property_msd;
+import property_autocorrelation;
 import property_vacf;
 import multi_site_isotherm;
 import pressure_range;
@@ -283,6 +284,7 @@ export struct System
   std::optional<PropertyNumberOfMoleculesHistogram> averageNumberOfMoleculesHistogram;
   std::optional<PropertyMeanSquaredDisplacement> propertyMSD;
   std::optional<PropertyVelocityAutoCorrelationFunction> propertyVACF;
+  std::map<std::string, PropertyAutocorrelation> propertyAutocorrelation;
 
   /// The fractional molecule for grand-canonical is stored first
   inline size_t indexOfGCFractionalMoleculesPerComponent_CFCMC([[maybe_unused]] size_t selectedComponent) { return 0; }
