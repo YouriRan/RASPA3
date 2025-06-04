@@ -1,10 +1,10 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <iostream>
 #include <numbers>
 #include <span>
@@ -933,7 +933,7 @@ std::pair<EnergyStatus, double3x3> Interactions::computeEwaldFourierEnergyStrain
     std::vector<std::complex<double>> &eik_z, std::vector<std::complex<double>> &eik_xy,
     std::vector<std::pair<std::complex<double>, std::complex<double>>> &fixedFrameworkStoredEik,
     [[maybe_unused]] std::vector<std::pair<std::complex<double>, std::complex<double>>> &storedEik,
-    const ForceField &forceField, const SimulationBox &simulationBox, const std::vector<Framework> &frameworkComponents,
+    const ForceField &forceField, const SimulationBox &simulationBox, const std::optional<Framework> &framework,
     const std::vector<Component> &components, const std::vector<size_t> &numberOfMoleculesPerComponent,
     std::span<Atom> atomPositions, double UIon, double netChargeFramework,
     std::vector<double> netChargePerComponent) noexcept
@@ -947,7 +947,7 @@ std::pair<EnergyStatus, double3x3> Interactions::computeEwaldFourierEnergyStrain
   double3 ay = double3(inv_box.ay, inv_box.by, inv_box.cy);
   double3 az = double3(inv_box.az, inv_box.bz, inv_box.cz);
 
-  EnergyStatus energy(1, frameworkComponents.size(), components.size());
+  EnergyStatus energy(1, framework.has_value() ? 1uz : 0uz, components.size());
   double3x3 strainDerivative;
 
   if (!forceField.useCharge || forceField.omitEwaldFourier) return std::make_pair(energy, strainDerivative);
@@ -1058,14 +1058,14 @@ std::pair<EnergyStatus, double3x3> Interactions::computeEwaldFourierEnergyStrain
           for (size_t i = 0; i != numberOfComponents; ++i)
           {
             energy.frameworkComponentEnergy(0, i).CoulombicFourier +=
-                EnergyFactor(2.0 * temp *
-                                 (fixedFrameworkStoredEik[nvec].first.real() * cksum[i].real() +
-                                  fixedFrameworkStoredEik[nvec].first.imag() * cksum[i].imag()),
-                             0.0);
+                Potentials::EnergyFactor(2.0 * temp *
+                                             (fixedFrameworkStoredEik[nvec].first.real() * cksum[i].real() +
+                                              fixedFrameworkStoredEik[nvec].first.imag() * cksum[i].imag()),
+                                         0.0);
             for (size_t j = 0; j != numberOfComponents; ++j)
             {
-              energy.componentEnergy(i, j).CoulombicFourier +=
-                  EnergyFactor(temp * (cksum[i].real() * cksum[j].real() + cksum[i].imag() * cksum[j].imag()), 0.0);
+              energy.componentEnergy(i, j).CoulombicFourier += Potentials::EnergyFactor(
+                  temp * (cksum[i].real() * cksum[j].real() + cksum[i].imag() * cksum[j].imag()), 0.0);
             }
           }
 
@@ -1102,7 +1102,6 @@ std::pair<EnergyStatus, double3x3> Interactions::computeEwaldFourierEnergyStrain
     }
   }
 
-
   // Subtract self-energy
   double prefactor_self = Units::CoulombicConversionFactor * forceField.EwaldAlpha / std::sqrt(std::numbers::pi);
   for (size_t i = 0; i != atomPositions.size(); ++i)
@@ -1111,7 +1110,7 @@ std::pair<EnergyStatus, double3x3> Interactions::computeEwaldFourierEnergyStrain
     double scaling = atomPositions[i].scalingCoulomb;
     size_t comp = static_cast<size_t>(atomPositions[i].componentId);
     energy.componentEnergy(comp, comp).CoulombicFourier -=
-        EnergyFactor(prefactor_self * scaling * charge * scaling * charge, 0.0);
+        Potentials::EnergyFactor(prefactor_self * scaling * charge * scaling * charge, 0.0);
   }
 
   // Subtract exclusion-energy
@@ -1140,7 +1139,7 @@ std::pair<EnergyStatus, double3x3> Interactions::computeEwaldFourierEnergyStrain
           double rr = double3::dot(dr, dr);
           double r = std::sqrt(rr);
 
-          energy.componentEnergy(l, l).CoulombicFourier -= EnergyFactor(
+          energy.componentEnergy(l, l).CoulombicFourier -= Potentials::EnergyFactor(
               Units::CoulombicConversionFactor * scalingA * chargeA * scalingB * chargeB * std::erf(alpha * r) / r,
               0.0);
 
@@ -1173,7 +1172,7 @@ std::pair<EnergyStatus, double3x3> Interactions::computeEwaldFourierEnergyStrain
   for (size_t i = 0; i != components.size(); ++i)
   {
     energy.frameworkComponentEnergy(0, i).CoulombicFourier +=
-        EnergyFactor(2.0 * UIon * netChargeFramework * netChargePerComponent[i], 0.0);
+        Potentials::EnergyFactor(2.0 * UIon * netChargeFramework * netChargePerComponent[i], 0.0);
   }
 
   for (size_t i = 0; i != components.size(); ++i)
@@ -1181,7 +1180,7 @@ std::pair<EnergyStatus, double3x3> Interactions::computeEwaldFourierEnergyStrain
     for (size_t j = 0; j != components.size(); ++j)
     {
       energy.componentEnergy(i, j).CoulombicFourier +=
-          EnergyFactor(UIon * netChargePerComponent[i] * netChargePerComponent[j], 0.0);
+          Potentials::EnergyFactor(UIon * netChargePerComponent[i] * netChargePerComponent[j], 0.0);
     }
   }
 

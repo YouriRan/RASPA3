@@ -1,10 +1,10 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <numbers>
@@ -48,7 +48,7 @@ inline std::pair<EnergyStatus, double> pair_sum(const std::pair<EnergyStatus, do
 
 export struct PropertyEnergy
 {
-  PropertyEnergy(){};
+  PropertyEnergy() {};
 
   PropertyEnergy(size_t numberOfBlocks, size_t numberOfExternalFields, size_t numberOfFrameworks,
                  size_t numberOfComponents)
@@ -133,9 +133,9 @@ export struct PropertyEnergy
     return blockEnergies;
   }
 
-  std::string writeAveragesStatistics(bool externalField, std::vector<Framework> &frameworkComponents,
+  std::string writeAveragesStatistics(bool externalField, std::optional<Framework> &framework,
                                       std::vector<Component> &components) const;
-  nlohmann::json jsonAveragesStatistics(bool externalField, std::vector<Framework> &frameworkComponents,
+  nlohmann::json jsonAveragesStatistics(bool externalField, std::optional<Framework> &framework,
                                         std::vector<Component> &components) const;
 
   friend Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const PropertyEnergy &e);

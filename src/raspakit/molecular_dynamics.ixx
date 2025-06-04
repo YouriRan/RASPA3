@@ -1,8 +1,8 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <chrono>
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -104,6 +104,9 @@ export struct MolecularDynamics
    * Initializes output streams for writing simulation data.
    */
   void createOutputFiles();
+
+
+  void createInterpolationGrids();
 
   /**
    * \brief Runs the molecular dynamics simulation.

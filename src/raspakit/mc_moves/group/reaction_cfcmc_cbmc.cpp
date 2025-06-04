@@ -1,12 +1,12 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -75,8 +75,8 @@ std::optional<RunningEnergy> MC_Moves::reactionMove_CFCMC_CBMC(
 
   // Fix groupId
   std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
-      random, system.frameworkComponents, system.components[selectedComponent], system.hasExternalField,
-      system.components, system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(),
+      random, system.components[selectedComponent], system.hasExternalField, system.components, system.forceField,
+      system.simulationBox, system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(),
       system.spanOfMoleculeAtoms(), system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb,
       selectedComponent, selectedMolecule, 1.0, 1uz, system.numberOfTrialDirections);
 

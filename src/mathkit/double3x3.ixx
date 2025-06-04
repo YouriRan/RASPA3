@@ -1,8 +1,9 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <fstream>
 #include <istream>
 #include <ostream>
@@ -160,9 +161,9 @@ export union double3x3
 
   static double3x3 identity();
 
-  double determinant(void);
+  double determinant(void) const;
   double trace(void) const;
-  double3x3 const inverse();
+  double3x3 const inverse() const;
   static double3x3 inverse(const double3x3& right);
   static double3x3 transpose(const double3x3& right);
   double3x3 const transpose(void) const;
@@ -176,9 +177,11 @@ export union double3x3
   inline double3x3 operator-() const { return double3x3(-this->v[0], -this->v[1], -this->v[2]); }
   inline bool operator==(const double3x3& b) const
   {
-    return ((std::fabs(this->m11 - b.m11) < 1e-5) && (std::fabs(this->m12 - b.m12) < 1e-5) && (std::fabs(this->m13 - b.m13) < 1e-5) &&
-            (std::fabs(this->m21 - b.m21) < 1e-5) && (std::fabs(this->m22 - b.m22) < 1e-5) && (std::fabs(this->m23 - b.m23) < 1e-5) &&
-            (std::fabs(this->m31 - b.m31) < 1e-5) && (std::fabs(this->m32 - b.m32) < 1e-5) && (std::fabs(this->m33 - b.m33) < 1e-5));
+    return ((std::fabs(this->m11 - b.m11) < 1e-5) && (std::fabs(this->m12 - b.m12) < 1e-5) &&
+            (std::fabs(this->m13 - b.m13) < 1e-5) && (std::fabs(this->m21 - b.m21) < 1e-5) &&
+            (std::fabs(this->m22 - b.m22) < 1e-5) && (std::fabs(this->m23 - b.m23) < 1e-5) &&
+            (std::fabs(this->m31 - b.m31) < 1e-5) && (std::fabs(this->m32 - b.m32) < 1e-5) &&
+            (std::fabs(this->m33 - b.m33) < 1e-5));
   }
 
   inline int3x3 toInt3x3()
@@ -233,49 +236,6 @@ export union double3x3
   friend void to_json(nlohmann::json&, const double3x3&);
   friend void from_json(const nlohmann::json&, double3x3&);
 };
-
-/*
-namespace std
-{
-    template<>
-    struct std::formatter<double3x3, wchar_t>
-    {
-        template <typename FormatParseContext>
-        constexpr auto parse(FormatParseContext& ctx) -> decltype(ctx.begin())
-        {
-            // parse formatter args like padding, precision if you support it
-            return ctx.begin(); // returns the iterator to the last parsed character in the format string, in this case
-we just swallow everything
-        }
-
-        template<typename FormatContext>
-        auto format(const double3x3 &p, FormatContext& ctx) -> decltype(ctx.out())
-        {
-            return std::format_to(ctx.out(), "[({}, {}, {}), ({}, {}, {}), ({}, {}, {})]",
-                p.ax, p.ay, p.az, p.bx, p.by, p.bz, p.cx, p.cy, p.cz);
-        }
-    };
-
-    template<>
-    struct std::formatter<double3x3, char>
-    {
-        template <typename FormatParseContext>
-        constexpr auto parse(FormatParseContext& ctx) -> decltype(ctx.begin())
-        {
-            // parse formatter args like padding, precision if you support it
-            return ctx.begin(); // returns the iterator to the last parsed character in the format string, in this case
-we just swallow everything
-        }
-
-        template<typename FormatContext>
-        auto format(const double3x3& p, FormatContext& ctx) -> decltype(ctx.out())
-        {
-            return std::format_to(ctx.out(), "[({}, {}, {}), ({}, {}, {}), ({}, {}, {})]",
-                p.ax, p.ay, p.az, p.bx, p.by, p.bz, p.cx, p.cy, p.cz);
-        }
-    };
-}
-*/
 
 export inline double3x3 operator+(const double3x3& a, const double3x3& b)
 {
@@ -363,6 +323,57 @@ export inline double3 transposedMultiply(const double3x3& a, const double3& b)
   r.x = a.m11 * b.x + a.m21 * b.y + a.m31 * b.z;
   r.y = a.m12 * b.x + a.m22 * b.y + a.m32 * b.z;
   r.z = a.m13 * b.x + a.m23 * b.y + a.m33 * b.z;
+
+  return r;
+}
+
+export inline double3 operator*(const double3x3& a, const std::array<double, 3>& b)
+{
+  double3 r{};
+
+  r.x = a.m11 * b[0] + a.m12 * b[1] + a.m13 * b[2];
+  r.y = a.m21 * b[0] + a.m22 * b[1] + a.m23 * b[2];
+  r.z = a.m31 * b[0] + a.m32 * b[1] + a.m33 * b[2];
+
+  return r;
+}
+
+// std::array<std::array<double,3>,3> is row-based
+export inline double3x3 operator*(const double3x3& a, const std::array<std::array<double, 3>, 3>& b)
+{
+  double3x3 r{};
+
+  r.m11 = a.m11 * b[0][0] + a.m12 * b[0][1] + a.m13 * b[0][2];
+  r.m21 = a.m21 * b[0][0] + a.m22 * b[0][1] + a.m23 * b[0][2];
+  r.m31 = a.m31 * b[0][0] + a.m32 * b[0][1] + a.m33 * b[0][2];
+
+  r.m12 = a.m11 * b[1][0] + a.m12 * b[1][1] + a.m13 * b[1][2];
+  r.m22 = a.m21 * b[1][0] + a.m22 * b[1][1] + a.m23 * b[1][2];
+  r.m32 = a.m31 * b[1][0] + a.m32 * b[1][1] + a.m33 * b[1][2];
+
+  r.m13 = a.m11 * b[2][0] + a.m12 * b[2][1] + a.m13 * b[2][2];
+  r.m23 = a.m21 * b[2][0] + a.m22 * b[2][1] + a.m23 * b[2][2];
+  r.m33 = a.m31 * b[2][0] + a.m32 * b[2][1] + a.m33 * b[2][2];
+
+  return r;
+}
+
+// std::array<std::array<double,3>,3> is row-based
+export inline double3x3 operator*(const std::array<std::array<double, 3>, 3>& a, const double3x3& b)
+{
+  double3x3 r{};
+
+  r.m11 = a[0][0] * b.m11 + a[1][0] * b.m21 + a[2][0] * b.m31;
+  r.m21 = a[0][1] * b.m11 + a[1][1] * b.m21 + a[2][1] * b.m31;
+  r.m31 = a[0][2] * b.m11 + a[1][2] * b.m21 + a[2][2] * b.m31;
+
+  r.m12 = a[0][0] * b.m12 + a[1][0] * b.m22 + a[2][0] * b.m32;
+  r.m22 = a[0][1] * b.m12 + a[1][1] * b.m22 + a[2][1] * b.m32;
+  r.m32 = a[0][2] * b.m12 + a[1][2] * b.m22 + a[2][2] * b.m32;
+
+  r.m13 = a[0][0] * b.m13 + a[1][0] * b.m23 + a[2][0] * b.m33;
+  r.m23 = a[0][1] * b.m13 + a[1][1] * b.m23 + a[2][1] * b.m33;
+  r.m33 = a[0][2] * b.m13 + a[1][2] * b.m23 + a[2][2] * b.m33;
 
   return r;
 }

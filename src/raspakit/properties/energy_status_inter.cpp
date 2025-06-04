@@ -1,10 +1,10 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <complex>
+#include <cstddef>
 #include <exception>
 #include <format>
 #include <fstream>
@@ -31,6 +31,7 @@ import <print>;
 #endif
 
 import archive;
+import energy_factor;
 
 Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const EnergyInter &e)
 {
@@ -41,6 +42,10 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Energy
   archive << e.CoulombicReal;
   archive << e.CoulombicFourier;
   archive << e.totalInter;
+
+#if DEBUG_ARCHIVE
+  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
 
   return archive;
 }
@@ -61,6 +66,15 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, EnergyInter 
   archive >> e.CoulombicReal;
   archive >> e.CoulombicFourier;
   archive >> e.totalInter;
+
+#if DEBUG_ARCHIVE
+  uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("EnergyInter: Error in binary restart\n"));
+  }
+#endif
 
   return archive;
 }

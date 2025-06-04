@@ -1,8 +1,8 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
 #endif
 
@@ -19,6 +19,8 @@ import vdwparameters;
 import forcefield;
 import gradient_factor;
 
+export namespace Potentials
+{
 /**
  * \brief Computes the gradient of the van der Waals (VDW) potential.
  *
@@ -37,11 +39,10 @@ import gradient_factor;
  *
  * \return A ForceFactor object containing the computed forces.
  */
-export [[clang::always_inline]] inline GradientFactor potentialVDWGradient(const ForceField& forcefield,
-                                                                           const bool& groupIdA, const bool& groupIdB,
-                                                                           const double& scalingA, const double& scalingB,
-                                                                           const double& rr, const size_t& typeA,
-                                                                           const size_t& typeB)
+[[clang::always_inline]] inline GradientFactor potentialVDWGradient(const ForceField& forcefield, const bool& groupIdA,
+                                                                    const bool& groupIdB, const double& scalingA,
+                                                                    const double& scalingB, const double& rr,
+                                                                    const size_t& typeA, const size_t& typeB)
 {
   VDWParameters::Type potentialType = forcefield(typeA, typeB).type;
 
@@ -61,7 +62,7 @@ export [[clang::always_inline]] inline GradientFactor potentialVDWGradient(const
       double term = arg1 * (rri3 * (rri3 - 1.0)) - arg3;
       double dlambda_term = arg1 * scaling * inv_scaling * (2.0 * rri6 * rri3 - rri6);
       return GradientFactor(
-          scaling * term, 
+          scaling * term,
           (groupIdA ? scalingB * (term + dlambda_term) : 0.0) + (groupIdB ? scalingA * (term + dlambda_term) : 0.0),
           12.0 * scaling * arg1 * (rri6 * temp3 * (0.5 - rri3)) / rr);
     }
@@ -72,5 +73,5 @@ export [[clang::always_inline]] inline GradientFactor potentialVDWGradient(const
     default:
       return GradientFactor(0.0, 0.0, 0.0);
   }
-
 };
+}  // namespace Potentials

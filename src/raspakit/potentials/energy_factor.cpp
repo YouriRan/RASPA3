@@ -1,10 +1,10 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <complex>
+#include <cstddef>
 #include <exception>
 #include <format>
 #include <fstream>
@@ -31,18 +31,31 @@ import <print>;
 
 import archive;
 
-Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const EnergyFactor &e)
+Archive<std::ofstream> &Potentials::operator<<(Archive<std::ofstream> &archive, const Potentials::EnergyFactor &e)
 {
   archive << e.energy;
   archive << e.dUdlambda;
 
+#if DEBUG_ARCHIVE
+  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
+
   return archive;
 }
 
-Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, EnergyFactor &e)
+Archive<std::ifstream> &Potentials::operator>>(Archive<std::ifstream> &archive, Potentials::EnergyFactor &e)
 {
   archive >> e.energy;
   archive >> e.dUdlambda;
+
+#if DEBUG_ARCHIVE
+  uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("Potentials::EnergyFactor: Error in binary restart\n"));
+  }
+#endif
 
   return archive;
 }

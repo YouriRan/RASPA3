@@ -1,12 +1,12 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -80,7 +80,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMove(RandomNu
 
     // Compute framework-molecule energy contribution
     std::optional<RunningEnergy> frameworkMolecule = Interactions::computeFrameworkMoleculeEnergyDifference(
-        system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), {}, molecule);
+        system.forceField, system.simulationBox, system.interpolationGrids, system.framework,
+        system.spanOfFrameworkAtoms(), {}, molecule);
     if (!frameworkMolecule.has_value()) return {std::nullopt, double3(0.0, 1.0, 0.0)};
 
     // Compute molecule-molecule energy contribution
@@ -115,7 +116,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMove(RandomNu
     // Get the total difference in energy
     RunningEnergy energyDifference = externalFieldMolecule.value() + frameworkMolecule.value() + interMolecule.value() +
                                      energyFourierDifference + tailEnergyDifference;
-    
+
     // Increment constructed swap deletion move counts
     component.mc_moves_statistics.addConstructed(move, 1);
 

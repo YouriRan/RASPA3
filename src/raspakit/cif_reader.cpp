@@ -1,10 +1,10 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <exception>
 #include <format>
 #include <iostream>
@@ -255,6 +255,15 @@ void CIFReader::parseLoop([[maybe_unused]] std::string& string, const ForceField
           if (ss >> value2)
           {
             std::optional<size_t> index1 = forceField.findPseudoAtom(value2);
+
+            // find by stripping of numbers
+            if (!index1.has_value())
+            {
+              std::replace_if(tempString1.begin(), tempString1.end(), [](char c) { return std::isdigit(c); }, ' ');
+              std::istringstream ss2(tempString1);
+              ss2 >> value2;
+              index1 = forceField.findPseudoAtom(value2);
+            }
 
             // TODO: add pseudoAtom if not found
             if (!index1.has_value())

@@ -1,12 +1,12 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -75,10 +75,10 @@ std::pair<double, double> MC_Moves::WidomMove(RandomNumber& random, System& syst
   // Attempt to grow a new molecule using Configurational Bias Monte Carlo (CBMC) insertion.
   t1 = std::chrono::system_clock::now();
   std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
-      random, system.frameworkComponents, component, system.hasExternalField, system.components, system.forceField,
-      system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(), system.beta, growType,
-      cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, selectedMolecule, 1.0, 0uz,
-      system.numberOfTrialDirections);
+      random, component, system.hasExternalField, system.components, system.forceField, system.simulationBox,
+      system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
+      system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, selectedMolecule,
+      1.0, 0uz, system.numberOfTrialDirections);
   t2 = std::chrono::system_clock::now();
 
   component.mc_moves_cputime[move]["NonEwald"] += (t2 - t1);

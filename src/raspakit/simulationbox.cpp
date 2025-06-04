@@ -1,11 +1,11 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <exception>
 #include <fstream>
 #include <iostream>
@@ -40,6 +40,7 @@ import <print>;
 import randomnumbers;
 import double3x3;
 import double3;
+import int3;
 import archive;
 import units;
 import stringutils;
@@ -179,6 +180,14 @@ double3 SimulationBox::perpendicularWidths() const
                  v / std::sqrt(double3::dot(c1, c1)));
 }
 
+int3 SimulationBox::smallestNumberOfUnitCellsForMinimumImagesConvention(double cutOff) const
+{
+  double3 widths = perpendicularWidths();
+  return int3(static_cast<int32_t>(std::ceil(2.0 * cutOff / widths.x)),
+              static_cast<int32_t>(std::ceil(2.0 * cutOff / widths.y)),
+              static_cast<int32_t>(std::ceil(2.0 * cutOff / widths.z)));
+}
+
 void SimulationBox::setBoxLengths(double3 lengths)
 {
   lengthA = lengths.x;
@@ -244,6 +253,9 @@ std::string SimulationBox::printStatus() const
   else
     std::print(stream, "Triclinic boundary conditions\n");
 
+  double3 widths = perpendicularWidths();
+  std::print(stream, "Perpendicular widths:  {:9.5f} {:9.5f} {:9.5f}\n\n", widths.x, widths.y, widths.z);
+
   return stream.str();
 }
 
@@ -297,6 +309,10 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Simula
   archive << box.volume;
   archive << box.type;
 
+#if DEBUG_ARCHIVE
+  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
+
   return archive;
 }
 
@@ -321,6 +337,15 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, SimulationBo
   archive >> box.inverseCell;
   archive >> box.volume;
   archive >> box.type;
+
+#if DEBUG_ARCHIVE
+  uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("SimulationBox: Error in binary restart\n"));
+  }
+#endif
 
   return archive;
 }

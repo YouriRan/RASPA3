@@ -1,19 +1,19 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <complex>
+#include <cstddef>
 #include <exception>
 #include <format>
 #include <fstream>
 #include <map>
+#include <ostream>
 #include <print>
 #include <source_location>
 #include <sstream>
-#include <ostream>
 #include <string>
 #include <vector>
 #endif
@@ -268,6 +268,11 @@ const std::string MCMoveCpuTime::writeMCMoveCPUTimeStatistics() const
   std::print(stream, "\n");
   std::print(stream, "Property sampling               {:14f} [s]\n", propertySampling.count());
   std::print(stream, "Energy/pressure sampling:       {:14f} [s]\n", energyPressureComputation.count());
+  std::print(stream, "Pressure sampling: (fw)         {:14f} [s]\n", pressureFrameworkTime.count());
+  std::print(stream, "Pressure sampling: (im)         {:14f} [s]\n", pressureIntermolecularTime.count());
+  std::print(stream, "Pressure sampling: (ew)         {:14f} [s]\n", pressureEwaldTime.count());
+  std::print(stream, "Pressure sampling: (tc)         {:14f} [s]\n", pressureTailTime.count());
+  std::print(stream, "Pressure sampling: (..)         {:14f} [s]\n", pressureRestTime.count());
   std::print(stream, "\n\n");
 
   return stream.str();
@@ -442,8 +447,12 @@ Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const MCMove
 
   archive << t.propertySampling;
   archive << t.energyPressureComputation;
-
   archive << t.timingMap;
+
+#if DEBUG_ARCHIVE
+  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
+
   return archive;
 }
 
@@ -460,7 +469,16 @@ Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, MCMoveCpuTim
 
   archive >> t.propertySampling;
   archive >> t.energyPressureComputation;
-
   archive >> t.timingMap;
+
+#if DEBUG_ARCHIVE
+  uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("MCMoveCpuTime: Error in binary restart\n"));
+  }
+#endif
+
   return archive;
 }

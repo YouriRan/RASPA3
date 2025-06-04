@@ -1,20 +1,20 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <complex>
+#include <cstddef>
 #include <exception>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <map>
+#include <ostream>
 #include <print>
 #include <ranges>
 #include <source_location>
 #include <sstream>
-#include <ostream>
 #include <vector>
 #endif
 
@@ -199,6 +199,10 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Proper
   archive << hist.numberOfCounts;
   archive << hist.totalNumberOfCounts;
 
+#if DEBUG_ARCHIVE
+  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
+
   return archive;
 }
 
@@ -221,6 +225,15 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PropertyEner
   archive >> hist.bookKeepingEnergyHistogram;
   archive >> hist.numberOfCounts;
   archive >> hist.totalNumberOfCounts;
+
+#if DEBUG_ARCHIVE
+  uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("PropertyEnergyHistogram: Error in binary restart\n"));
+  }
+#endif
 
   return archive;
 }

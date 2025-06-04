@@ -26,7 +26,10 @@ if (CONDA)
         ${BLAS_LIBRARIES}
         ${LAPACK_LIBRARIES}
         ${HDF5_LIBRARIES}
+        voro++
+        ${TORCH_LIBRARIES}
         OpenMP::OpenMP_CXX
+        OpenCL::OpenCL
         ZLIB::ZLIB
         -lpthread)
 elseif (LINUX)
@@ -39,7 +42,10 @@ elseif (LINUX)
         ${LAPACK_LIBRARIES}
         ${HDF5_CXX_LIBRARIES}
         ${HDF5_LIBRARIES}
+        voro++
+        ${TORCH_LIBRARIES}
         OpenMP::OpenMP_CXX
+        OpenCL::OpenCL
         -nostdlib++
         -l:libc++.a
         -l:libc++abi.a
@@ -55,26 +61,31 @@ elseif (WIN32)
         ${LAPACK_LIBRARIES}
         ${HDF5_CXX_LIBRARIES}
         ${HDF5_LIBRARIES}
+        voro++
+        ${TORCH_LIBRARIES}
         OpenMP::OpenMP_CXX
+        OpenCL::OpenCL
         -nostdlib++)
 elseif (APPLE)
   target_link_libraries(${PROJECT_NAME}
-        PUBLIC
-        libs::raspakit
-        pybind11::module
-        ${BLAS_LIBRARIES}
-        ${LAPACK_LIBRARIES}
-        ${HOMEBREW_PREFIX}/lib/libhdf5_cpp.a
-        ${HOMEBREW_PREFIX}/lib/libhdf5.a
-        ${HOMEBREW_PREFIX}/lib/libaec.a
-        ${HOMEBREW_PREFIX}/lib/libsz.a
-        -nostdlib++
-        ${HOMEBREW_PREFIX}/opt/llvm/lib/c++/libc++experimental.a
-        ${HOMEBREW_PREFIX}/opt/llvm/lib/c++/libc++.a
-        ${HOMEBREW_PREFIX}/opt/llvm/lib/c++/libc++abi.a
-        ${HOMEBREW_PREFIX}/opt/libomp/lib/libomp.a
-        ${ZLIB_LIBRARIES}
-        -lpthread)
+    PUBLIC
+    libs::raspakit
+    pybind11::module
+    ${BLAS_LIBRARIES}
+    ${LAPACK_LIBRARIES}
+    $ENV{HOMEBREW_PREFIX}/lib/libhdf5_cpp.a
+    $ENV{HOMEBREW_PREFIX}/lib/libhdf5.a
+    $ENV{HOMEBREW_PREFIX}/lib/libaec.a
+    $ENV{HOMEBREW_PREFIX}/lib/libsz.a
+    voro++
+    ${TORCH_LIBRARIES}
+    $ENV{HOMEBREW_PREFIX}/opt/llvm/lib/c++/libc++experimental.a
+    $ENV{HOMEBREW_PREFIX}/opt/llvm/lib/c++/libc++.a
+    $ENV{HOMEBREW_PREFIX}/opt/llvm/lib/c++/libc++abi.a
+    $ENV{HOMEBREW_PREFIX}/opt/libomp/lib/libomp.a
+    OpenCL::OpenCL
+    ${ZLIB_LIBRARIES}
+    -lpthread)
 endif()
 
 target_compile_options(${PROJECT_NAME} PUBLIC $<$<COMPILE_LANGUAGE:CXX>:${PROJECT_WARNINGS_CXX}>)

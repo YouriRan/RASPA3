@@ -1,11 +1,11 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <complex>
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -122,7 +122,7 @@ export struct System
    * \param T The temperature of the system.
    * \param P The optional pressure of the system.
    * \param forcefield The force field used in the simulation.
-   * \param frameworkComponents The list of framework components in the system.
+   * \param frameworkComponent The list of framework components in the system.
    * \param components The list of components in the system.
    * \param initialNumberOfMolecules The initial number of molecules per component.
    * \param numberOfBlocks The number of blocks in the simulation.
@@ -130,13 +130,13 @@ export struct System
    * \param sampleMoviesEvery Interval in which movies are written to PDB.
    */
   System(size_t id, ForceField forcefield, std::optional<SimulationBox> box, double T, std::optional<double> P,
-         double heliumVoidFraction, std::vector<Framework> frameworkComponents, std::vector<Component> components,
+         double heliumVoidFraction, std::optional<Framework> framework, std::vector<Component> components,
          std::vector<size_t> initialNumberOfMolecules, size_t numberOfBlocks,
          const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
          std::optional<size_t> sampleMoviesEvery = std::nullopt);
 
-  System(size_t id, double T, std::optional<double> P, double heliumVoidFraction,
-         std::vector<Framework> frameworkComponents, std::vector<Component> components);
+  System(size_t id, double T, std::optional<double> P, double heliumVoidFraction, std::optional<Framework> framework,
+         std::vector<Component> components);
 
   uint64_t versionNumber{1};
 
@@ -153,7 +153,7 @@ export struct System
   size_t numberOfFrameworkAtoms{0};
   size_t numberOfRigidFrameworkAtoms{0};
 
-  std::vector<Framework> frameworkComponents;
+  std::optional<Framework> framework;
   std::vector<Component> components;
 
   EquationOfState equationOfState;
@@ -286,6 +286,8 @@ export struct System
   std::optional<PropertyVelocityAutoCorrelationFunction> propertyVACF;
   std::map<std::string, PropertyAutocorrelation> propertyAutocorrelation;
 
+  std::vector<std::optional<InterpolationEnergyGrid>> interpolationGrids;
+
   /// The fractional molecule for grand-canonical is stored first
   inline size_t indexOfGCFractionalMoleculesPerComponent_CFCMC([[maybe_unused]] size_t selectedComponent) { return 0; }
 
@@ -305,8 +307,7 @@ export struct System
   void addComponent(const Component &&component) noexcept(false);
 
   void createFrameworks();
-  void createInitialMolecules(RandomNumber &random);
-  void determineSimulationBox();
+  void createInitialMolecules();
 
   void checkCartesianPositions();
 
@@ -416,6 +417,8 @@ export struct System
 
   void writeComponentFittingStatus(std::ostream &stream, const std::vector<std::pair<double, double>> &rawData) const;
 
+  void createInterpolationGrids(std::ostream &stream);
+
   friend Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const System &s);
   friend Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, System &s);
 
@@ -423,8 +426,4 @@ export struct System
   void readRestartFile();
 
   std::string repr() const;
-
-  std::vector<size_t> gridPseudoAtomIndices;
-  std::vector<InterpolationEnergyGrid> interpolationGrids;
-  void createInterpolationGrids();
 };

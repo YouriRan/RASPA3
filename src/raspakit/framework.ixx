@@ -1,9 +1,9 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <fstream>
@@ -43,6 +43,7 @@ import archive;
 import randomnumbers;
 import int3;
 import double3;
+import double2;
 import averages;
 import atom;
 import forcefield;
@@ -100,7 +101,7 @@ export struct Framework
    * \param useChargesFrom Source of atomic charges (pseudo-atoms, CIF file, or charge equilibration).
    */
   Framework(size_t currentComponent, const ForceField &forceField, const std::string &componentName,
-            std::optional<const std::string> fileName, int3 numberOfUnitCells,
+            std::optional<const std::string> fileName, std::optional<int3> numberOfUnitCells,
             Framework::UseChargesFrom useChargesFrom) noexcept(false);
 
   /**
@@ -130,6 +131,7 @@ export struct Framework
   std::string name{};                         ///< Name of the framework component.
   std::optional<std::string> filenameData{};  ///< Optional file name containing framework data.
   std::string filename{};                     ///< File name of the framework.
+  size_t numberOfComponents{1};
 
   bool rigid{true};  ///< Flag indicating if the framework is rigid.
 
@@ -141,9 +143,9 @@ export struct Framework
   double smallestCharge{0.0};                                  ///< Smallest atomic charge in the framework.
   double largestCharge{0.0};                                   ///< Largest atomic charge in the framework.
 
-  std::vector<Atom> definedAtoms{};  ///< Atoms defining the unit cell before symmetry operations.
-  std::vector<Atom> atoms{};         ///< All atoms in the framework after constructing the supercell.
-  std::vector<Atom> unitCellAtoms;   ///< Atoms in the unit cell after applying symmetry operations.
+  std::vector<Atom> definedAtoms{};  ///< Fractional Atoms defining the unit cell before symmetry operations.
+  std::vector<Atom> unitCellAtoms;   ///< Fractional atoms in the unit cell after applying symmetry operations.
+  std::vector<Atom> atoms{};         ///< All Cartesian atoms in the framework after constructing the supercell.
 
   std::vector<size_t> chiralCenters{};                      ///< Indices of chiral centers in the framework.
   std::vector<BondPotential> bonds{};                       ///< Bonds within the framework.
@@ -193,6 +195,15 @@ export struct Framework
    * to the specified number of unit cells in each dimension.
    */
   void makeSuperCell();
+
+  std::vector<Atom> makeSuperCell(int3 numberOfCells) const;
+
+  std::vector<double3> fractionalAtomPositionsUnitCell() const;
+  std::vector<double2> atomUnitCellLennardJonesPotentialParameters(const ForceField& forceField) const;
+
+  std::optional<double> computeLargestNonOverlappingFreeRadius(const ForceField &forceField, double3 probe_position, double well_depth_factor) const;
+  bool computeVanDerWaalsRadiusOverlap(const ForceField &forceField, double3 probe_position) const;
+  bool computeOverlap(const ForceField &forceField, double3 probe_position, double well_depth_factor, size_t probe_type, std::make_signed_t<std::size_t> skip) const;
 
   /**
    * \brief Generates a string representation of the framework status.

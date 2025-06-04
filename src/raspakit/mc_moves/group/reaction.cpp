@@ -1,12 +1,12 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -74,8 +74,8 @@ std::optional<RunningEnergy> MC_Moves::reactionMove([[maybe_unused]] RandomNumbe
   [[maybe_unused]] std::chrono::system_clock::time_point t1 = std::chrono::system_clock::now();
 
   std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
-      random, system.frameworkComponents, system.components[selectedComponent], system.hasExternalField,
-      system.components, system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(),
+      random, system.components[selectedComponent], system.hasExternalField, system.components, system.forceField,
+      system.simulationBox, system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(),
       system.spanOfMoleculeAtoms(), system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb,
       selectedComponent, selectedMolecule, 1.0, 0uz, system.numberOfTrialDirections);
 

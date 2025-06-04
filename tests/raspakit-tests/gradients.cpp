@@ -1,15 +1,15 @@
 #include <gtest/gtest.h>
 
-#include <cstddef>
 #include <algorithm>
 #include <complex>
+#include <cstddef>
 #include <span>
 #include <vector>
 
 import int3;
 import double3;
 import double3x3;
-
+import factory;
 import units;
 import atom;
 import pseudo_atom;
@@ -29,36 +29,13 @@ import energy_status;
 import integrators;
 import integrators_compute;
 import integrators_update;
+import interpolation_energy_grid;
 
 TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_inter)
 {
-  ForceField forceField = ForceField(
-      {
-          PseudoAtom("Si", true, 28.0855, 2.05, 0.0, 14, false),
-          PseudoAtom("O", true, 15.999, -1.025, 0.0, 8, false),
-          PseudoAtom("CH4", false, 16.04246, 0.0, 0.0, 6, false),
-          PseudoAtom("C_co2", false, 12.0, 0.6512, 0.0, 6, false),
-          PseudoAtom("O_co2", false, 15.9994, -0.3256, 0.0, 8, false),
-      },
-      {VDWParameters(22.0, 2.30), VDWParameters(53.0, 3.3), VDWParameters(158.5, 3.72), VDWParameters(29.933, 2.745),
-       VDWParameters(85.671, 3.017)},
-      ForceField::MixingRule::Lorentz_Berthelot, 11.8, 11.8, 11.8, true, false, true);
-
-  Framework f = Framework(
-      0, forceField, "ITQ-29", SimulationBox(11.8671, 11.8671, 11.8671), 517,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.3683, 0.1847, 0), 2.05, 1.0, 0, 0, 0, 0), Atom(double3(0.5, 0.2179, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.2939, 0.2939, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.3429, 0.1098, 0.1098), -1.025, 1.0, 0, 1, 0, 0)},
-      int3(1, 1, 1));
-  Component c = Component(
-      0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.0, 0.0, 1.149), 0.0, 1.0, 0, 4, 1, 0), Atom(double3(0.0, 0.0, 0.0), 0.0, 1.0, 0, 3, 1, 0),
-       Atom(double3(0.0, 0.0, -1.149), 0.0, 1.0, 0, 4, 1, 0)},
-      5, 21);
+  ForceField forceField = TestFactories::makeDefaultFF(11.8, true, false, true);
+  Framework f = TestFactories::makeITQ29(forceField, int3(1, 1, 1));
+  Component c = TestFactories::makeCO2(forceField, 0, false);
 
   System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {2}, 5);
 
@@ -127,33 +104,9 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_inter)
 
 TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_framework_molecule)
 {
-  ForceField forceField = ForceField(
-      {
-          PseudoAtom("Si", true, 28.0855, 2.05, 0.0, 14, false),
-          PseudoAtom("O", true, 15.999, -1.025, 0.0, 8, false),
-          PseudoAtom("CH4", false, 16.04246, 0.0, 0.0, 6, false),
-          PseudoAtom("C_co2", false, 12.0, 0.6512, 0.0, 6, false),
-          PseudoAtom("O_co2", false, 15.9994, -0.3256, 0.0, 8, false),
-      },
-      {VDWParameters(22.0, 2.30), VDWParameters(53.0, 3.3), VDWParameters(158.5, 3.72), VDWParameters(29.933, 2.745),
-       VDWParameters(85.671, 3.017)},
-      ForceField::MixingRule::Lorentz_Berthelot, 11.8, 11.8, 11.8, true, false, true);
-
-  Framework f = Framework(
-      0, forceField, "ITQ-29", SimulationBox(11.8671, 11.8671, 11.8671), 517,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.3683, 0.1847, 0), 2.05, 1.0, 0, 0, 0, 0), Atom(double3(0.5, 0.2179, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.2939, 0.2939, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.3429, 0.1098, 0.1098), -1.025, 1.0, 0, 1, 0, 0)},
-      int3(2, 2, 2));
-  Component c = Component(
-      0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.0, 0.0, 1.149), 0.0, 1.0, 0, 4, 1, 0), Atom(double3(0.0, 0.0, 0.0), 0.0, 1.0, 0, 3, 1, 0),
-       Atom(double3(0.0, 0.0, -1.149), 0.0, 1.0, 0, 4, 1, 0)},
-      5, 21);
+  ForceField forceField = TestFactories::makeDefaultFF(11.8, true, false, true);
+  Framework f = TestFactories::makeITQ29(forceField, int3(2, 2, 2));
+  Component c = TestFactories::makeCO2(forceField, 0, false);
 
   System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {2}, 5);
 
@@ -166,7 +119,8 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_framework_molecule)
   atomPositions[5].position = double3(5.93355, 3.93355, 4.78455);
 
   RunningEnergy factorFrameworkMolecular = Interactions::computeFrameworkMoleculeGradient(
-      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms());
+      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
+      system.interpolationGrids);
 
   EXPECT_NEAR(factorFrameworkMolecular.frameworkMoleculeVDW * Units::EnergyToKelvin, -1932.15586114, 1e-6);
   EXPECT_NEAR(factorFrameworkMolecular.frameworkMoleculeCharge * Units::EnergyToKelvin, 0.00000000, 1e-6);
@@ -197,8 +151,9 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_framework_molecule)
   }
 
   std::pair<EnergyStatus, double3x3> pressureInfo = Interactions::computeFrameworkMoleculeEnergyStrainDerivative(
-      system.forceField, system.frameworkComponents, system.components, system.simulationBox,
-      system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms());
+      system.forceField, system.framework, system.interpolationGrids,
+      system.components, system.simulationBox, system.spanOfFrameworkAtoms(),
+      system.spanOfMoleculeAtoms());
 
   EXPECT_NEAR(atomPositions[0].gradient.x, 0.000000000000, 1e-6);
   EXPECT_NEAR(atomPositions[0].gradient.y, -131.516544539514, 1e-6);
@@ -223,36 +178,13 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_framework_molecule)
 
 TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_NonEwald)
 {
-  ForceField forceField = ForceField(
-      {
-          PseudoAtom("Si", true, 28.0855, 2.05, 0.0, 14, false),
-          PseudoAtom("O", true, 15.999, -1.025, 0.0, 8, false),
-          PseudoAtom("CH4", false, 16.04246, 0.0, 0.0, 6, false),
-          PseudoAtom("C_co2", false, 12.0, 0.6512, 0.0, 6, false),
-          PseudoAtom("O_co2", false, 15.9994, -0.3256, 0.0, 8, false),
-      },
-      {VDWParameters(22.0, 2.30), VDWParameters(53.0, 3.3), VDWParameters(158.5, 3.72), VDWParameters(29.933, 2.745),
-       VDWParameters(85.671, 3.017)},
-      ForceField::MixingRule::Lorentz_Berthelot, 11.8, 11.8, 11.8, true, false, true);
+  ForceField forceField = TestFactories::makeDefaultFF(11.8, true, false, true);
 
   forceField.automaticEwald = false;
   forceField.EwaldAlpha = 0.25;
   forceField.numberOfWaveVectors = int3(8, 8, 8);
-  Framework f = Framework(
-      0, forceField, "ITQ-29", SimulationBox(11.8671, 11.8671, 11.8671), 517,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.3683, 0.1847, 0), 2.05, 1.0, 0, 0, 0, 0), Atom(double3(0.5, 0.2179, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.2939, 0.2939, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.3429, 0.1098, 0.1098), -1.025, 1.0, 0, 1, 0, 0)},
-      int3(2, 2, 2));
-  Component c = Component(
-      0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.0, 0.0, 1.149), -0.3256, 1.0, 0, 4, 1, 0), Atom(double3(0.0, 0.0, 0.0), 0.6512, 1.0, 0, 3, 1, 0),
-       Atom(double3(0.0, 0.0, -1.149), -0.3256, 1.0, 0, 4, 1, 0)},
-      5, 21);
+  Framework f = TestFactories::makeITQ29(forceField, int3(2, 2, 2));
+  Component c = TestFactories::makeCO2(forceField, 0, true);
 
   System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {2}, 5);
 
@@ -265,7 +197,8 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_NonEwald)
   atomPositions[5].position = double3(5.93355, 3.93355, 5.93355 - 1.149);
 
   RunningEnergy factorFrameworkMolecular = Interactions::computeFrameworkMoleculeGradient(
-      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms());
+      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
+      system.interpolationGrids);
   RunningEnergy factorInterMolecular = Interactions::computeInterMolecularGradient(
       system.forceField, system.simulationBox, system.spanOfMoleculeAtoms());
 
@@ -300,8 +233,9 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_NonEwald)
   }
 
   std::pair<EnergyStatus, double3x3> pressureInfo1 = Interactions::computeFrameworkMoleculeEnergyStrainDerivative(
-      system.forceField, system.frameworkComponents, system.components, system.simulationBox,
-      system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms());
+      system.forceField, system.framework, system.interpolationGrids,
+      system.components, system.simulationBox, system.spanOfFrameworkAtoms(),
+      system.spanOfMoleculeAtoms());
 
   std::pair<EnergyStatus, double3x3> pressureInfo2 = Interactions::computeInterMolecularEnergyStrainDerivative(
       system.forceField, system.components, system.simulationBox, system.spanOfMoleculeAtoms());
@@ -329,36 +263,13 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_NonEwald)
 
 TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_Ewald)
 {
-  ForceField forceField = ForceField(
-      {
-          PseudoAtom("Si", true, 28.0855, 2.05, 0.0, 14, false),
-          PseudoAtom("O", true, 15.999, -1.025, 0.0, 8, false),
-          PseudoAtom("CH4", false, 16.04246, 0.0, 0.0, 6, false),
-          PseudoAtom("C_co2", false, 12.0, 0.6512, 0.0, 6, false),
-          PseudoAtom("O_co2", false, 15.9994, -0.3256, 0.0, 8, false),
-      },
-      {VDWParameters(22.0, 2.30), VDWParameters(53.0, 3.3), VDWParameters(158.5, 3.72), VDWParameters(29.933, 2.745),
-       VDWParameters(85.671, 3.017)},
-      ForceField::MixingRule::Lorentz_Berthelot, 11.8, 11.8, 11.8, true, false, true);
+  ForceField forceField = TestFactories::makeDefaultFF(11.8, true, false, true);
 
   forceField.automaticEwald = false;
   forceField.EwaldAlpha = 0.25;
   forceField.numberOfWaveVectors = int3(8, 8, 8);
-  Framework f = Framework(
-      0, forceField, "ITQ-29", SimulationBox(11.8671, 11.8671, 11.8671), 517,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.3683, 0.1847, 0), 2.05, 1.0, 0, 0, 0, 0), Atom(double3(0.5, 0.2179, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.2939, 0.2939, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.3429, 0.1098, 0.1098), -1.025, 1.0, 0, 1, 0, 0)},
-      int3(2, 2, 2));
-  Component c = Component(
-      0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.0, 0.0, 1.149), -0.3256, 1.0, 0, 4, 1, 0), Atom(double3(0.0, 0.0, 0.0), 0.6512, 1.0, 0, 3, 1, 0),
-       Atom(double3(0.0, 0.0, -1.149), -0.3256, 1.0, 0, 4, 1, 0)},
-      5, 21);
+  Framework f = TestFactories::makeITQ29(forceField, int3(2, 2, 2));
+  Component c = TestFactories::makeCO2(forceField, 0, true);
 
   System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {2}, 5);
 
@@ -407,7 +318,7 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_Ewald)
 
   std::pair<EnergyStatus, double3x3> pressureInfo = Interactions::computeEwaldFourierEnergyStrainDerivative(
       system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.fixedFrameworkStoredEik, system.storedEik,
-      system.forceField, system.simulationBox, system.frameworkComponents, system.components,
+      system.forceField, system.simulationBox, system.framework, system.components,
       system.numberOfMoleculesPerComponent, system.spanOfMoleculeAtoms(), system.CoulombicFourierEnergySingleIon,
       system.netChargeFramework, system.netChargePerComponent);
 
@@ -434,36 +345,13 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_Ewald)
 
 TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_Total)
 {
-  ForceField forceField = ForceField(
-      {
-          PseudoAtom("Si", true, 28.0855, 2.05, 0.0, 14, false),
-          PseudoAtom("O", true, 15.999, -1.025, 0.0, 8, false),
-          PseudoAtom("CH4", false, 16.04246, 0.0, 0.0, 6, false),
-          PseudoAtom("C_co2", false, 12.0, 0.6512, 0.0, 6, false),
-          PseudoAtom("O_co2", false, 15.9994, -0.3256, 0.0, 8, false),
-      },
-      {VDWParameters(22.0, 2.30), VDWParameters(53.0, 3.3), VDWParameters(158.5, 3.72), VDWParameters(29.933, 2.745),
-       VDWParameters(85.671, 3.017)},
-      ForceField::MixingRule::Lorentz_Berthelot, 11.8, 11.8, 11.8, true, false, true);
+  ForceField forceField = TestFactories::makeDefaultFF(11.8, true, false, true);
 
   forceField.automaticEwald = false;
   forceField.EwaldAlpha = 0.25;
   forceField.numberOfWaveVectors = int3(8, 8, 8);
-  Framework f = Framework(
-      0, forceField, "ITQ-29", SimulationBox(11.8671, 11.8671, 11.8671), 517,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.3683, 0.1847, 0), 2.05, 1.0, 0, 0, 0, 0), Atom(double3(0.5, 0.2179, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.2939, 0.2939, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.3429, 0.1098, 0.1098), -1.025, 1.0, 0, 1, 0, 0)},
-      int3(2, 2, 2));
-  Component c = Component(
-      0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.0, 0.0, 1.149), -0.3256, 1.0, 0, 4, 1, 0), Atom(double3(0.0, 0.0, 0.0), 0.6512, 1.0, 0, 3, 1, 0),
-       Atom(double3(0.0, 0.0, -1.149), -0.3256, 1.0, 0, 4, 1, 0)},
-      5, 21);
+  Framework f = TestFactories::makeITQ29(forceField, int3(2, 2, 2));
+  Component c = TestFactories::makeCO2(forceField, 0, true);
 
   System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {2}, 5);
 
@@ -476,7 +364,8 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_Total)
   atomPositions[5].position = double3(5.93355, 3.93355, 5.93355 - 1.149);
 
   [[maybe_unused]] RunningEnergy factorFrameworkMolecular = Interactions::computeFrameworkMoleculeGradient(
-      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms());
+      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
+      system.interpolationGrids);
   [[maybe_unused]] RunningEnergy factorInterMolecular = Interactions::computeInterMolecularGradient(
       system.forceField, system.simulationBox, system.spanOfMoleculeAtoms());
 
@@ -513,7 +402,7 @@ TEST(gradients, Test_2_CO2_in_ITQ_29_2x2x2_Total)
   [[maybe_unused]] RunningEnergy gradientEnergy = Integrators::updateGradients(
       system.spanOfMoleculeAtoms(), system.spanOfFrameworkAtoms(), system.forceField, system.simulationBox,
       system.components, system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.totalEik,
-      system.fixedFrameworkStoredEik, system.numberOfMoleculesPerComponent);
+      system.fixedFrameworkStoredEik, system.interpolationGrids, system.numberOfMoleculesPerComponent);
 
   // EXPECT_NEAR(gradientEnergy.total()  * Units::EnergyToKelvin, -2179.338665434245, 1e-4);
 
@@ -682,33 +571,10 @@ z1.frameworkMoleculeCharge)) / delta;
 
 TEST(gradients, Test_CO2_in_ITQ_29_1x1x1)
 {
-  ForceField forceField = ForceField(
-      {
-          PseudoAtom("Si", true, 28.0855, 2.05, 0.0, 14, false),
-          PseudoAtom("O", true, 15.999, -1.025, 0.0, 8, false),
-          PseudoAtom("CH4", false, 16.04246, 0.0, 0.0, 6, false),
-          PseudoAtom("C_co2", false, 12.0, 0.6512, 0.0, 6, false),
-          PseudoAtom("O_co2", false, 15.9994, -0.3256, 0.0, 8, false),
-      },
-      {VDWParameters(22.0, 2.30), VDWParameters(53.0, 3.3), VDWParameters(158.5, 3.72), VDWParameters(29.933, 2.745),
-       VDWParameters(85.671, 3.017)},
-      ForceField::MixingRule::Lorentz_Berthelot, 11.8, 11.8, 11.8, true, false, true);
+  ForceField forceField = TestFactories::makeDefaultFF(11.8, true, false, true);
 
-  Framework f = Framework(
-      0, forceField, "ITQ-29", SimulationBox(11.8671, 11.8671, 11.8671), 517,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.3683, 0.1847, 0), 2.05, 1.0, 0, 0, 0, 0), Atom(double3(0.5, 0.2179, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.2939, 0.2939, 0), -1.025, 1.0, 0, 1, 0, 0),
-       Atom(double3(0.3429, 0.1098, 0.1098), -1.025, 1.0, 0, 1, 0, 0)},
-      int3(2, 2, 2));
-  Component c = Component(
-      0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.0, 0.0, 1.149), -0.3256, 1.0, 0, 4, 1, 0), Atom(double3(0.0, 0.0, 0.0), 0.6512, 1.0, 0, 3, 1, 0),
-       Atom(double3(0.0, 0.0, -1.149), -0.3256, 1.0, 0, 4, 1, 0)},
-      5, 21);
+  Framework f = TestFactories::makeITQ29(forceField, int3(2, 2, 2));
+  Component c = TestFactories::makeCO2(forceField, 0, true);
 
   System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {2}, 5);
 
@@ -732,7 +598,8 @@ TEST(gradients, Test_CO2_in_ITQ_29_1x1x1)
   [[maybe_unused]] RunningEnergy factor = Interactions::computeInterMolecularGradient(
       system.forceField, system.simulationBox, system.spanOfMoleculeAtoms());
   [[maybe_unused]] RunningEnergy factor2 = Interactions::computeFrameworkMoleculeGradient(
-      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms());
+      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
+      system.interpolationGrids);
 
   double delta = 1e-5;
   double tolerance = 1e-4;
@@ -743,38 +610,46 @@ TEST(gradients, Test_CO2_in_ITQ_29_1x1x1)
 
     // finite difference x
     atomPositions[i].position.x = spanOfMoleculeAtoms[i].position.x + 0.5 * delta;
-    x2 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    x2 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
 
     atomPositions[i].position.x = spanOfMoleculeAtoms[i].position.x - 0.5 * delta;
-    x1 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    x1 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
     atomPositions[i].position.x = spanOfMoleculeAtoms[i].position.x;
 
     // finite difference y
     atomPositions[i].position.y = spanOfMoleculeAtoms[i].position.y + 0.5 * delta;
-    y2 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    y2 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
 
     atomPositions[i].position.y = spanOfMoleculeAtoms[i].position.y - 0.5 * delta;
-    y1 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    y1 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
+
     atomPositions[i].position.y = spanOfMoleculeAtoms[i].position.y;
 
     // finite difference z
     atomPositions[i].position.z = spanOfMoleculeAtoms[i].position.z + 0.5 * delta;
-    z2 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    z2 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
 
     atomPositions[i].position.z = spanOfMoleculeAtoms[i].position.z - 0.5 * delta;
-    z1 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    z1 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
+
     atomPositions[i].position.z = spanOfMoleculeAtoms[i].position.z;
 
     gradient.x =
@@ -798,15 +673,8 @@ TEST(gradients, Test_CO2_in_ITQ_29_1x1x1)
 
 TEST(gradients, Test_CH4_in_Box_25x25x25)
 {
-  ForceField forceField =
-      ForceField({PseudoAtom("CH4", false, 16.04246, 0.0, 0.0, 6, false)}, {VDWParameters(158.5, 3.72)},
-                 ForceField::MixingRule::Lorentz_Berthelot, 12.0, 12.0, 12.0, false, false, false);
-
-  Component c = Component(0, forceField, "methane", 190.564, 45599200, 0.01142,
-                          {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type,
-                           // uint8_t componentId, uint8_t groupId
-                           Atom(double3(0.0, 0.0, 0.0), 0.0, 1.0, 0, 0, 0, 0)},
-                          5, 21);
+  ForceField forceField = TestFactories::makeDefaultFF(12.0, false, false, false);
+  Component c = TestFactories::makeMethane(forceField, 0);
 
   System system = System(0, forceField, SimulationBox(25.0, 25.0, 25.0), 300.0, 1e4, 1.0, {}, {c}, {50}, 5);
 
@@ -820,7 +688,8 @@ TEST(gradients, Test_CH4_in_Box_25x25x25)
   }
 
   [[maybe_unused]] RunningEnergy factorFrameworkMolecular = Interactions::computeFrameworkMoleculeGradient(
-      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms());
+      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
+      system.interpolationGrids);
   [[maybe_unused]] RunningEnergy factorInterMolecular = Interactions::computeInterMolecularGradient(
       system.forceField, system.simulationBox, system.spanOfMoleculeAtoms());
 
@@ -833,38 +702,44 @@ TEST(gradients, Test_CH4_in_Box_25x25x25)
 
     // finite difference x
     atomPositions[i].position.x = spanOfMoleculeAtoms[i].position.x + 0.5 * delta;
-    x2 = Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions) +
-         Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
+    x2 =
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions) +
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
 
     atomPositions[i].position.x = spanOfMoleculeAtoms[i].position.x - 0.5 * delta;
-    x1 = Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions) +
-         Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
+    x1 =
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions) +
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
     atomPositions[i].position.x = spanOfMoleculeAtoms[i].position.x;
 
     // finite difference y
     atomPositions[i].position.y = spanOfMoleculeAtoms[i].position.y + 0.5 * delta;
-    y2 = Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions) +
-         Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
+    y2 =
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions) +
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
 
     atomPositions[i].position.y = spanOfMoleculeAtoms[i].position.y - 0.5 * delta;
-    y1 = Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions) +
-         Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
+    y1 =
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions) +
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
     atomPositions[i].position.y = spanOfMoleculeAtoms[i].position.y;
 
     // finite difference z
     atomPositions[i].position.z = spanOfMoleculeAtoms[i].position.z + 0.5 * delta;
-    z2 = Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions) +
-         Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
+    z2 =
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions) +
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
 
     atomPositions[i].position.z = spanOfMoleculeAtoms[i].position.z - 0.5 * delta;
-    z1 = Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions) +
-         Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
+    z1 =
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions) +
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions);
     atomPositions[i].position.z = spanOfMoleculeAtoms[i].position.z;
 
     gradient.x =
@@ -888,67 +763,9 @@ TEST(gradients, Test_CH4_in_Box_25x25x25)
 
 TEST(gradients, Test_CO2_in_MFI_2x2x2)
 {
-  ForceField forceField = ForceField(
-      {
-          PseudoAtom("Si", true, 28.0855, 2.05, 0.0, 14, false),
-          PseudoAtom("O", true, 15.999, -1.025, 0.0, 8, false),
-          PseudoAtom("CH4", false, 16.04246, 0.0, 0.0, 6, false),
-          PseudoAtom("C_co2", false, 12.0, 0.6512, 0.0, 6, false),
-          PseudoAtom("O_co2", false, 15.9994, -0.3256, 0.0, 8, false),
-      },
-      {VDWParameters(22.0, 2.30), VDWParameters(53.0, 3.3), VDWParameters(158.5, 3.72), VDWParameters(29.933, 2.745),
-       VDWParameters(85.671, 3.017)},
-      ForceField::MixingRule::Lorentz_Berthelot, 12.0, 12.0, 12.0, true, false, true);
-
-  Framework f = Framework(0, forceField, "MFI_SI", SimulationBox(20.022, 19.899, 13.383), 292,
-                          {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type,
-                           // uint8_t componentId, uint8_t groupId
-                           Atom(double3(0.42238, 0.0565, -0.33598), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.30716, 0.02772, -0.1893), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.27911, 0.06127, 0.0312), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.12215, 0.06298, 0.0267), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.07128, 0.02722, -0.18551), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.18641, 0.05896, -0.32818), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.42265, -0.1725, -0.32718), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.30778, -0.13016, -0.18548), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.27554, -0.17279, 0.03109), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.12058, -0.1731, 0.02979), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.07044, -0.13037, -0.182), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.18706, -0.17327, -0.31933), 2.05, 1.0, 0, 0, 0, 0),
-                           Atom(double3(0.3726, 0.0534, -0.2442), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.3084, 0.0587, -0.0789), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.2007, 0.0592, 0.0289), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.0969, 0.0611, -0.0856), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.1149, 0.0541, -0.2763), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.2435, 0.0553, -0.246), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.3742, -0.1561, -0.2372), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.3085, -0.1552, -0.0728), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.198, -0.1554, 0.0288), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.091, -0.1614, -0.0777), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.1169, -0.1578, -0.2694), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.2448, -0.1594, -0.2422), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.3047, -0.051, -0.1866), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.0768, -0.0519, -0.1769), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.4161, 0.1276, -0.3896), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.4086, -0.0017, -0.4136), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.402, -0.1314, -0.4239), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.1886, 0.1298, -0.3836), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.194, 0.0007, -0.4082), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.1951, -0.1291, -0.419), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(-0.0037, 0.0502, -0.208), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(-0.004, -0.1528, -0.2078), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.4192, -0.25, -0.354), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.1884, -0.25, -0.3538), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.2883, -0.25, 0.0579), -1.025, 1.0, 0, 1, 0, 0),
-                           Atom(double3(0.1085, -0.25, 0.0611), -1.025, 1.0, 0, 1, 0, 0)},
-                          int3(2, 2, 2));
-  Component c = Component(
-      0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
-      {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       // uint8_t groupId
-       Atom(double3(0.0, 0.0, 1.149), -0.3256, 1.0, 0, 4, 1, 0), Atom(double3(0.0, 0.0, 0.0), 0.6512, 1.0, 0, 3, 1, 0),
-       Atom(double3(0.0, 0.0, -1.149), -0.3256, 1.0, 0, 4, 1, 0)},
-      5, 21);
+  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  Framework f = TestFactories::makeMFI_Si(forceField, int3(2, 2, 2));
+  Component c = TestFactories::makeCO2(forceField, 0, true);
 
   System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {10}, 5);
 
@@ -964,7 +781,8 @@ TEST(gradients, Test_CO2_in_MFI_2x2x2)
   [[maybe_unused]] RunningEnergy factor = Interactions::computeInterMolecularGradient(
       system.forceField, system.simulationBox, system.spanOfMoleculeAtoms());
   [[maybe_unused]] RunningEnergy factor2 = Interactions::computeFrameworkMoleculeGradient(
-      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms());
+      system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
+      system.interpolationGrids);
 
   double delta = 1e-5;
   double tolerance = 1e-4;
@@ -975,38 +793,44 @@ TEST(gradients, Test_CO2_in_MFI_2x2x2)
 
     // finite difference x
     atomPositions[i].position.x = spanOfMoleculeAtoms[i].position.x + 0.5 * delta;
-    x2 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    x2 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
 
     atomPositions[i].position.x = spanOfMoleculeAtoms[i].position.x - 0.5 * delta;
-    x1 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    x1 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
     atomPositions[i].position.x = spanOfMoleculeAtoms[i].position.x;
 
     // finite difference y
     atomPositions[i].position.y = spanOfMoleculeAtoms[i].position.y + 0.5 * delta;
-    y2 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    y2 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
 
     atomPositions[i].position.y = spanOfMoleculeAtoms[i].position.y - 0.5 * delta;
-    y1 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    y1 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
     atomPositions[i].position.y = spanOfMoleculeAtoms[i].position.y;
 
     // finite difference z
     atomPositions[i].position.z = spanOfMoleculeAtoms[i].position.z + 0.5 * delta;
-    z2 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    z2 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
 
     atomPositions[i].position.z = spanOfMoleculeAtoms[i].position.z - 0.5 * delta;
-    z1 = Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
-         Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, frameworkAtoms,
-                                                      atomPositions);
+    z1 =
+        Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, atomPositions) +
+        Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
+                                                     system.framework, frameworkAtoms, atomPositions);
     atomPositions[i].position.z = spanOfMoleculeAtoms[i].position.z;
 
     gradient.x =
@@ -1030,32 +854,10 @@ TEST(gradients, Test_CO2_in_MFI_2x2x2)
 
 TEST(gradients, Test_20_Na_Cl_in_Box_25x25x25)
 {
-  ForceField forceField = ForceField(
-      {
-          PseudoAtom("Si", true, 28.0855, 2.05, 0.0, 14, false),
-          PseudoAtom("O", true, 15.999, -1.025, 0.0, 8, false),
-          PseudoAtom("CH4", false, 16.04246, 0.0, 0.0, 6, false),
-          PseudoAtom("Na+", false, 12.0, 0.0, 0.0, 6, false),
-          PseudoAtom("Cl-", false, 15.9994, 0.0, 0.0, 8, false),
-      },
-      {VDWParameters(22.0, 2.30), VDWParameters(53.0, 3.3), VDWParameters(158.5, 3.72), VDWParameters(15.0966, 2.65755),
-       VDWParameters(142.562, 3.51932)},
-      ForceField::MixingRule::Lorentz_Berthelot, 12.0, 12.0, 12.0, true, false, true);
+  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
 
-  Component na = Component(0, forceField, "Na", 304.1282, 7377300.0, 0.22394,
-                           {
-                               // double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type,
-                               // uint8_t componentId, uint8_t groupId
-                               Atom(double3(0.0, 0.0, 0.0), 1.0, 1.0, 0, 3, 0, 0),
-                           },
-                           5, 21);
-  Component cl = Component(1, forceField, "Cl", 304.1282, 7377300.0, 0.22394,
-                           {
-                               // double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type,
-                               // uint8_t componentId, uint8_t groupId
-                               Atom(double3(0.0, 0.0, 0.0), -1.0, 1.0, 0, 4, 1, 0),
-                           },
-                           5, 21);
+  Component na = TestFactories::makeIon(forceField, 0, "Na", 6, 0.0);
+  Component cl = TestFactories::makeIon(forceField, 1, "Cl", 7, 0.0);
 
   System system = System(0, forceField, SimulationBox(25.0, 25.0, 25.0), 300.0, 1e4, 1.0, {}, {na, cl}, {20, 20}, 5);
 

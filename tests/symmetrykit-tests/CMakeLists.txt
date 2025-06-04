@@ -14,7 +14,10 @@ if (CONDA)
                         ${BLAS_LIBRARIES}
                         ${LAPACK_LIBRARIES}
                         ${HDF5_LIBRARIES}
+                        voro++
+                        ${TORCH_LIBRARIES}
                         OpenMP::OpenMP_CXX
+                        OpenCL::OpenCL
                         GTest::gtest
                         GTest::gtest_main
                         ZLIB::ZLIB
@@ -27,7 +30,10 @@ elseif (LINUX)
                         ${LAPACK_LIBRARIES}
                         ${HDF5_CXX_LIBRARIES}
                         ${HDF5_LIBRARIES}
+                        voro++
+                        ${TORCH_LIBRARIES}
                         OpenMP::OpenMP_CXX
+                        OpenCL::OpenCL
                         GTest::gtest
                         GTest::gtest_main
                         -nostdlib++
@@ -44,7 +50,10 @@ elseif (WIN32)
                         ${BLAS_LIBRARIES}
                         ${LAPACK_LIBRARIES}
                         ${HDF5_CXX_LIBRARIES}
+                        voro++
+                        ${TORCH_LIBRARIES}
                         OpenMP::OpenMP_CXX
+                        OpenCL::OpenCL
                         GTest::gtest
                         GTest::gtest_main
                         -nostdlib++
@@ -58,13 +67,15 @@ elseif (APPLE)
                         $ENV{HOMEBREW_PREFIX}/lib/libhdf5.a
                         $ENV{HOMEBREW_PREFIX}/lib/libaec.a
                         $ENV{HOMEBREW_PREFIX}/lib/libsz.a
+                        voro++
+                        ${TORCH_LIBRARIES}
                         GTest::gtest
                         GTest::gtest_main
-                        -nostdlib++
                         $ENV{HOMEBREW_PREFIX}/opt/llvm/lib/c++/libc++experimental.a
                         $ENV{HOMEBREW_PREFIX}/opt/llvm/lib/c++/libc++.a
                         $ENV{HOMEBREW_PREFIX}/opt/llvm/lib/c++/libc++abi.a
                         $ENV{HOMEBREW_PREFIX}/opt/libomp/lib/libomp.a
+                        OpenCL::OpenCL
                         ${ZLIB_LIBRARIES}
                         -lpthread)
 endif()

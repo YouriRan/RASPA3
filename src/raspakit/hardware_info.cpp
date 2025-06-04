@@ -1,9 +1,9 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
+#include <chrono>
 #include <cstddef>
 #include <cstring>
-#include <chrono>
 #include <iostream>
 #include <print>
 #include <random>

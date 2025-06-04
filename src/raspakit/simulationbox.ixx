@@ -1,9 +1,9 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -81,7 +81,7 @@ export struct SimulationBox
         angleGamma(0.0),
         cell(double3x3(double3(0.0, 0.0, 0.0), double3(0.0, 0.0, 0.0), double3(0.0, 0.0, 0.0))),
         inverseCell(double3x3(double3(0.0, 0.0, 0.0), double3(0.0, 0.0, 0.0), double3(0.0, 0.0, 0.0))),
-        volume(0.0){};
+        volume(0.0) {};
 
   bool operator==(SimulationBox const&) const = default;
 
@@ -247,6 +247,8 @@ export struct SimulationBox
    */
   double3 perpendicularWidths() const;
 
+  int3 smallestNumberOfUnitCellsForMinimumImagesConvention(double cutOff) const;
+
   /**
    * \brief Returns a string representation of the simulation box.
    *
@@ -392,7 +394,7 @@ export struct SimulationBox
    * \param scale An int3 containing the scaling factors along each axis.
    * \return A new scaled SimulationBox.
    */
-  SimulationBox scaled(int3 scale)
+  SimulationBox scaled(int3 scale) const
   {
     SimulationBox v;
 

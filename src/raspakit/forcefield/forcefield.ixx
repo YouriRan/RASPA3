@@ -1,8 +1,8 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -10,7 +10,9 @@ module;
 #include <optional>
 #include <ostream>
 #include <string>
+#include <cstring>
 #include <vector>
+#include <set>
 #endif
 
 export module forcefield;
@@ -60,7 +62,36 @@ export struct ForceField
    */
   enum class MixingRule : int
   {
-    Lorentz_Berthelot = 0  ///< Lorentz-Berthelot mixing rule.
+    Lorentz_Berthelot = 0,  ///< Lorentz-Berthelot mixing rule.
+    Jorgensen = 1
+  };
+
+  enum class PotentialEnergySurfaceType : size_t
+  {
+    None = 0,
+    SecondOrderPolynomialTestFunction = 1,
+    ThirdOrderPolynomialTestFunction = 2,
+    FourthOrderPolynomialTestFunction = 3,
+    FifthOrderPolynomialTestFunction = 4,
+    SixthOrderPolynomialTestFunction = 5,
+    ExponentialNonPolynomialTestFunction = 6,
+    MullerBrown = 7,
+    Eckhardt = 8,
+    GonzalezSchlegel = 9  // https://sci-hub.se/https://doi.org/10.1063/1.465995
+  };
+
+  enum class InterpolationGridType : size_t
+  {
+    LennardJones = 0,
+    LennardJonesRepulsion = 1,
+    LennardJonesAttraction = 2,
+    EwaldReal = 3
+  };
+
+  enum class InterpolationScheme : size_t
+  {
+    Tricubic = 8,
+    Triquintic = 27
   };
 
   uint64_t versionNumber{1};  ///< Version number of the force field format.
@@ -70,8 +101,11 @@ export struct ForceField
   std::vector<bool> shiftPotentials{};  ///< Indicates if potential shift is applied between pairs of atoms.
   std::vector<bool> tailCorrections{};  ///< Indicates if tail corrections are applied between pairs of atoms.
   MixingRule mixingRule{MixingRule::Lorentz_Berthelot};  ///< Mixing rule used for cross interactions.
+  bool cutOffFrameworkVDWAutomatic{false};
   double cutOffFrameworkVDW{12.0};  ///< Cut-off distance for VDW interactions between framework and molecules.
+  bool cutOffMoleculeVDWAutomatic{false};
   double cutOffMoleculeVDW{12.0};   ///< Cut-off distance for VDW interactions between molecules.
+  bool cutOffCoulombAutomatic{true};
   double cutOffCoulomb{12.0};       ///< Cut-off distance for Coulomb interactions.
   double dualCutOff{6.0};           ///< Inner cut-off distance when using dual cut-off scheme.
 
@@ -102,6 +136,18 @@ export struct ForceField
 
   bool computePolarization{false};   ///< Indicates if polarization effects are computed.
   bool omitInterPolarization{true};  ///< If true, omits polarization between molecules.
+
+  bool hasExternalField{false};
+  PotentialEnergySurfaceType potentialEnergySurfaceType{PotentialEnergySurfaceType::SecondOrderPolynomialTestFunction};
+  double3 potentialEnergySurfaceOrigin{0.0, 0.0, 0.0};
+
+  std::vector<size_t> gridPseudoAtomIndices;
+  double spacingVDWGrid{0.15};
+  double spacingCoulombGrid{0.15};
+  std::optional<int3> numberOfVDWGridPoints{};
+  std::optional<int3> numberOfCoulombGridPoints{};
+  size_t numberOfGridTestPoints{100000};
+  InterpolationScheme interpolationScheme{InterpolationScheme::Tricubic};
 
   /**
    * \brief Default constructor for the ForceField struct.
@@ -138,6 +184,7 @@ export struct ForceField
   ForceField(std::string filePath) noexcept(false);
 
   VDWParameters &operator()(size_t row, size_t col) { return data[row * numberOfPseudoAtoms + col]; }
+  const VDWParameters &operator[](size_t row) const { return data[row * numberOfPseudoAtoms + row]; }
   const VDWParameters &operator()(size_t row, size_t col) const { return data[row * numberOfPseudoAtoms + col]; }
   bool operator==(const ForceField &other) const;
 
@@ -261,4 +308,46 @@ export struct ForceField
    * \return A string representing the ForceField.
    */
   std::string repr() const { return printPseudoAtomStatus() + "\n" + printForceFieldStatus(); }
+
+    /**
+   * \struct InsensitiveCompare
+   * \brief Comparator for case-insensitive string comparison.
+   *
+   * This structure provides a functor to compare two strings without considering their case.
+   * It is used to enable case-insensitive lookups within sets of strings.
+   */
+  struct InsensitiveCompare
+  {
+    /**
+     * \brief Compares two strings in a case-insensitive manner.
+     *
+     * This operator overload allows for the comparison of two strings without regard to
+     * their case, facilitating case-insensitive sorting and lookup.
+     *
+     * \param a The first string to compare.
+     * \param b The second string to compare.
+     * \return `true` if `a` is lexicographically less than `b` (case-insensitive), `false` otherwise.
+     */
+    bool operator()(const std::string &a, const std::string &b) const
+    {
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+      return _stricmp(a.c_str(), b.c_str()) < 0;
+#else
+      return strcasecmp(a.c_str(), b.c_str()) < 0;
+#endif
+    }
+  };
+
+  void validateInput(const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data);
+
+  // Static Member Variables
+
+  /**
+   * \brief Set of general option keys accepted in the input data.
+   *
+   * This set contains all the general configuration keys that are recognized
+   * at the top level of the input JSON. It is used to validate the presence
+   * of only known keys.
+   */
+  static const std::set<std::string, InsensitiveCompare> options;
 };

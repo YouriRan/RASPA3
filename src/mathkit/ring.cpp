@@ -1,16 +1,19 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 #include <tuple>
+#include <utility>
 #endif
 
 module ring;
 
 #ifndef USE_LEGACY_HEADERS
+import <cstddef>;
 import <cmath>;
 import <tuple>;
+import <utility>;
 #endif
 
 Ring::Ring() {}

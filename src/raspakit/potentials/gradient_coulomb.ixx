@@ -1,8 +1,8 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
 #include <numbers>
 #endif
@@ -21,6 +21,8 @@ import units;
 import forcefield;
 import gradient_factor;
 
+export namespace Potentials
+{
 /**
  * \brief Computes the gradient of the Coulomb potential.
  *
@@ -40,9 +42,11 @@ import gradient_factor;
  *
  * \note This function returns D[U[r], r] / r, where U[r] is the potential energy.
  */
-export [[clang::always_inline]] inline GradientFactor potentialCoulombGradient(
-    const ForceField& forcefield, const bool& groupIdA, const bool& groupIdB, const double& scalingA,
-    const double& scalingB, const double& r, const double& chargeA, const double& chargeB)
+[[clang::always_inline]] inline GradientFactor potentialCoulombGradient(const ForceField& forcefield,
+                                                                        const bool& groupIdA, const bool& groupIdB,
+                                                                        const double& scalingA, const double& scalingB,
+                                                                        const double& r, const double& chargeA,
+                                                                        const double& chargeB)
 {
   double scaling = scalingA * scalingB;  ///< Combined scaling factor for interactions.
 
@@ -52,11 +56,11 @@ export [[clang::always_inline]] inline GradientFactor potentialCoulombGradient(
     {
       double alpha = forcefield.EwaldAlpha;
       double temp = Units::CoulombicConversionFactor * chargeA * chargeB * std::erfc(alpha * r) / r;
-      return GradientFactor(scaling * temp,
-                            (groupIdA ? scalingB * temp : 0.0) + (groupIdB ? scalingA * temp : 0.0),
+      return GradientFactor(scaling * temp, (groupIdA ? scalingB * temp : 0.0) + (groupIdB ? scalingA * temp : 0.0),
                             -Units::CoulombicConversionFactor * scaling * chargeA * chargeB *
-                            ((std::erfc(alpha * r) + 2.0 * alpha * r * std::exp(-alpha * alpha * r * r) *
-                            std::numbers::inv_sqrtpi_v<double>) / (r * r * r)));
+                                ((std::erfc(alpha * r) + 2.0 * alpha * r * std::exp(-alpha * alpha * r * r) *
+                                                             std::numbers::inv_sqrtpi_v<double>) /
+                                 (r * r * r)));
     }
     case ForceField::ChargeMethod::Coulomb:
     {
@@ -69,3 +73,4 @@ export [[clang::always_inline]] inline GradientFactor potentialCoulombGradient(
   // In case of an unsupported charge method, return a default ForceFactor.
   return GradientFactor(0.0, 0.0, 0.0);
 };
+}  // namespace Potentials

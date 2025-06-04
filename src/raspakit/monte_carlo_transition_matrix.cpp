@@ -1,11 +1,11 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <complex>
+#include <cstddef>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -85,6 +85,7 @@ import property_pressure;
 import transition_matrix;
 import interactions_ewald;
 import equation_of_states;
+import interpolation_energy_grid;
 
 MonteCarloTransitionMatrix::MonteCarloTransitionMatrix() : random(std::nullopt) {};
 

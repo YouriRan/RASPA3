@@ -1,10 +1,10 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <complex>
+#include <cstddef>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
@@ -944,13 +944,15 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
       if (value.contains("GibbsVolumeMoveProbability") && value["GibbsVolumeMoveProbability"].is_number_float())
       {
-        mc_moves_probabilities.setProbability(MoveTypes::GibbsVolume, value["GibbsVolumeMoveProbability"].get<double>());
+        mc_moves_probabilities.setProbability(MoveTypes::GibbsVolume,
+                                              value["GibbsVolumeMoveProbability"].get<double>());
       }
 
       if (value.contains("ParallelTemperingSwapProbability") &&
           value["ParallelTemperingSwapProbability"].is_number_float())
       {
-        mc_moves_probabilities.setProbability(MoveTypes::ParallelTempering, value["ParallelTemperingSwapProbability"].get<double>());
+        mc_moves_probabilities.setProbability(MoveTypes::ParallelTempering,
+                                              value["ParallelTemperingSwapProbability"].get<double>());
       }
       if (value.contains("HybridMCProbability") && value["HybridMCProbability"].is_number_float())
       {
@@ -1018,9 +1020,9 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           throw std::runtime_error(std::format("[Input reader]: No forcefield specified or found'\n"));
         }
 
-        std::vector<Framework> jsonFrameworkComponents{Framework(0, forceFields[systemId].value(), frameworkNameString,
-                                                                 frameworkNameString, jsonNumberOfUnitCells,
-                                                                 useChargesFrom)};
+        std::optional<Framework> jsonFrameworkComponents{Framework(0, forceFields[systemId].value(),
+                                                                   frameworkNameString, frameworkNameString,
+                                                                   jsonNumberOfUnitCells, useChargesFrom)};
 
         // create system
         systems[systemId] = System(systemId, forceFields[systemId].value(), std::nullopt, T, P, heliumVoidFraction,
@@ -1342,7 +1344,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           }
 
           systems[systemId].propertyDensityGrid = PropertyDensityGrid(
-              systems[systemId].frameworkComponents.size(), systems[systemId].components.size(), densityGridSize,
+              systems[systemId].framework ? 1 : 0, systems[systemId].components.size(), densityGridSize,
               sampleDensityGridEvery, writeDensityGridEvery, densityGridPseudoAtomsList, norm);
         }
       }

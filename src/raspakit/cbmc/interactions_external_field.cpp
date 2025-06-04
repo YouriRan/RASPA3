@@ -1,9 +1,9 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <future>
 #include <iostream>
 #include <numbers>
@@ -73,7 +73,7 @@ import threadpool;
       [[maybe_unused]] double3 s = (simulationBox.inverseCell * posA).fract();
 
       // Fill in the energy based on the atom properties and the fractional position 's'
-      EnergyFactor energyFactor = EnergyFactor(0.0, 0.0);
+      Potentials::EnergyFactor energyFactor = Potentials::EnergyFactor(0.0, 0.0);
       if (energyFactor.energy > overlapCriteria) return std::nullopt;
 
       energySum.externalFieldVDW += energyFactor.energy;

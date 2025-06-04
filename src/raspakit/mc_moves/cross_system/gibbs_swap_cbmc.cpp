@@ -1,9 +1,9 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <optional>
 #include <span>
 #include <tuple>
@@ -74,10 +74,10 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsSwapMove_C
   // Attempt to grow a new molecule in system A using CBMC insertion
   time_begin = std::chrono::system_clock::now();
   std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
-      random, systemA.frameworkComponents, componentA, systemA.hasExternalField, systemA.components, systemA.forceField,
-      systemA.simulationBox, systemA.spanOfFrameworkAtoms(), systemA.spanOfMoleculeAtoms(), systemA.beta, growType,
-      cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, newMoleculeIndex, 1.0, 0uz,
-      systemA.numberOfTrialDirections);
+      random, componentA, systemA.hasExternalField, systemA.components, systemA.forceField, systemA.simulationBox,
+      systemA.interpolationGrids, systemA.framework, systemA.spanOfFrameworkAtoms(), systemA.spanOfMoleculeAtoms(),
+      systemA.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, newMoleculeIndex,
+      1.0, 0uz, systemA.numberOfTrialDirections);
   time_end = std::chrono::system_clock::now();
 
   // Update CPU time statistics for CBMC insertion (non-Ewald part)
@@ -127,10 +127,10 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsSwapMove_C
   // Retrace the selected molecule in system B for deletion using CBMC
   time_begin = std::chrono::system_clock::now();
   ChainData retraceData = CBMC::retraceMoleculeSwapDeletion(
-      random, systemB.frameworkComponents, componentB, systemB.hasExternalField, systemB.components, systemB.forceField,
-      systemB.simulationBox, systemB.spanOfFrameworkAtoms(), systemB.spanOfMoleculeAtoms(), systemB.beta,
-      cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, selectedMolecule, molecule, 1.0,
-      systemB.numberOfTrialDirections);
+      random, componentB, systemB.hasExternalField, systemB.components, systemB.forceField, systemB.simulationBox,
+      systemB.interpolationGrids, systemB.framework, systemB.spanOfFrameworkAtoms(), systemB.spanOfMoleculeAtoms(),
+      systemB.beta, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, selectedMolecule, molecule,
+      1.0, systemB.numberOfTrialDirections);
   time_end = std::chrono::system_clock::now();
 
   // Update CPU time statistics for CBMC deletion (non-Ewald part)

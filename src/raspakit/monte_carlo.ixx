@@ -1,8 +1,8 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <chrono>
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -89,19 +89,20 @@ export struct MonteCarlo
    */
   MonteCarlo(size_t numberOfCycles, size_t numberOfInitializationCycles, size_t numberOfEquilibrationCycles,
              size_t printEvery, size_t writeBinaryRestartEvery, size_t rescaleWangLandauEvery,
-             size_t optimizeMCMovesEvery, std::vector<System> &systems, RandomNumber &randomSeed,
-             size_t numberOfBlocks, bool outputToFiles = false);
+             size_t optimizeMCMovesEvery, std::vector<System> &systems, RandomNumber &randomSeed, size_t numberOfBlocks,
+             bool outputToFiles = false);
 
   uint64_t versionNumber{1};  ///< Version number for serialization.
 
-  bool outputToFiles{ true };
-  RandomNumber random;                  ///< Random number generator.
+  bool outputToFiles{true};
+  RandomNumber random;  ///< Random number generator.
 
   size_t numberOfCycles;                ///< Number of production cycles.
   size_t numberOfSteps;                 ///< Total number of steps performed.
   size_t numberOfInitializationCycles;  ///< Number of initialization cycles.
   size_t numberOfEquilibrationCycles;   ///< Number of equilibration cycles.
   size_t printEvery;                    ///< Frequency of printing status reports.
+  size_t writeRestartEvery;             ///< Frequency of writing restart files.
   size_t writeBinaryRestartEvery;       ///< Frequency of writing binary restart files.
   size_t rescaleWangLandauEvery;        ///< Frequency of rescaling Wang-Landau factors.
   size_t optimizeMCMovesEvery;          ///< Frequency of optimizing MC moves.
@@ -118,6 +119,7 @@ export struct MonteCarlo
 
   BlockErrorEstimation estimation;  ///< Block error estimation object.
 
+  std::chrono::duration<double> totalGridCreationTime{0};  ///< Total time for calculating the interpolation grid.
   std::chrono::duration<double> totalInitializationSimulationTime{0};  ///< Total time for initialization stage.
   std::chrono::duration<double> totalEquilibrationSimulationTime{0};   ///< Total time for equilibration stage.
   std::chrono::duration<double> totalProductionSimulationTime{0};      ///< Total time for production stage.
@@ -127,6 +129,16 @@ export struct MonteCarlo
    * \brief Creates output files for writing simulation data.
    */
   void createOutputFiles();
+
+  /**
+   * \brief Write the output header
+   */
+  void writeOutputHeader();
+
+  /**
+   * \brief Creates energy interpolation grids
+   */
+  void createInterpolationGrids();
 
   /**
    * \brief Runs the Monte Carlo simulation.

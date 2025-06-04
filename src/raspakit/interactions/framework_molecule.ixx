@@ -30,6 +30,7 @@ import hessian_factor;
 import forcefield;
 import framework;
 import component;
+import interpolation_energy_grid;
 
 export namespace Interactions
 {
@@ -45,9 +46,11 @@ export namespace Interactions
  * \param moleculeAtoms A span of atoms representing the molecule.
  * \return A RunningEnergy object containing the total interaction energy.
  */
-RunningEnergy computeFrameworkMoleculeEnergy(const ForceField &forceField, const SimulationBox &simulationBox,
-                                             std::span<const Atom> frameworkAtoms,
-                                             std::span<const Atom> moleculeAtoms) noexcept;
+RunningEnergy computeFrameworkMoleculeEnergy(
+    const ForceField &forceField, const SimulationBox &simulationBox,
+    const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
+    const std::optional<Framework> framework, std::span<const Atom> frameworkAtoms,
+    std::span<const Atom> moleculeAtoms) noexcept;
 
 /**
  * \brief Computes the tail correction energy between the framework and molecule atoms.
@@ -80,8 +83,36 @@ RunningEnergy computeFrameworkMoleculeTailEnergy(const ForceField &forceField, c
  * \return An optional RunningEnergy object containing the energy difference, or std::nullopt if overlap occurs.
  */
 [[nodiscard]] std::optional<RunningEnergy> computeFrameworkMoleculeEnergyDifference(
-    const ForceField &forceField, const SimulationBox &simulationBox, std::span<const Atom> frameworkAtoms,
-    std::span<const Atom> newatoms, std::span<const Atom> oldatoms) noexcept;
+    const ForceField &forceField, const SimulationBox &simulationBox,
+    const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
+    const std::optional<Framework> framework, std::span<const Atom> frameworkAtoms, std::span<const Atom> newatoms,
+    std::span<const Atom> oldatoms) noexcept;
+
+[[nodiscard]] std::optional<RunningEnergy> computeFrameworkMoleculeEnergyDifferenceOriginal(
+    const ForceField &forceField, const SimulationBox &simulationBox,
+    const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
+    const std::optional<Framework> framework, std::span<const Atom> frameworkAtoms, std::span<const Atom> newatoms,
+    std::span<const Atom> oldatoms) noexcept;
+
+/**
+ * \brief Computes the difference in interaction energy between the framework and molecule atoms.
+ *
+ * Calculates the difference in van der Waals and Coulombic interaction energy between the framework
+ * and the molecule atoms, due to changes from oldatoms to newatoms. If an overlap is detected (energy
+ * exceeds overlap criteria), returns std::nullopt.
+ *
+ * \param forceField The force field parameters for the simulation.
+ * \param simulationBox The simulation box containing periodic boundary conditions.
+ * \param frameworkAtoms A span of atoms representing the framework.
+ * \param newatoms A span of new atom positions representing the molecule.
+ * \param oldatoms A span of old atom positions representing the molecule.
+ * \return An optional RunningEnergy object containing the energy difference, or std::nullopt if overlap occurs.
+ */
+[[nodiscard]] std::optional<RunningEnergy> computeFrameworkMoleculeEnergyDifferenceInterpolationExplicit(
+    const ForceField &forceField, const SimulationBox &simulationBox,
+    const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
+    const std::optional<Framework> framework, std::span<const Atom> frameworkAtoms,
+    std::span<const Atom> atoms) noexcept;
 
 /**
  * \brief Computes the difference in tail correction energy between the framework and molecule atoms.
@@ -115,8 +146,10 @@ RunningEnergy computeFrameworkMoleculeTailEnergy(const ForceField &forceField, c
  * \param moleculeAtoms A span of atoms representing the molecule; their gradients will be updated.
  * \return A RunningEnergy object containing the total interaction energy.
  */
-RunningEnergy computeFrameworkMoleculeGradient(const ForceField &forceField, const SimulationBox &simulationBox,
-                                               std::span<Atom> frameworkAtoms, std::span<Atom> moleculeAtoms) noexcept;
+RunningEnergy computeFrameworkMoleculeGradient(
+    const ForceField &forceField, const SimulationBox &simulationBox, std::span<Atom> frameworkAtoms,
+    std::span<Atom> moleculeAtoms,
+    const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids) noexcept;
 
 /**
  * \brief Computes the interaction energy, gradients, and strain derivative between the framework and molecule atoms.
@@ -134,7 +167,8 @@ RunningEnergy computeFrameworkMoleculeGradient(const ForceField &forceField, con
  * the strain derivative.
  */
 [[nodiscard]] std::pair<EnergyStatus, double3x3> computeFrameworkMoleculeEnergyStrainDerivative(
-    const ForceField &forceField, const std::vector<Framework> &frameworkComponents,
+    const ForceField &forceField, const std::optional<Framework> &framework,
+    const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
     const std::vector<Component> &components, const SimulationBox &simulationBox, std::span<Atom> frameworkAtoms,
     std::span<Atom> moleculeAtoms) noexcept;
 
@@ -194,37 +228,14 @@ std::optional<RunningEnergy> computeFrameworkMoleculeElectricFieldDifference(
     const ForceField &forceField, const SimulationBox &simulationBox, std::span<const Atom> frameworkAtoms,
     std::span<double3> electricFieldMolecule, std::span<const Atom> newatoms, std::span<const Atom> oldatoms) noexcept;
 
-std::tuple<double, double3, double3x3> calculateHessianAtPositionVDW(const ForceField &forceField, const SimulationBox &simulationBox,
-                                                                     double3 posA, size_t typeA, std::span<const Atom> frameworkAtoms);
+std::tuple<double, double3, double3x3> calculateHessianAtPositionVDW(const ForceField &forceField,
+                                                                     const SimulationBox &simulationBox, double3 posA,
+                                                                     size_t typeA,
+                                                                     std::span<const Atom> frameworkAtoms);
 
-std::tuple<double, double3, double3x3> calculateHessianAtPositionCoulomb(const ForceField &forceField, const SimulationBox &simulationBox,
-                                                                         double3 posA, double chargeA, std::span<const Atom> frameworkAtoms);
+std::tuple<double, double3, double3x3> calculateHessianAtPositionCoulomb(const ForceField &forceField,
+                                                                         const SimulationBox &simulationBox,
+                                                                         double3 posA, double chargeA,
+                                                                         std::span<const Atom> frameworkAtoms);
 
-std::tuple<double, double3, double3x3, double3x3x3> 
-  calculateThirdDerivativeAtPositionVDW(const ForceField &forceField, const SimulationBox &simulationBox,
-                                        double3 posB, size_t typeB, std::span<const Atom> frameworkAtoms);
-
-std::tuple<double, std::array<double,3>, std::array<std::array<double,3>,3>, std::array<std::array<std::array<double,3>,3>,3>,
-  std::array<std::array<std::array<std::array<double,3>,3>,3>,3>,
-  std::array<std::array<std::array<std::array<std::array<double,3>,3>,3>,3>,3>,
-  std::array<std::array<std::array<std::array<std::array<std::array<double,3>,3>,3>,3>,3>,3>>
-  calculateSixthDerivativeAtPositionVDW(const ForceField &forceField, const SimulationBox &simulationBox,
-                                        double3 posA, size_t typeA, std::span<const Atom> frameworkAtoms);
-
-std::tuple<double, double3, double3x3, double3x3x3> 
-  calculateThirdDerivativeAtPositionCoulomb(const ForceField &forceField, const SimulationBox &simulationBox,
-                                            double3 posB, double chargeB, std::span<const Atom> frameworkAtoms);
-
-
-std::array<double, 8> calculateTricubicCartesianAtPositionVDW(const ForceField &forceField, const SimulationBox &simulationBox,
-                                                              double3 posA, size_t typeA, std::span<const Atom> frameworkAtoms);
-
-std::array<double, 8> calculateTricubicFractionalAtPositionVDW(const ForceField &forceField, const SimulationBox &simulationBox,
-                                                               double3 posA, size_t typeA, std::span<const Atom> frameworkAtoms);
-
-std::array<double, 27> calculateTriquinticCartesianAtPositionVDW(const ForceField &forceField, const SimulationBox &simulationBox,
-                                                                 double3 posA, size_t typeA, std::span<const Atom> frameworkAtoms);
-
-std::array<double, 27> calculateTriquinticFractionalAtPositionVDW(const ForceField &forceField, const SimulationBox &simulationBox,
-                                                                  double3 posA, size_t typeA, std::span<const Atom> frameworkAtoms);
 };  // namespace Interactions

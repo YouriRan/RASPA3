@@ -1,11 +1,11 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
@@ -57,11 +57,10 @@ import <unordered_map>;
 
 import archive;
 
-std::string toLower(const std::string& str)
+std::string toLower(const std::string &str)
 {
   std::string result = str;
-  std::transform(result.begin(), result.end(), result.begin(),
-                [](unsigned char c) { return std::tolower(c); });
+  std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) { return std::tolower(c); });
   return result;
 }
 
@@ -91,9 +90,8 @@ VDWParameters::Type VDWParameters::stringToEnum(const std::string interactionTyp
 bool VDWParameters::operator==(const VDWParameters &other) const
 {
   return (parameters == other.parameters && shift == other.shift &&
-          tailCorrectionEnergy == other.tailCorrectionEnergy && 
-          tailCorrectionPressure == other.tailCorrectionPressure && 
-          type == other.type);
+          tailCorrectionEnergy == other.tailCorrectionEnergy &&
+          tailCorrectionPressure == other.tailCorrectionPressure && type == other.type);
 }
 
 Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const VDWParameters &p)
@@ -103,6 +101,10 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const VDWPar
   archive << p.tailCorrectionEnergy;
   archive << p.tailCorrectionPressure;
   archive << p.type;
+
+#if DEBUG_ARCHIVE
+  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
 
   return archive;
 }
@@ -114,6 +116,15 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, VDWParameter
   archive >> p.tailCorrectionEnergy;
   archive >> p.tailCorrectionPressure;
   archive >> p.type;
+
+#if DEBUG_ARCHIVE
+  uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("VDWParameters: Error in binary restart\n"));
+  }
+#endif
 
   return archive;
 }

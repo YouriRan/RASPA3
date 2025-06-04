@@ -1,7 +1,6 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -28,7 +27,7 @@ module;
 #include <tuple>
 #include <vector>
 #if defined(__has_include) && __has_include(<mdspan>)
-  #include <mdspan>
+#include <mdspan>
 #endif
 #endif
 
@@ -119,6 +118,7 @@ import reactions;
 import cbmc;
 import cbmc_chain_data;
 import interactions_framework_molecule;
+import interactions_framework_molecule_grid;
 import interactions_intermolecular;
 import interactions_ewald;
 import equation_of_states;
@@ -128,7 +128,7 @@ import integrators;
 import integrators_compute;
 import integrators_update;
 #if !(defined(__has_include) && __has_include(<mdspan>))
-  import mdspan;
+import mdspan;
 #endif
 
 // construct System programmatically
@@ -138,7 +138,7 @@ import integrators_update;
  *  Detailed description starts here.
  */
 System::System(size_t id, ForceField forcefield, std::optional<SimulationBox> box, double T, std::optional<double> P,
-               double heliumVoidFraction, std::vector<Framework> f, std::vector<Component> c,
+               double heliumVoidFraction, std::optional<Framework> f, std::vector<Component> c,
                std::vector<size_t> initialNumberOfMolecules, size_t numberOfBlocks,
                const MCMoveProbabilities& systemProbabilities, std::optional<size_t> sampleMoviesEvery)
     : systemId(id),
@@ -147,7 +147,7 @@ System::System(size_t id, ForceField forcefield, std::optional<SimulationBox> bo
       input_pressure(P.value_or(0.0)),
       beta(1.0 / (Units::KB * T)),
       heliumVoidFraction(heliumVoidFraction),
-      frameworkComponents(f),
+      framework(f),
       components(c),
       loadings(c.size()),
       swappableComponents(),
@@ -167,20 +167,21 @@ System::System(size_t id, ForceField forcefield, std::optional<SimulationBox> bo
       atomPositions({}),
       moleculePositions({}),
       runningEnergies(),
-      currentEnergyStatus(1, f.size(), c.size()),
+      currentEnergyStatus(1, f.has_value() ? 1 : 0, c.size()),
       netChargePerComponent(c.size()),
       mc_moves_probabilities(systemProbabilities),
       mc_moves_statistics(),
       reactions(),
       tmmc(),
-      averageEnergies(numberOfBlocks, 1, f.size(), c.size()),
+      averageEnergies(numberOfBlocks, 1, f.has_value() ? 1 : 0, c.size()),
       averageLoadings(numberOfBlocks, c.size()),
       averageEnthalpiesOfAdsorption(numberOfBlocks, c.size()),
       averageTemperature(numberOfBlocks),
       averageTranslationalTemperature(numberOfBlocks),
       averageRotationalTemperature(numberOfBlocks),
       averagePressure(numberOfBlocks),
-      averageSimulationBox(numberOfBlocks)
+      averageSimulationBox(numberOfBlocks),
+      interpolationGrids(forceField.pseudoAtoms.size() + 1, std::nullopt)
 {
   if (box.has_value())
   {
@@ -195,7 +196,10 @@ System::System(size_t id, ForceField forcefield, std::optional<SimulationBox> bo
   computeNumberOfPseudoAtoms();
 
   createFrameworks();
-  determineSimulationBox();
+  if (framework.has_value())
+  {
+    simulationBox = framework->simulationBox.scaled(framework->numberOfUnitCells);
+  }
 
   forceField.initializeEwaldParameters(simulationBox);
 
@@ -204,13 +208,11 @@ System::System(size_t id, ForceField forcefield, std::optional<SimulationBox> bo
 
   precomputeTotalRigidEnergy();
 
-  RandomNumber random(1400);
-
   translationalCenterOfMassConstraint = 0;
   translationalDegreesOfFreedom = 0;
   rotationalDegreesOfFreedom = 0;
 
-  createInitialMolecules(random);
+  createInitialMolecules();
 
   equationOfState =
       EquationOfState(EquationOfState::Type::PengRobinson, EquationOfState::MultiComponentMixingRules::VanDerWaals, T,
@@ -224,7 +226,7 @@ System::System(size_t id, ForceField forcefield, std::optional<SimulationBox> bo
   }
 }
 
-System::System(size_t id, double T, std::optional<double> P, double heliumVoidFraction, std::vector<Framework> f,
+System::System(size_t id, double T, std::optional<double> P, double heliumVoidFraction, std::optional<Framework> f,
                std::vector<Component> c)
     : systemId(id),
       temperature(T),
@@ -232,7 +234,7 @@ System::System(size_t id, double T, std::optional<double> P, double heliumVoidFr
       input_pressure(P.value_or(0.0)),
       beta(1.0 / (Units::KB * T)),
       heliumVoidFraction(heliumVoidFraction),
-      frameworkComponents(f),
+      framework(f),
       components(c)
 {
 }
@@ -240,9 +242,9 @@ System::System(size_t id, double T, std::optional<double> P, double heliumVoidFr
 void System::createFrameworks()
 {
   netChargeFramework = 0.0;
-  for (Framework& framework : frameworkComponents)
+  if (framework.has_value())
   {
-    const std::vector<Atom>& atoms = framework.atoms;
+    const std::vector<Atom>& atoms = framework->atoms;
     for (const Atom& atom : atoms)
     {
       atomPositions.push_back(atom);
@@ -252,20 +254,16 @@ void System::createFrameworks()
     }
     numberOfFrameworkAtoms += atoms.size();
     numberOfRigidFrameworkAtoms += atoms.size();
-    netChargeFramework += framework.netCharge;
-    netCharge += framework.netCharge;
+    netChargeFramework += framework->netCharge;
+    netCharge += framework->netCharge;
   }
 }
 
 std::optional<double> System::frameworkMass() const
 {
-  if (frameworkComponents.empty()) return std::nullopt;
+  if (!framework.has_value()) return std::nullopt;
 
-  double mass = 0.0;
-  for (const Framework& framework : frameworkComponents)
-  {
-    mass += framework.mass;
-  }
+  double mass = framework->mass;
   for (size_t i = 0; i < components.size(); ++i)
   {
     if (components[i].type == Component::Type::Cation)
@@ -274,15 +272,6 @@ std::optional<double> System::frameworkMass() const
     }
   }
   return mass;
-}
-
-void System::determineSimulationBox()
-{
-  for (Framework& framework : frameworkComponents)
-  {
-    // For multiple framework, the simulation box is the union of the boxes
-    simulationBox = max(simulationBox, framework.simulationBox.scaled(framework.numberOfUnitCells));
-  }
 }
 
 void System::insertFractionalMolecule(size_t selectedComponent, [[maybe_unused]] const Molecule& molecule,
@@ -462,8 +451,10 @@ void System::checkMoleculeIds()
   }
 }
 
-void System::createInitialMolecules([[maybe_unused]] RandomNumber& random)
+void System::createInitialMolecules()
 {
+  RandomNumber random(std::nullopt);
+
   for (size_t componentId = 0; const Component& component : components)
   {
     if (component.swappable)
@@ -476,8 +467,8 @@ void System::createInitialMolecules([[maybe_unused]] RandomNumber& random)
         {
           Component::GrowType growType = components[componentId].growType;
           growData = CBMC::growMoleculeSwapInsertion(
-              random, frameworkComponents, components[componentId], hasExternalField, components, forceField,
-              simulationBox, spanOfFrameworkAtoms(), spanOfMoleculeAtoms(), beta, growType,
+              random, components[componentId], hasExternalField, components, forceField, simulationBox,
+              interpolationGrids, framework, spanOfFrameworkAtoms(), spanOfMoleculeAtoms(), beta, growType,
               forceField.cutOffFrameworkVDW, forceField.cutOffMoleculeVDW, forceField.cutOffCoulomb, componentId,
               numberOfMoleculesPerComponent[componentId], 0.0, 1uz, numberOfTrialDirections);
         } while (!growData || growData->energies.potentialEnergy() > forceField.overlapCriteria);
@@ -496,8 +487,8 @@ void System::createInitialMolecules([[maybe_unused]] RandomNumber& random)
         {
           Component::GrowType growType = components[componentId].growType;
           growData = CBMC::growMoleculeSwapInsertion(
-              random, frameworkComponents, components[componentId], hasExternalField, components, forceField,
-              simulationBox, spanOfFrameworkAtoms(), spanOfMoleculeAtoms(), beta, growType,
+              random, components[componentId], hasExternalField, components, forceField, simulationBox,
+              interpolationGrids, framework, spanOfFrameworkAtoms(), spanOfMoleculeAtoms(), beta, growType,
               forceField.cutOffFrameworkVDW, forceField.cutOffMoleculeVDW, forceField.cutOffCoulomb, componentId,
               numberOfMoleculesPerComponent[componentId], 1.0, 0uz, numberOfTrialDirections);
 
@@ -516,19 +507,19 @@ void System::createInitialMolecules([[maybe_unused]] RandomNumber& random)
 
 bool System::insideBlockedPockets(const Component& component, std::span<const Atom> molecule_atoms) const
 {
-  for (const Framework& framework : frameworkComponents)
+  if (framework.has_value())
   {
     for (size_t i = 0; i != component.blockingPockets.size(); ++i)
     {
       double radius_squared = component.blockingPockets[i].w * component.blockingPockets[i].w;
       double3 pos =
-          framework.simulationBox.cell *
+          framework->simulationBox.cell *
           double3(component.blockingPockets[i].x, component.blockingPockets[i].y, component.blockingPockets[i].z);
       for (const Atom& atom : molecule_atoms)
       {
         double lambda = atom.scalingVDW;
         double3 dr = atom.position - pos;
-        dr = framework.simulationBox.applyPeriodicBoundaryConditions(dr);
+        dr = framework->simulationBox.applyPeriodicBoundaryConditions(dr);
         if (dr.length_squared() < lambda * radius_squared)
         {
           return true;
@@ -1137,64 +1128,67 @@ std::string System::writeProductionStatusReportMC(size_t currentCycle, size_t nu
   std::print(stream, "\n");
   double conv = Units::EnergyToKelvin;
 
-  std::pair<double3x3, double3x3> currentPressureTensor = averagePressure.averagePressureTensor();
-
-  switch (Units::unitSystem)
+  if(!(framework.has_value() && framework->rigid))
   {
-    case Units::System::RASPA:
+    std::pair<double3x3, double3x3> currentPressureTensor = averagePressure.averagePressureTensor();
+
+    switch (Units::unitSystem)
     {
-      double3x3 pressureTensor = 1e-5 * Units::PressureConversionFactor * currentPressureTensor.first;
-      double3x3 pressureTensorError = 1e-5 * Units::PressureConversionFactor * currentPressureTensor.second;
-      std::print(stream, "Average pressure tensor: \n");
-      std::print(stream, "-------------------------------------------------------------------------------\n");
-      std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [bar]\n", pressureTensor.ax,
-                 pressureTensor.bx, pressureTensor.cx, pressureTensorError.ax, pressureTensorError.bx,
-                 pressureTensorError.cx);
-      std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [bar]\n", pressureTensor.ay,
-                 pressureTensor.by, pressureTensor.cy, pressureTensorError.ay, pressureTensorError.by,
-                 pressureTensorError.cy);
-      std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [bar]\n", pressureTensor.az,
-                 pressureTensor.bz, pressureTensor.cz, pressureTensorError.az, pressureTensorError.bz,
-                 pressureTensorError.cz);
-      std::pair<double, double> idealGasPressure = averagePressure.averageIdealGasPressure();
-      std::pair<double, double> excessPressure = averagePressure.averageExcessPressure();
-      std::pair<double, double> p = averagePressure.averagePressure();
-      std::print(stream, "Ideal-gas pressure:  {: .6e} +/ {:.6e} [bar]\n",
-                 1e-5 * Units::PressureConversionFactor * idealGasPressure.first,
-                 1e-5 * Units::PressureConversionFactor * idealGasPressure.second);
-      std::print(stream, "Excess pressure:     {: .6e} +/ {:.6e} [bar]\n",
-                 1e-5 * Units::PressureConversionFactor * excessPressure.first,
-                 1e-5 * Units::PressureConversionFactor * excessPressure.second);
-      std::print(stream, "Pressure:            {: .6e} +/ {:.6e} [bar]\n\n",
-                 1e-5 * Units::PressureConversionFactor * p.first, 1e-5 * Units::PressureConversionFactor * p.second);
+      case Units::System::RASPA:
+      {
+        double3x3 pressureTensor = 1e-5 * Units::PressureConversionFactor * currentPressureTensor.first;
+        double3x3 pressureTensorError = 1e-5 * Units::PressureConversionFactor * currentPressureTensor.second;
+        std::print(stream, "Average pressure tensor: \n");
+        std::print(stream, "-------------------------------------------------------------------------------\n");
+        std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [bar]\n", pressureTensor.ax,
+                   pressureTensor.bx, pressureTensor.cx, pressureTensorError.ax, pressureTensorError.bx,
+                   pressureTensorError.cx);
+        std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [bar]\n", pressureTensor.ay,
+                   pressureTensor.by, pressureTensor.cy, pressureTensorError.ay, pressureTensorError.by,
+                   pressureTensorError.cy);
+        std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [bar]\n", pressureTensor.az,
+                   pressureTensor.bz, pressureTensor.cz, pressureTensorError.az, pressureTensorError.bz,
+                   pressureTensorError.cz);
+        std::pair<double, double> idealGasPressure = averagePressure.averageIdealGasPressure();
+        std::pair<double, double> excessPressure = averagePressure.averageExcessPressure();
+        std::pair<double, double> p = averagePressure.averagePressure();
+        std::print(stream, "Ideal-gas pressure:  {: .6e} +/ {:.6e} [bar]\n",
+                   1e-5 * Units::PressureConversionFactor * idealGasPressure.first,
+                   1e-5 * Units::PressureConversionFactor * idealGasPressure.second);
+        std::print(stream, "Excess pressure:     {: .6e} +/ {:.6e} [bar]\n",
+                   1e-5 * Units::PressureConversionFactor * excessPressure.first,
+                   1e-5 * Units::PressureConversionFactor * excessPressure.second);
+        std::print(stream, "Pressure:            {: .6e} +/ {:.6e} [bar]\n\n",
+                   1e-5 * Units::PressureConversionFactor * p.first, 1e-5 * Units::PressureConversionFactor * p.second);
+      }
+      break;
+      case Units::System::ReducedUnits:
+      {
+        double3x3 pressureTensor = currentPressureTensor.first;
+        double3x3 pressureTensorError = currentPressureTensor.second;
+        std::print(stream, "Average pressure tensor: \n");
+        std::print(stream, "-------------------------------------------------------------------------------\n");
+        std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [{}]\n", pressureTensor.ax,
+                   pressureTensor.bx, pressureTensor.cx, pressureTensorError.ax, pressureTensorError.bx,
+                   pressureTensorError.cx, Units::unitOfPressureString);
+        std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [{}]\n", pressureTensor.ay,
+                   pressureTensor.by, pressureTensor.cy, pressureTensorError.ay, pressureTensorError.by,
+                   pressureTensorError.cy, Units::unitOfPressureString);
+        std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [{}]\n", pressureTensor.az,
+                   pressureTensor.bz, pressureTensor.cz, pressureTensorError.az, pressureTensorError.bz,
+                   pressureTensorError.cz, Units::unitOfPressureString);
+        std::pair<double, double> idealGasPressure = averagePressure.averageIdealGasPressure();
+        std::pair<double, double> excessPressure = averagePressure.averageExcessPressure();
+        std::pair<double, double> p = averagePressure.averagePressure();
+        std::print(stream, "Ideal-gas pressure:  {: .6e} +/ {:.6e} [{}]\n", idealGasPressure.first,
+                   idealGasPressure.second, Units::unitOfPressureString);
+        std::print(stream, "Excess pressure:     {: .6e} +/ {:.6e} [{}]\n", excessPressure.first, excessPressure.second,
+                   Units::unitOfPressureString);
+        std::print(stream, "Pressure:            {: .6e} +/ {:.6e} [{}]\n\n", p.first, p.second,
+                   Units::unitOfPressureString);
+      }
+      break;
     }
-    break;
-    case Units::System::ReducedUnits:
-    {
-      double3x3 pressureTensor = currentPressureTensor.first;
-      double3x3 pressureTensorError = currentPressureTensor.second;
-      std::print(stream, "Average pressure tensor: \n");
-      std::print(stream, "-------------------------------------------------------------------------------\n");
-      std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [{}]\n", pressureTensor.ax,
-                 pressureTensor.bx, pressureTensor.cx, pressureTensorError.ax, pressureTensorError.bx,
-                 pressureTensorError.cx, Units::unitOfPressureString);
-      std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [{}]\n", pressureTensor.ay,
-                 pressureTensor.by, pressureTensor.cy, pressureTensorError.ay, pressureTensorError.by,
-                 pressureTensorError.cy, Units::unitOfPressureString);
-      std::print(stream, "{: .4e} {: .4e} {: .4e} +/- {:.4e} {:.4e} {:.4e} [{}]\n", pressureTensor.az,
-                 pressureTensor.bz, pressureTensor.cz, pressureTensorError.az, pressureTensorError.bz,
-                 pressureTensorError.cz, Units::unitOfPressureString);
-      std::pair<double, double> idealGasPressure = averagePressure.averageIdealGasPressure();
-      std::pair<double, double> excessPressure = averagePressure.averageExcessPressure();
-      std::pair<double, double> p = averagePressure.averagePressure();
-      std::print(stream, "Ideal-gas pressure:  {: .6e} +/ {:.6e} [{}]\n", idealGasPressure.first,
-                 idealGasPressure.second, Units::unitOfPressureString);
-      std::print(stream, "Excess pressure:     {: .6e} +/ {:.6e} [{}]\n", excessPressure.first, excessPressure.second,
-                 Units::unitOfPressureString);
-      std::print(stream, "Pressure:            {: .6e} +/ {:.6e} [{}]\n\n", p.first, p.second,
-                 Units::unitOfPressureString);
-    }
-    break;
   }
 
   std::pair<EnergyStatus, EnergyStatus> energyData = averageEnergies.averageEnergy();
@@ -1474,9 +1468,9 @@ std::string System::writeComponentStatus() const
 
   std::print(stream, "Component definitions\n");
   std::print(stream, "===============================================================================\n\n");
-  for (const Framework& component : frameworkComponents)
+  if (framework.has_value())
   {
-    std::print(stream, "{}", component.printStatus(forceField));
+    std::print(stream, "{}", framework->printStatus(forceField));
   }
   for (const Component& component : components)
   {
@@ -1490,9 +1484,9 @@ std::string System::writeComponentStatus() const
 nlohmann::json System::jsonComponentStatus() const
 {
   nlohmann::json status;
-  for (const Framework& component : frameworkComponents)
+  if (framework.has_value())
   {
-    status[component.name] = component.jsonStatus();
+    status[framework->name] = framework->jsonStatus();
   }
   for (const Component& component : components)
   {
@@ -1617,7 +1611,7 @@ void System::sampleProperties(size_t currentBlock, size_t currentCycle)
 
   if (propertyDensityGrid.has_value())
   {
-    propertyDensityGrid->sample(frameworkComponents, simulationBox, spanOfMoleculeAtoms(), currentCycle);
+    propertyDensityGrid->sample(framework, simulationBox, spanOfMoleculeAtoms(), currentCycle);
   }
 
   if (propertyAutocorrelation.contains("PotentialEnergy"))
@@ -1706,7 +1700,8 @@ void System::precomputeTotalGradients() noexcept
 {
   runningEnergies = Integrators::updateGradients(spanOfMoleculeAtoms(), spanOfFrameworkAtoms(), forceField,
                                                  simulationBox, components, eik_x, eik_y, eik_z, eik_xy, totalEik,
-                                                 fixedFrameworkStoredEik, numberOfMoleculesPerComponent);
+                                                 fixedFrameworkStoredEik, interpolationGrids,
+                                                 numberOfMoleculesPerComponent);
 }
 
 RunningEnergy System::computeTotalEnergies() noexcept
@@ -1750,7 +1745,7 @@ RunningEnergy System::computeTotalEnergies() noexcept
   else
   {
     RunningEnergy frameworkMoleculeEnergy = Interactions::computeFrameworkMoleculeEnergy(
-        forceField, simulationBox, frameworkAtomPositions, moleculeAtomPositions);
+        forceField, simulationBox, interpolationGrids, framework, frameworkAtomPositions, moleculeAtomPositions);
     RunningEnergy intermolecularEnergy =
         Interactions::computeInterMolecularEnergy(forceField, simulationBox, moleculeAtomPositions);
 
@@ -1839,9 +1834,9 @@ std::pair<EnergyStatus, double3x3> System::computeMolecularPressure() noexcept
   {
     atom.gradient = double3(0.0, 0.0, 0.0);
   }
-
+  
   std::pair<EnergyStatus, double3x3> pressureInfo = Interactions::computeFrameworkMoleculeEnergyStrainDerivative(
-      forceField, frameworkComponents, components, simulationBox, spanOfFrameworkAtoms(), spanOfMoleculeAtoms());
+    forceField, framework, interpolationGrids, components, simulationBox, spanOfFrameworkAtoms(), spanOfMoleculeAtoms());
 
   pressureInfo = pair_acc(pressureInfo, Interactions::computeInterMolecularEnergyStrainDerivative(
                                             forceField, components, simulationBox, spanOfMoleculeAtoms()));
@@ -1849,7 +1844,7 @@ std::pair<EnergyStatus, double3x3> System::computeMolecularPressure() noexcept
   pressureInfo = pair_acc(
       pressureInfo, Interactions::computeEwaldFourierEnergyStrainDerivative(
                         eik_x, eik_y, eik_z, eik_xy, fixedFrameworkStoredEik, storedEik, forceField, simulationBox,
-                        frameworkComponents, components, numberOfMoleculesPerComponent, spanOfMoleculeAtoms(),
+                        framework, components, numberOfMoleculesPerComponent, spanOfMoleculeAtoms(),
                         CoulombicFourierEnergySingleIon, netChargeFramework, netChargePerComponent));
 
   pressureInfo.first.sumTotal();
@@ -1876,7 +1871,7 @@ std::pair<EnergyStatus, double3x3> System::computeMolecularPressure() noexcept
   pressureInfo.second.ax -= pressureTailCorrection;
   pressureInfo.second.by -= pressureTailCorrection;
   pressureInfo.second.cz -= pressureTailCorrection;
-
+  
   // Correct rigid molecule contribution using the constraints forces
   double3x3 correctionTerm{};
   for (size_t componentId = 0; componentId < components.size(); ++componentId)
@@ -1922,7 +1917,7 @@ std::pair<EnergyStatus, double3x3> System::computeMolecularPressure() noexcept
   pressureInfo.second.az = pressureInfo.second.cx = temp;
   temp = 0.5 * (pressureInfo.second.bz + pressureInfo.second.cy);
   pressureInfo.second.bz = pressureInfo.second.cy = temp;
-
+  
   return pressureInfo;
 }
 
@@ -1998,6 +1993,641 @@ std::string System::writeMCMoveStatistics() const
   return stream.str();
 }
 
+void System::createInterpolationGrids(std::ostream& stream)
+{
+  // use local random-number generator (so that it does not interfere with a binary-restart)
+  RandomNumber random{std::nullopt};
+
+  if (framework.has_value())
+  {
+    int3 numberOfCoulombGridPoints{};
+    if (forceField.numberOfVDWGridPoints.has_value())
+    {
+      numberOfCoulombGridPoints = forceField.numberOfCoulombGridPoints.value();
+    }
+    else
+    {
+      const double3 perpendicular_widths = framework->simulationBox.perpendicularWidths();
+      numberOfCoulombGridPoints.x = static_cast<int32_t>(perpendicular_widths.x / forceField.spacingCoulombGrid + 0.5);
+      numberOfCoulombGridPoints.y = static_cast<int32_t>(perpendicular_widths.y / forceField.spacingCoulombGrid + 0.5);
+      numberOfCoulombGridPoints.z = static_cast<int32_t>(perpendicular_widths.z / forceField.spacingCoulombGrid + 0.5);
+    }
+
+    // also create a Charge grid when needed
+    if (!forceField.gridPseudoAtomIndices.empty())
+    {
+      std::print(stream, "Generating an Ewald Real interpolation grid ({}x{}x{}) for a unit charge\n",
+                 numberOfCoulombGridPoints.x, numberOfCoulombGridPoints.y, numberOfCoulombGridPoints.z);
+      std::print(stream, "===============================================================================\n");
+
+      interpolationGrids.back() =
+          InterpolationEnergyGrid(framework->simulationBox, numberOfCoulombGridPoints, forceField.interpolationScheme);
+      interpolationGrids.back()->makeInterpolationGrid(stream, ForceField::InterpolationGridType::EwaldReal, forceField,
+                                                       framework.value(), forceField.cutOffCoulomb, 0);
+    }
+
+    int3 numberOfVDWGridPoints{};
+    if (forceField.numberOfVDWGridPoints.has_value())
+    {
+      numberOfVDWGridPoints = forceField.numberOfVDWGridPoints.value();
+    }
+    else
+    {
+      const double3 perpendicular_widths = framework->simulationBox.perpendicularWidths();
+      numberOfVDWGridPoints.x = static_cast<int32_t>(perpendicular_widths.x / forceField.spacingVDWGrid + 0.5);
+      numberOfVDWGridPoints.y = static_cast<int32_t>(perpendicular_widths.y / forceField.spacingVDWGrid + 0.5);
+      numberOfVDWGridPoints.z = static_cast<int32_t>(perpendicular_widths.z / forceField.spacingVDWGrid + 0.5);
+    }
+
+    size_t numberOfGridTestPoints = forceField.numberOfGridTestPoints;
+    for (const size_t& index : forceField.gridPseudoAtomIndices)
+    {
+      std::print(stream, "Generating an VDW interpolation grid ({}x{}x{}) for {}\n", numberOfVDWGridPoints.x,
+                 numberOfVDWGridPoints.y, numberOfVDWGridPoints.z, forceField.pseudoAtoms[index].name);
+      std::print(stream, "===============================================================================\n");
+
+      interpolationGrids[index] =
+          InterpolationEnergyGrid(framework->simulationBox, numberOfVDWGridPoints, forceField.interpolationScheme);
+      interpolationGrids[index]->makeInterpolationGrid(stream, ForceField::InterpolationGridType::LennardJones,
+                                                       forceField, framework.value(), forceField.cutOffFrameworkVDW, index);
+
+      double boltzmann_weight_summed_vdw{};
+      double boltzmann_weighted_energy_full_summed_vdw{};
+      double boltzmann_weighted_energy_interpolated_summed_vdw{};
+      double boltzmann_weighted_difference_squared_summed_vdw{};
+      double boltzmann_weighted_full_squared_summed_vdw{};
+
+      double3 boltzmann_weighted_gradient_full_summed_vdw{};
+      double3 boltzmann_weighted_gradient_interpolated_summed_vdw{};
+      double3 boltzmann_weighted_difference_squared_summed_vdw_gradient{};
+      double3 boltzmann_weighted_full_squared_summed_vdw_gradient{};
+
+      double3x3 boltzmann_weighted_hessian_full_summed_vdw{};
+      double3x3 boltzmann_weighted_hessian_interpolated_summed_vdw{};
+      double3x3 boltzmann_weighted_difference_squared_summed_vdw_hessian{};
+      double3x3 boltzmann_weighted_full_squared_summed_vdw_hessian{};
+
+      double boltzmann_weight_summed_real_ewald{};
+      double boltzmann_weighted_energy_full_summed_real_ewald{};
+      double boltzmann_weighted_energy_interpolated_summed_real_ewald{};
+      double boltzmann_weighted_difference_squared_summed_real_ewald{};
+      double boltzmann_weighted_full_squared_summed_real_ewald{};
+
+      double3 boltzmann_weighted_gradient_full_summed_real_ewald{};
+      double3 boltzmann_weighted_gradient_interpolated_summed_real_ewald{};
+      double3 boltzmann_weighted_difference_squared_summed_real_ewald_gradient{};
+      double3 boltzmann_weighted_full_squared_summed_real_ewald_gradient{};
+
+      double3x3 boltzmann_weighted_hessian_full_summed_real_ewald{};
+      double3x3 boltzmann_weighted_hessian_interpolated_summed_real_ewald{};
+      double3x3 boltzmann_weighted_difference_squared_summed_real_ewald_hessian{};
+      double3x3 boltzmann_weighted_full_squared_summed_real_ewald_hessian{};
+
+      for (size_t i = 0; i < numberOfGridTestPoints; ++i)
+      {
+        // generate random position in super cell
+        double3 s = double3(random.uniform(), random.uniform(), random.uniform());
+        double3 pos = simulationBox.cell * s;
+
+        auto [interpolated_energy_vdw, interpolated_gradient_vdw, interpolated_hessian_vdw] =
+            interpolationGrids[index]->interpolateHessian(pos);
+
+        // convert to Kelvin
+        interpolated_energy_vdw *= Units::EnergyToKelvin;
+        interpolated_gradient_vdw.x *= Units::EnergyToKelvin;
+        interpolated_gradient_vdw.y *= Units::EnergyToKelvin;
+        interpolated_gradient_vdw.z *= Units::EnergyToKelvin;
+        interpolated_hessian_vdw.ax *= Units::EnergyToKelvin;
+        interpolated_hessian_vdw.ay *= Units::EnergyToKelvin;
+        interpolated_hessian_vdw.az *= Units::EnergyToKelvin;
+        interpolated_hessian_vdw.bx *= Units::EnergyToKelvin;
+        interpolated_hessian_vdw.by *= Units::EnergyToKelvin;
+        interpolated_hessian_vdw.bz *= Units::EnergyToKelvin;
+        interpolated_hessian_vdw.cx *= Units::EnergyToKelvin;
+        interpolated_hessian_vdw.cy *= Units::EnergyToKelvin;
+        interpolated_hessian_vdw.cz *= Units::EnergyToKelvin;
+
+        double analytical_vdw_energy{};
+        double3 analytical_vdw_gradient{};
+        double3x3 analytical_vdw_hessian{};
+        switch (forceField.interpolationScheme)
+        {
+          case ForceField::InterpolationScheme::Tricubic:
+          {
+            std::array<double, 8> analytical_vdw_tricubic = Interactions::calculateTricubicFractionalAtPosition(
+                ForceField::InterpolationGridType::LennardJones, forceField, simulationBox, pos, index,
+                framework->simulationBox, spanOfFrameworkAtoms());
+
+            analytical_vdw_energy = analytical_vdw_tricubic[0] * Units::EnergyToKelvin;
+
+            // convert gradient from fractional to Cartesian
+            analytical_vdw_gradient =
+                framework->simulationBox.inverseCell.transpose() *
+                double3(analytical_vdw_tricubic[1], analytical_vdw_tricubic[2], analytical_vdw_tricubic[3]);
+
+            analytical_vdw_gradient.x *= Units::EnergyToKelvin;
+            analytical_vdw_gradient.y *= Units::EnergyToKelvin;
+            analytical_vdw_gradient.z *= Units::EnergyToKelvin;
+          }
+          break;
+          case ForceField::InterpolationScheme::Triquintic:
+          {
+            std::array<double, 27> analytical_vdw_triquintic = Interactions::calculateTriquinticFractionalAtPosition(
+                ForceField::InterpolationGridType::LennardJones, forceField, simulationBox, pos, index,
+                framework->simulationBox, spanOfFrameworkAtoms());
+
+            analytical_vdw_energy = analytical_vdw_triquintic[0] * Units::EnergyToKelvin;
+
+            // convert gradient from fractional to Cartesian
+            analytical_vdw_gradient =
+                framework->simulationBox.inverseCell.transpose() *
+                double3(analytical_vdw_triquintic[1], analytical_vdw_triquintic[2], analytical_vdw_triquintic[3]);
+
+            analytical_vdw_gradient.x *= Units::EnergyToKelvin;
+            analytical_vdw_gradient.y *= Units::EnergyToKelvin;
+            analytical_vdw_gradient.z *= Units::EnergyToKelvin;
+
+            double3x3 hessian =
+                double3x3(analytical_vdw_triquintic[4], analytical_vdw_triquintic[5], analytical_vdw_triquintic[6],
+                          analytical_vdw_triquintic[5], analytical_vdw_triquintic[7], analytical_vdw_triquintic[8],
+                          analytical_vdw_triquintic[6], analytical_vdw_triquintic[8], analytical_vdw_triquintic[9]);
+            analytical_vdw_hessian =
+                framework->simulationBox.inverseCell.transpose() * hessian * framework->simulationBox.inverseCell;
+
+            analytical_vdw_hessian.ax *= Units::EnergyToKelvin;
+            analytical_vdw_hessian.ay *= Units::EnergyToKelvin;
+            analytical_vdw_hessian.az *= Units::EnergyToKelvin;
+            analytical_vdw_hessian.bx *= Units::EnergyToKelvin;
+            analytical_vdw_hessian.by *= Units::EnergyToKelvin;
+            analytical_vdw_hessian.bz *= Units::EnergyToKelvin;
+            analytical_vdw_hessian.cx *= Units::EnergyToKelvin;
+            analytical_vdw_hessian.cy *= Units::EnergyToKelvin;
+            analytical_vdw_hessian.cz *= Units::EnergyToKelvin;
+          }
+          break;
+        }
+
+        double boltzmann_weight_vdw = std::exp(-beta * analytical_vdw_energy);
+
+        boltzmann_weight_summed_vdw += boltzmann_weight_vdw;
+
+        boltzmann_weighted_energy_interpolated_summed_vdw += interpolated_energy_vdw * boltzmann_weight_vdw;
+        boltzmann_weighted_energy_full_summed_vdw += analytical_vdw_energy * boltzmann_weight_vdw;
+        boltzmann_weighted_difference_squared_summed_vdw += (analytical_vdw_energy - interpolated_energy_vdw) *
+                                                            (analytical_vdw_energy - interpolated_energy_vdw) *
+                                                            boltzmann_weight_vdw;
+        boltzmann_weighted_full_squared_summed_vdw +=
+            analytical_vdw_energy * analytical_vdw_energy * boltzmann_weight_vdw;
+
+        // gradient
+        boltzmann_weighted_gradient_interpolated_summed_vdw.x += interpolated_gradient_vdw.x * boltzmann_weight_vdw;
+        boltzmann_weighted_gradient_interpolated_summed_vdw.y += interpolated_gradient_vdw.y * boltzmann_weight_vdw;
+        boltzmann_weighted_gradient_interpolated_summed_vdw.z += interpolated_gradient_vdw.z * boltzmann_weight_vdw;
+
+        boltzmann_weighted_gradient_full_summed_vdw.x += analytical_vdw_gradient.x * boltzmann_weight_vdw;
+        boltzmann_weighted_gradient_full_summed_vdw.y += analytical_vdw_gradient.y * boltzmann_weight_vdw;
+        boltzmann_weighted_gradient_full_summed_vdw.z += analytical_vdw_gradient.z * boltzmann_weight_vdw;
+
+        boltzmann_weighted_difference_squared_summed_vdw_gradient.x +=
+            (analytical_vdw_gradient.x - interpolated_gradient_vdw.x) *
+            (analytical_vdw_gradient.x - interpolated_gradient_vdw.x) * boltzmann_weight_vdw;
+        boltzmann_weighted_difference_squared_summed_vdw_gradient.y +=
+            (analytical_vdw_gradient.y - interpolated_gradient_vdw.y) *
+            (analytical_vdw_gradient.y - interpolated_gradient_vdw.y) * boltzmann_weight_vdw;
+        boltzmann_weighted_difference_squared_summed_vdw_gradient.z +=
+            (analytical_vdw_gradient.z - interpolated_gradient_vdw.z) *
+            (analytical_vdw_gradient.z - interpolated_gradient_vdw.z) * boltzmann_weight_vdw;
+
+        boltzmann_weighted_full_squared_summed_vdw_gradient.x +=
+            analytical_vdw_gradient.x * analytical_vdw_gradient.x * boltzmann_weight_vdw;
+        boltzmann_weighted_full_squared_summed_vdw_gradient.y +=
+            analytical_vdw_gradient.y * analytical_vdw_gradient.y * boltzmann_weight_vdw;
+        boltzmann_weighted_full_squared_summed_vdw_gradient.z +=
+            analytical_vdw_gradient.z * analytical_vdw_gradient.z * boltzmann_weight_vdw;
+
+        // Hessian
+        boltzmann_weighted_hessian_interpolated_summed_vdw.ax += interpolated_hessian_vdw.ax * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_interpolated_summed_vdw.ay += interpolated_hessian_vdw.ay * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_interpolated_summed_vdw.az += interpolated_hessian_vdw.az * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_interpolated_summed_vdw.by += interpolated_hessian_vdw.by * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_interpolated_summed_vdw.bz += interpolated_hessian_vdw.bz * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_interpolated_summed_vdw.cz += interpolated_hessian_vdw.cz * boltzmann_weight_vdw;
+
+        boltzmann_weighted_hessian_full_summed_vdw.ax += analytical_vdw_hessian.ax * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_full_summed_vdw.ay += analytical_vdw_hessian.ay * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_full_summed_vdw.az += analytical_vdw_hessian.az * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_full_summed_vdw.by += analytical_vdw_hessian.by * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_full_summed_vdw.bz += analytical_vdw_hessian.bz * boltzmann_weight_vdw;
+        boltzmann_weighted_hessian_full_summed_vdw.cz += analytical_vdw_hessian.cz * boltzmann_weight_vdw;
+
+        boltzmann_weighted_difference_squared_summed_vdw_hessian.ax +=
+            (analytical_vdw_hessian.ax - interpolated_hessian_vdw.ax) *
+            (analytical_vdw_hessian.ax - interpolated_hessian_vdw.ax) * boltzmann_weight_vdw;
+        boltzmann_weighted_difference_squared_summed_vdw_hessian.ay +=
+            (analytical_vdw_hessian.ay - interpolated_hessian_vdw.ay) *
+            (analytical_vdw_hessian.ay - interpolated_hessian_vdw.ay) * boltzmann_weight_vdw;
+        boltzmann_weighted_difference_squared_summed_vdw_hessian.az +=
+            (analytical_vdw_hessian.az - interpolated_hessian_vdw.az) *
+            (analytical_vdw_hessian.az - interpolated_hessian_vdw.az) * boltzmann_weight_vdw;
+        boltzmann_weighted_difference_squared_summed_vdw_hessian.by +=
+            (analytical_vdw_hessian.by - interpolated_hessian_vdw.by) *
+            (analytical_vdw_hessian.by - interpolated_hessian_vdw.by) * boltzmann_weight_vdw;
+        boltzmann_weighted_difference_squared_summed_vdw_hessian.bz +=
+            (analytical_vdw_hessian.bz - interpolated_hessian_vdw.bz) *
+            (analytical_vdw_hessian.bz - interpolated_hessian_vdw.bz) * boltzmann_weight_vdw;
+        boltzmann_weighted_difference_squared_summed_vdw_hessian.cz +=
+            (analytical_vdw_hessian.cz - interpolated_hessian_vdw.cz) *
+            (analytical_vdw_hessian.cz - interpolated_hessian_vdw.cz) * boltzmann_weight_vdw;
+
+        boltzmann_weighted_full_squared_summed_vdw_hessian.ax +=
+            analytical_vdw_hessian.ax * analytical_vdw_hessian.ax * boltzmann_weight_vdw;
+        boltzmann_weighted_full_squared_summed_vdw_hessian.ay +=
+            analytical_vdw_hessian.ay * analytical_vdw_hessian.ay * boltzmann_weight_vdw;
+        boltzmann_weighted_full_squared_summed_vdw_hessian.az +=
+            analytical_vdw_hessian.az * analytical_vdw_hessian.az * boltzmann_weight_vdw;
+        boltzmann_weighted_full_squared_summed_vdw_hessian.by +=
+            analytical_vdw_hessian.by * analytical_vdw_hessian.by * boltzmann_weight_vdw;
+        boltzmann_weighted_full_squared_summed_vdw_hessian.bz +=
+            analytical_vdw_hessian.bz * analytical_vdw_hessian.bz * boltzmann_weight_vdw;
+        boltzmann_weighted_full_squared_summed_vdw_hessian.cz +=
+            analytical_vdw_hessian.cz * analytical_vdw_hessian.cz * boltzmann_weight_vdw;
+
+        // test charges when no VDW overlap detected (putting a unit charge on top of negative framework atom can lead
+        // to very negative energies)
+        if (analytical_vdw_energy < forceField.overlapCriteria)
+        {
+          double charge = forceField.pseudoAtoms[index].charge;
+          auto [interpolated_value_real_ewald, interpolated_gradient_real_ewald, interpolated_hessian_real_ewald] =
+              interpolationGrids.back()->interpolateHessian(pos);
+
+          interpolated_value_real_ewald *= (charge * Units::EnergyToKelvin);
+          interpolated_gradient_real_ewald.x *= (charge * Units::EnergyToKelvin);
+          interpolated_gradient_real_ewald.y *= (charge * Units::EnergyToKelvin);
+          interpolated_gradient_real_ewald.z *= (charge * Units::EnergyToKelvin);
+          interpolated_hessian_real_ewald.ax *= (charge * Units::EnergyToKelvin);
+          interpolated_hessian_real_ewald.ay *= (charge * Units::EnergyToKelvin);
+          interpolated_hessian_real_ewald.az *= (charge * Units::EnergyToKelvin);
+          interpolated_hessian_real_ewald.bx *= (charge * Units::EnergyToKelvin);
+          interpolated_hessian_real_ewald.by *= (charge * Units::EnergyToKelvin);
+          interpolated_hessian_real_ewald.bz *= (charge * Units::EnergyToKelvin);
+          interpolated_hessian_real_ewald.cx *= (charge * Units::EnergyToKelvin);
+          interpolated_hessian_real_ewald.cy *= (charge * Units::EnergyToKelvin);
+          interpolated_hessian_real_ewald.cz *= (charge * Units::EnergyToKelvin);
+
+          double analytical_real_ewald_energy{};
+          double3 analytical_real_ewald_gradient{};
+          double3x3 analytical_real_ewald_hessian{};
+          switch (forceField.interpolationScheme)
+          {
+            case ForceField::InterpolationScheme::Tricubic:
+            {
+              std::array<double, 8> analytical_real_ewald_tricubic =
+                  Interactions::calculateTricubicFractionalAtPosition(ForceField::InterpolationGridType::EwaldReal,
+                                                                      forceField, simulationBox, pos, index,
+                                                                      framework->simulationBox, spanOfFrameworkAtoms());
+
+              analytical_real_ewald_energy = charge * analytical_real_ewald_tricubic[0] * Units::EnergyToKelvin;
+
+              // convert gradient from fractional to Cartesian
+              analytical_real_ewald_gradient =
+                  framework->simulationBox.inverseCell.transpose() * double3(analytical_real_ewald_tricubic[1],
+                                                                             analytical_real_ewald_tricubic[2],
+                                                                             analytical_real_ewald_tricubic[3]);
+              analytical_real_ewald_gradient.x *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_gradient.y *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_gradient.z *= (charge * Units::EnergyToKelvin);
+            }
+            break;
+            case ForceField::InterpolationScheme::Triquintic:
+            {
+              std::array<double, 27> analytical_real_ewald_triquintic =
+                  Interactions::calculateTriquinticFractionalAtPosition(
+                      ForceField::InterpolationGridType::EwaldReal, forceField, simulationBox, pos, index,
+                      framework->simulationBox, spanOfFrameworkAtoms());
+
+              analytical_real_ewald_energy = charge * analytical_real_ewald_triquintic[0] * Units::EnergyToKelvin;
+
+              // convert gradient from fractional to Cartesian
+              analytical_real_ewald_gradient =
+                  framework->simulationBox.inverseCell.transpose() * double3(analytical_real_ewald_triquintic[1],
+                                                                             analytical_real_ewald_triquintic[2],
+                                                                             analytical_real_ewald_triquintic[3]);
+
+              analytical_real_ewald_gradient.x *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_gradient.y *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_gradient.z *= (charge * Units::EnergyToKelvin);
+
+              double3x3 hessian = double3x3(analytical_real_ewald_triquintic[4], analytical_real_ewald_triquintic[5],
+                                            analytical_real_ewald_triquintic[6], analytical_real_ewald_triquintic[5],
+                                            analytical_real_ewald_triquintic[7], analytical_real_ewald_triquintic[8],
+                                            analytical_real_ewald_triquintic[6], analytical_real_ewald_triquintic[8],
+                                            analytical_real_ewald_triquintic[9]);
+              analytical_real_ewald_hessian =
+                  framework->simulationBox.inverseCell.transpose() * hessian * framework->simulationBox.inverseCell;
+
+              analytical_real_ewald_hessian.ax *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_hessian.ay *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_hessian.az *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_hessian.bx *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_hessian.by *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_hessian.bz *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_hessian.cx *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_hessian.cy *= (charge * Units::EnergyToKelvin);
+              analytical_real_ewald_hessian.cz *= (charge * Units::EnergyToKelvin);
+            }
+            break;
+          }
+
+          double boltzmann_weight_real_ewald = std::exp(-beta * analytical_vdw_energy);
+
+          boltzmann_weight_summed_real_ewald += boltzmann_weight_real_ewald;
+
+          // energy
+          boltzmann_weighted_energy_interpolated_summed_real_ewald +=
+              interpolated_value_real_ewald * boltzmann_weight_real_ewald;
+          boltzmann_weighted_energy_full_summed_real_ewald +=
+              analytical_real_ewald_energy * boltzmann_weight_real_ewald;
+          boltzmann_weighted_difference_squared_summed_real_ewald +=
+              (analytical_real_ewald_energy - interpolated_value_real_ewald) *
+              (analytical_real_ewald_energy - interpolated_value_real_ewald) * boltzmann_weight_real_ewald;
+          boltzmann_weighted_full_squared_summed_real_ewald +=
+              analytical_real_ewald_energy * analytical_real_ewald_energy * boltzmann_weight_real_ewald;
+
+          // gradients
+          boltzmann_weighted_gradient_interpolated_summed_real_ewald.x +=
+              interpolated_gradient_real_ewald.x * boltzmann_weight_real_ewald;
+          boltzmann_weighted_gradient_interpolated_summed_real_ewald.y +=
+              interpolated_gradient_real_ewald.y * boltzmann_weight_real_ewald;
+          boltzmann_weighted_gradient_interpolated_summed_real_ewald.z +=
+              interpolated_gradient_real_ewald.z * boltzmann_weight_real_ewald;
+
+          boltzmann_weighted_gradient_full_summed_real_ewald.x +=
+              analytical_real_ewald_gradient.x * boltzmann_weight_real_ewald;
+          boltzmann_weighted_gradient_full_summed_real_ewald.y +=
+              analytical_real_ewald_gradient.y * boltzmann_weight_real_ewald;
+          boltzmann_weighted_gradient_full_summed_real_ewald.z +=
+              analytical_real_ewald_gradient.z * boltzmann_weight_real_ewald;
+
+          boltzmann_weighted_difference_squared_summed_real_ewald_gradient.x +=
+              (analytical_real_ewald_gradient.x - interpolated_gradient_real_ewald.x) *
+              (analytical_real_ewald_gradient.x - interpolated_gradient_real_ewald.x) * boltzmann_weight_real_ewald;
+          boltzmann_weighted_difference_squared_summed_real_ewald_gradient.y +=
+              (analytical_real_ewald_gradient.y - interpolated_gradient_real_ewald.y) *
+              (analytical_real_ewald_gradient.y - interpolated_gradient_real_ewald.y) * boltzmann_weight_real_ewald;
+          boltzmann_weighted_difference_squared_summed_real_ewald_gradient.z +=
+              (analytical_real_ewald_gradient.z - interpolated_gradient_real_ewald.z) *
+              (analytical_real_ewald_gradient.z - interpolated_gradient_real_ewald.z) * boltzmann_weight_real_ewald;
+
+          boltzmann_weighted_full_squared_summed_real_ewald_gradient.x +=
+              analytical_real_ewald_gradient.x * analytical_real_ewald_gradient.x * boltzmann_weight_real_ewald;
+          boltzmann_weighted_full_squared_summed_real_ewald_gradient.y +=
+              analytical_real_ewald_gradient.y * analytical_real_ewald_gradient.y * boltzmann_weight_real_ewald;
+          boltzmann_weighted_full_squared_summed_real_ewald_gradient.z +=
+              analytical_real_ewald_gradient.z * analytical_real_ewald_gradient.z * boltzmann_weight_real_ewald;
+
+          // Hessian
+          boltzmann_weighted_hessian_interpolated_summed_real_ewald.ax +=
+              interpolated_hessian_real_ewald.ax * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_interpolated_summed_real_ewald.ay +=
+              interpolated_hessian_real_ewald.ay * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_interpolated_summed_real_ewald.az +=
+              interpolated_hessian_real_ewald.az * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_interpolated_summed_real_ewald.by +=
+              interpolated_hessian_real_ewald.by * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_interpolated_summed_real_ewald.bz +=
+              interpolated_hessian_real_ewald.bz * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_interpolated_summed_real_ewald.cz +=
+              interpolated_hessian_real_ewald.cz * boltzmann_weight_real_ewald;
+
+          boltzmann_weighted_hessian_full_summed_real_ewald.ax +=
+              analytical_real_ewald_hessian.ax * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_full_summed_real_ewald.ay +=
+              analytical_real_ewald_hessian.ay * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_full_summed_real_ewald.az +=
+              analytical_real_ewald_hessian.az * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_full_summed_real_ewald.by +=
+              analytical_real_ewald_hessian.by * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_full_summed_real_ewald.bz +=
+              analytical_real_ewald_hessian.bz * boltzmann_weight_real_ewald;
+          boltzmann_weighted_hessian_full_summed_real_ewald.cz +=
+              analytical_real_ewald_hessian.cz * boltzmann_weight_real_ewald;
+
+          boltzmann_weighted_difference_squared_summed_real_ewald_hessian.ax +=
+              (analytical_real_ewald_hessian.ax - interpolated_hessian_real_ewald.ax) *
+              (analytical_real_ewald_hessian.ax - interpolated_hessian_real_ewald.ax) * boltzmann_weight_real_ewald;
+          boltzmann_weighted_difference_squared_summed_real_ewald_hessian.ay +=
+              (analytical_real_ewald_hessian.ay - interpolated_hessian_real_ewald.ay) *
+              (analytical_real_ewald_hessian.ay - interpolated_hessian_real_ewald.ay) * boltzmann_weight_real_ewald;
+          boltzmann_weighted_difference_squared_summed_real_ewald_hessian.az +=
+              (analytical_real_ewald_hessian.az - interpolated_hessian_real_ewald.az) *
+              (analytical_real_ewald_hessian.az - interpolated_hessian_real_ewald.az) * boltzmann_weight_real_ewald;
+          boltzmann_weighted_difference_squared_summed_real_ewald_hessian.by +=
+              (analytical_real_ewald_hessian.by - interpolated_hessian_real_ewald.by) *
+              (analytical_real_ewald_hessian.by - interpolated_hessian_real_ewald.by) * boltzmann_weight_real_ewald;
+          boltzmann_weighted_difference_squared_summed_real_ewald_hessian.bz +=
+              (analytical_real_ewald_hessian.bz - interpolated_hessian_real_ewald.bz) *
+              (analytical_real_ewald_hessian.bz - interpolated_hessian_real_ewald.bz) * boltzmann_weight_real_ewald;
+          boltzmann_weighted_difference_squared_summed_real_ewald_hessian.cz +=
+              (analytical_real_ewald_hessian.cz - interpolated_hessian_real_ewald.cz) *
+              (analytical_real_ewald_hessian.cz - interpolated_hessian_real_ewald.cz) * boltzmann_weight_real_ewald;
+
+          boltzmann_weighted_full_squared_summed_real_ewald_hessian.ax +=
+              analytical_real_ewald_hessian.ax * analytical_real_ewald_hessian.ax * boltzmann_weight_real_ewald;
+          boltzmann_weighted_full_squared_summed_real_ewald_hessian.ay +=
+              analytical_real_ewald_hessian.ay * analytical_real_ewald_hessian.ay * boltzmann_weight_real_ewald;
+          boltzmann_weighted_full_squared_summed_real_ewald_hessian.az +=
+              analytical_real_ewald_hessian.az * analytical_real_ewald_hessian.az * boltzmann_weight_real_ewald;
+          boltzmann_weighted_full_squared_summed_real_ewald_hessian.by +=
+              analytical_real_ewald_hessian.by * analytical_real_ewald_hessian.by * boltzmann_weight_real_ewald;
+          boltzmann_weighted_full_squared_summed_real_ewald_hessian.bz +=
+              analytical_real_ewald_hessian.bz * analytical_real_ewald_hessian.bz * boltzmann_weight_real_ewald;
+          boltzmann_weighted_full_squared_summed_real_ewald_hessian.cz +=
+              analytical_real_ewald_hessian.cz * analytical_real_ewald_hessian.cz * boltzmann_weight_real_ewald;
+        }
+      }
+
+      std::print(stream, "Testing VDW interpolation grid ({}x{}x{}) for {}\n", numberOfVDWGridPoints.x,
+                 numberOfVDWGridPoints.y, numberOfVDWGridPoints.z, forceField.pseudoAtoms[index].name);
+      std::print(stream, "-------------------------------------------------------------------------------\n");
+      std::print(stream, "(Using {} points for testing)\n\n", numberOfGridTestPoints);
+
+      std::print(stream, "Boltzmann average energy VDW (table):      {}\n",
+                 boltzmann_weighted_energy_interpolated_summed_vdw / boltzmann_weight_summed_vdw);
+      std::print(stream, "Boltzmann average energy VDW (full):       {}\n",
+                 boltzmann_weighted_energy_full_summed_vdw / boltzmann_weight_summed_vdw);
+      std::print(
+          stream, "Boltzmann relative error:                  {}\n\n",
+          std::sqrt(boltzmann_weighted_difference_squared_summed_vdw / boltzmann_weighted_full_squared_summed_vdw));
+
+      std::print(stream, "Boltzmann average gradient(x) VDW (table): {}\n",
+                 boltzmann_weighted_gradient_interpolated_summed_vdw.x / boltzmann_weight_summed_vdw);
+      std::print(stream, "Boltzmann average gradient(x) VDW (full):  {}\n",
+                 boltzmann_weighted_gradient_full_summed_vdw.x / boltzmann_weight_summed_vdw);
+      std::print(stream, "Boltzmann relative error:                  {}\n\n",
+                 std::sqrt(boltzmann_weighted_difference_squared_summed_vdw_gradient.x /
+                           boltzmann_weighted_full_squared_summed_vdw_gradient.x));
+
+      std::print(stream, "Boltzmann average gradient(y) VDW (table): {}\n",
+                 boltzmann_weighted_gradient_interpolated_summed_vdw.y / boltzmann_weight_summed_vdw);
+      std::print(stream, "Boltzmann average gradient(y) VDW (full):  {}\n",
+                 boltzmann_weighted_gradient_full_summed_vdw.y / boltzmann_weight_summed_vdw);
+      std::print(stream, "Boltzmann relative error:                  {}\n\n",
+                 std::sqrt(boltzmann_weighted_difference_squared_summed_vdw_gradient.y /
+                           boltzmann_weighted_full_squared_summed_vdw_gradient.y));
+
+      std::print(stream, "Boltzmann average gradient(z) VDW (table): {}\n",
+                 boltzmann_weighted_gradient_interpolated_summed_vdw.z / boltzmann_weight_summed_vdw);
+      std::print(stream, "Boltzmann average gradient(z) VDW (full):  {}\n",
+                 boltzmann_weighted_gradient_full_summed_vdw.z / boltzmann_weight_summed_vdw);
+      std::print(stream, "Boltzmann relative error:                  {}\n\n",
+                 std::sqrt(boltzmann_weighted_difference_squared_summed_vdw_gradient.z /
+                           boltzmann_weighted_full_squared_summed_vdw_gradient.z));
+
+      if (forceField.interpolationScheme == ForceField::InterpolationScheme::Triquintic)
+      {
+        std::print(stream, "Boltzmann average hessian(ax) VDW (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_vdw.ax / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann average hessian(ax) VDW (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_vdw.ax / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann relative error:                  {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_vdw_hessian.ax /
+                             boltzmann_weighted_full_squared_summed_vdw_hessian.ax));
+
+        std::print(stream, "Boltzmann average hessian(ay) VDW (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_vdw.ay / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann average hessian(ay) VDW (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_vdw.ay / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann relative error:                  {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_vdw_hessian.ay /
+                             boltzmann_weighted_full_squared_summed_vdw_hessian.ay));
+
+        std::print(stream, "Boltzmann average hessian(az) VDW (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_vdw.az / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann average hessian(az) VDW (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_vdw.az / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann relative error:                  {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_vdw_hessian.az /
+                             boltzmann_weighted_full_squared_summed_vdw_hessian.az));
+
+        std::print(stream, "Boltzmann average hessian(by) VDW (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_vdw.by / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann average hessian(by) VDW (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_vdw.by / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann relative error:                  {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_vdw_hessian.by /
+                             boltzmann_weighted_full_squared_summed_vdw_hessian.by));
+
+        std::print(stream, "Boltzmann average hessian(bz) VDW (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_vdw.bz / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann average hessian(bz) VDW (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_vdw.bz / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann relative error:                  {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_vdw_hessian.bz /
+                             boltzmann_weighted_full_squared_summed_vdw_hessian.bz));
+
+        std::print(stream, "Boltzmann average hessian(cz) VDW (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_vdw.cz / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann average hessian(cz) VDW (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_vdw.cz / boltzmann_weight_summed_vdw);
+        std::print(stream, "Boltzmann relative error:                  {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_vdw_hessian.cz /
+                             boltzmann_weighted_full_squared_summed_vdw_hessian.cz));
+      }
+
+      std::print(stream, "Testing Coulomb interpolation grid ({}x{}x{}) for {}\n", numberOfCoulombGridPoints.x,
+                 numberOfCoulombGridPoints.y, numberOfCoulombGridPoints.z, forceField.pseudoAtoms[index].name);
+      std::print(stream, "-------------------------------------------------------------------------------\n");
+      std::print(stream, "(Using {} points for testing)\n\n", numberOfGridTestPoints);
+
+      std::print(stream, "Boltzmann average energy Real Ewald (table):      {}\n",
+                 boltzmann_weighted_energy_interpolated_summed_real_ewald / boltzmann_weight_summed_real_ewald);
+      std::print(stream, "Boltzmann average energy Real Ewald (full):       {}\n",
+                 boltzmann_weighted_energy_full_summed_real_ewald / boltzmann_weight_summed_real_ewald);
+      std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                 std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald /
+                           boltzmann_weighted_full_squared_summed_real_ewald));
+
+      std::print(stream, "Boltzmann average gradient(x) Real Ewald (table): {}\n",
+                 boltzmann_weighted_gradient_interpolated_summed_real_ewald.x / boltzmann_weight_summed_real_ewald);
+      std::print(stream, "Boltzmann average gradient(x) Real Ewald (full):  {}\n",
+                 boltzmann_weighted_gradient_full_summed_real_ewald.x / boltzmann_weight_summed_real_ewald);
+      std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                 std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald_gradient.x /
+                           boltzmann_weighted_full_squared_summed_real_ewald_gradient.x));
+
+      std::print(stream, "Boltzmann average gradient(y) Real Ewald (table): {}\n",
+                 boltzmann_weighted_gradient_interpolated_summed_real_ewald.y / boltzmann_weight_summed_real_ewald);
+      std::print(stream, "Boltzmann average gradient(y) Real Ewald (full):  {}\n",
+                 boltzmann_weighted_gradient_full_summed_real_ewald.y / boltzmann_weight_summed_real_ewald);
+      std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                 std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald_gradient.y /
+                           boltzmann_weighted_full_squared_summed_real_ewald_gradient.y));
+
+      std::print(stream, "Boltzmann average gradient(z) Real Ewald (table): {}\n",
+                 boltzmann_weighted_gradient_interpolated_summed_real_ewald.z / boltzmann_weight_summed_real_ewald);
+      std::print(stream, "Boltzmann average gradient(z) Real Ewald (full):  {}\n",
+                 boltzmann_weighted_gradient_full_summed_real_ewald.z / boltzmann_weight_summed_real_ewald);
+      std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                 std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald_gradient.z /
+                           boltzmann_weighted_full_squared_summed_real_ewald_gradient.z));
+
+      if (forceField.interpolationScheme == ForceField::InterpolationScheme::Triquintic)
+      {
+        std::print(stream, "Boltzmann average Hessian(ax) Real Ewald (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_real_ewald.ax / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann average Hessian(ax) Real Ewald (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_real_ewald.ax / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald_hessian.ax /
+                             boltzmann_weighted_full_squared_summed_real_ewald_hessian.ax));
+
+        std::print(stream, "Boltzmann average Hessian(ay) Real Ewald (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_real_ewald.ay / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann average Hessian(ay) Real Ewald (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_real_ewald.ay / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald_hessian.ay /
+                             boltzmann_weighted_full_squared_summed_real_ewald_hessian.ay));
+
+        std::print(stream, "Boltzmann average Hessian(az) Real Ewald (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_real_ewald.az / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann average Hessian(az) Real Ewald (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_real_ewald.az / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald_hessian.az /
+                             boltzmann_weighted_full_squared_summed_real_ewald_hessian.az));
+
+        std::print(stream, "Boltzmann average Hessian(by) Real Ewald (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_real_ewald.by / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann average Hessian(by) Real Ewald (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_real_ewald.by / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald_hessian.by /
+                             boltzmann_weighted_full_squared_summed_real_ewald_hessian.by));
+
+        std::print(stream, "Boltzmann average Hessian(bz) Real Ewald (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_real_ewald.bz / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann average Hessian(bz) Real Ewald (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_real_ewald.bz / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald_hessian.bz /
+                             boltzmann_weighted_full_squared_summed_real_ewald_hessian.bz));
+
+        std::print(stream, "Boltzmann average Hessian(cz) Real Ewald (table): {}\n",
+                   boltzmann_weighted_hessian_interpolated_summed_real_ewald.cz / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann average Hessian(cz) Real Ewald (full):  {}\n",
+                   boltzmann_weighted_hessian_full_summed_real_ewald.cz / boltzmann_weight_summed_real_ewald);
+        std::print(stream, "Boltzmann relative error:                         {}\n\n",
+                   std::sqrt(boltzmann_weighted_difference_squared_summed_real_ewald_hessian.cz /
+                             boltzmann_weighted_full_squared_summed_real_ewald_hessian.cz));
+      }
+
+      std::print(stream, "\n");
+      std::flush(stream);
+    }
+  }
+}
+
 nlohmann::json System::jsonMCMoveStatistics() const
 {
   nlohmann::json status;
@@ -2035,7 +2665,7 @@ Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const System
   archive << s.numberOfFrameworks;
   archive << s.numberOfFrameworkAtoms;
   archive << s.numberOfRigidFrameworkAtoms;
-  archive << s.frameworkComponents;
+  archive << s.framework;
   archive << s.components;
   archive << s.equationOfState;
   archive << s.thermostat;
@@ -2117,6 +2747,12 @@ Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const System
   // archive << s.propertyRadialDistributionFunction;
   // archive << s.propertyDensityGrid;
 
+  archive << s.interpolationGrids;
+
+#if DEBUG_ARCHIVE
+  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
+  
   return archive;
 }
 
@@ -2140,7 +2776,7 @@ Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, System& s)
   archive >> s.numberOfFrameworks;
   archive >> s.numberOfFrameworkAtoms;
   archive >> s.numberOfRigidFrameworkAtoms;
-  archive >> s.frameworkComponents;
+  archive >> s.framework;
   archive >> s.components;
   archive >> s.equationOfState;
   archive >> s.thermostat;
@@ -2222,94 +2858,81 @@ Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, System& s)
   // archive >> s.propertyRadialDistributionFunction;
   // archive >> s.propertyDensityGrid;
 
+  archive >> s.interpolationGrids;
+
+#if DEBUG_ARCHIVE
+  uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("System: Error in binary restart\n"));
+  }
+#endif
+
   return archive;
 }
 
 void System::writeRestartFile()
 {
-  nlohmann::json j;
+  nlohmann::json json;
 
-  j["simulationBox"] = simulationBox;
-  j["atomPositions"] = atomPositions;
-  j["moleculePositions"] = moleculePositions;
+  json["simulationBox"] = simulationBox;
+  json["atom"] = spanOfMoleculeAtoms();
+  json["molecules"] = moleculePositions;
 
   // use pretty print and indent of 2
   // std::cout << std::setw(2) << j << std::endl;
+  std::string fileNameString =
+        std::format("output/restart_{}_{}.s{}.json", temperature, input_pressure, systemId);
+  std::ofstream file(fileNameString);
+  file << json.dump(2);
 }
 
 void System::readRestartFile()
 {
-  nlohmann::json j;
+  std::string inputFile = std::format("restart.s{}.dat", systemId);
+  if (!std::filesystem::exists(inputFile))
+  {
+    throw std::runtime_error(std::format("[Input reader]: File '{}' not found\n", inputFile));
+  }
 
-  simulationBox = j["simulationBox"];
-  atomPositions = j["atomPositions"];
-  moleculePositions = j["moleculePositions"];
+  std::ifstream input(inputFile);
+
+  nlohmann::basic_json<nlohmann::raspa_map> parsed_data{};
+
+  try
+  {
+    parsed_data = nlohmann::json::parse(input);
+  }
+  catch (nlohmann::json::parse_error& ex)
+  {
+    std::cerr << "parse error at byte " << ex.byte << std::endl;
+  }
+
+  if (parsed_data.contains("SimulationType"))
+  {
+    simulationBox = parsed_data["simulationBox"];
+  }
+  std::vector<Atom> read_atom_data;
+  if (parsed_data.contains("atoms"))
+  {
+    read_atom_data = parsed_data["atoms"];
+  }
+
+  std::vector<Molecule> read_molecule_data;
+  if (parsed_data.contains("molecules"))
+  {
+    read_molecule_data = parsed_data["molecules"];
+  }
+
+  for(const Atom &atom : read_atom_data)
+  {
+    atomPositions.push_back(atom);
+  }
+  for(const Molecule &molecule : read_molecule_data)
+  {
+    moleculePositions.push_back(molecule);
+  }
 }
 
 std::string System::repr() const { return std::string("system test"); }
-
-// std::vector<double> createVDWGrid(const ForceField &forcefield, const std::vector<Framework> & frameworkComponents,
-// size_t typeA);
-
-void System::createInterpolationGrids()
-{
-  double percent = 100.0 / static_cast<double>(128 * gridPseudoAtomIndices.size());
-
-  for (size_t pseudo_atom_index : gridPseudoAtomIndices)
-  {
-    InterpolationEnergyGrid grid(int3(128, 128, 128));
-
-    std::mdspan<double, std::dextents<size_t, 4>, std::layout_left> data(grid.data.data(), 128, 128, 128, 8);
-
-    double teller{};
-    for (size_t i = 0; i <= 127; i++)
-    {
-      teller += 1.0;
-      for (size_t j = 0; j <= 127; j++)
-      {
-        for (size_t k = 0; k <= 127; k++)
-        {
-          double3 s = double3(static_cast<double>(i) / static_cast<double>(127),
-                              static_cast<double>(j) / static_cast<double>(127),
-                              static_cast<double>(k) / static_cast<double>(127));
-
-          double3 pos = simulationBox.cell * s;
-
-          auto [energy, gradient, hessian, third_derivative] = Interactions::calculateThirdDerivativeAtPositionVDW(
-              forceField, simulationBox, pos, pseudo_atom_index, spanOfFrameworkAtoms());
-
-          double energy_fractional = energy;
-          double3 gradient_fractional = simulationBox.cell.transpose() * gradient;
-          double3x3 hessian_fractional = simulationBox.cell.transpose() * hessian * simulationBox.cell;
-          double third_derivative_fractional_xyz =
-              simulationBox.cell.ax * simulationBox.cell.bx * simulationBox.cell.cx * third_derivative.m111 +
-              simulationBox.cell.ax * simulationBox.cell.bx * simulationBox.cell.cy * third_derivative.m112 +
-              simulationBox.cell.ax * simulationBox.cell.bx * simulationBox.cell.cz * third_derivative.m113 +
-              simulationBox.cell.ax * simulationBox.cell.by * simulationBox.cell.cx * third_derivative.m121 +
-              simulationBox.cell.ax * simulationBox.cell.by * simulationBox.cell.cy * third_derivative.m122 +
-              simulationBox.cell.ax * simulationBox.cell.by * simulationBox.cell.cz * third_derivative.m132;
-
-          data[i, j, k, 0] = energy_fractional;
-          data[i, j, k, 1] = gradient_fractional.x;
-          data[i, j, k, 2] = gradient_fractional.y;
-          data[i, j, k, 3] = gradient_fractional.z;
-          data[i, j, k, 4] = hessian_fractional.ay;
-          data[i, j, k, 5] = hessian_fractional.az;
-          data[i, j, k, 6] = hessian_fractional.bz;
-          data[i, j, k, 7] = third_derivative_fractional_xyz;
-        }
-      }
-      if (static_cast<size_t>(teller * percent) > static_cast<size_t>((teller - 1.0) * percent))
-      {
-        std::cout << "Percentage finished: " << static_cast<size_t>(teller * percent) << std::endl;
-        ;
-      }
-    }
-
-    interpolationGrids[pseudo_atom_index] = grid;
-  }
-
-  // for(const Framework &framework: frameworks)
-  //{
-  // }
-}

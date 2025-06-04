@@ -1,10 +1,10 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <complex>
+#include <cstddef>
 #include <exception>
 #include <format>
 #include <fstream>
@@ -70,7 +70,7 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
       }
       std::print(stream, "    ---------------------------------------------------------------------------\n");
 
-      switch(Units::unitSystem)
+      switch (Units::unitSystem)
       {
         case Units::System::RASPA:
           std::print(stream, "    Abs. loading average  {: .6e} +/- {: .6e} [molecules/cell]\n",
@@ -98,7 +98,7 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
       }
       std::print(stream, "    ---------------------------------------------------------------------------\n");
 
-      switch(Units::unitSystem)
+      switch (Units::unitSystem)
       {
         case Units::System::RASPA:
           std::print(stream, "    Excess loading average  {: .6e} +/- {: .6e} [molecules/cell]\n",
@@ -142,7 +142,7 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
       }
       std::print(stream, "    -----------------------------------------------------------------------\n");
 
-      switch(Units::unitSystem)
+      switch (Units::unitSystem)
       {
         case Units::System::RASPA:
           std::print(stream, "    Density average  {: .6e} +/- {: .6e} [molecules]\n",
@@ -157,9 +157,8 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
         case Units::System::ReducedUnits:
           std::print(stream, "    Density average  {: .6e} +/- {: .6e} [molecules]\n",
                      loadingAverage.first.numberOfMolecules[i], loadingAverage.second.numberOfMolecules[i]);
-          std::print(stream, "    Density average  {: .6e} +/- {: .6e} [{}]\n",
-                     loadingAverage.first.numberDensities[i], loadingAverage.second.numberDensities[i],
-                     Units::unitOfDensityString);
+          std::print(stream, "    Density average  {: .6e} +/- {: .6e} [{}]\n", loadingAverage.first.numberDensities[i],
+                     loadingAverage.second.numberDensities[i], Units::unitOfDensityString);
           break;
       }
     }
@@ -176,10 +175,7 @@ std::pair<double, double> PropertyLoading::averageLoadingNumberOfMolecules(size_
   return {loadingAverage.first.numberOfMolecules[comp], loadingAverage.second.numberOfMolecules[comp]};
 }
 
-std::string PropertyLoading::repr() const 
-{ 
-  return std::string("PropertyLoading test");
-}
+std::string PropertyLoading::repr() const { return std::string("PropertyLoading test"); }
 
 Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const PropertyLoading &l)
 {
@@ -188,6 +184,10 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Proper
   archive << l.numberOfBlocks;
   archive << l.numberOfComponents;
   archive << l.bookKeepingLoadings;
+
+#if DEBUG_ARCHIVE
+  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
 
   return archive;
 }
@@ -206,5 +206,15 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PropertyLoad
   archive >> l.numberOfBlocks;
   archive >> l.numberOfComponents;
   archive >> l.bookKeepingLoadings;
+
+#if DEBUG_ARCHIVE
+  uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("PropertyLoading: Error in binary restart\n"));
+  }
+#endif
+
   return archive;
 }
