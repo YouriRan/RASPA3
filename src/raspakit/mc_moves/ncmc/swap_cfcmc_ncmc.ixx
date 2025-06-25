@@ -7,7 +7,7 @@ module;
 #include <tuple>
 #endif
 
-export module mc_moves_swap_cfcmc;
+export module mc_moves_swap_ncmc;
 
 #ifndef USE_LEGACY_HEADERS
 import <cstddef>;

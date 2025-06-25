@@ -78,6 +78,7 @@ import property_simulationbox;
 import property_energy;
 import property_loading;
 import property_enthalpy;
+import property_soap;
 import mc_moves;
 import mc_moves_probabilities;
 import mc_moves_cputime;
@@ -629,6 +630,10 @@ void MonteCarlo::production()
         if (system.averageNumberOfMoleculesHistogram.has_value())
         {
           system.averageNumberOfMoleculesHistogram->writeOutput(system.systemId, system.components, currentCycle);
+        }
+        if (system.propertySoap.has_value())
+        {
+          system.propertySoap->writeOutput(currentCycle);
         }
       }
     }

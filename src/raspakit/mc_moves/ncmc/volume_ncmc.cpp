@@ -107,9 +107,10 @@ std::optional<RunningEnergy> MC_Moves::volumeMoveNCMC(RandomNumber &random, Syst
       Integrators::computeRotationalKineticEnergy(moleculePositions, system.components);
   RunningEnergy currentEnergy = referenceEnergy;
 
-  currentEnergy = Integrators::updateGradients(moleculeAtomPositions, system.spanOfFrameworkAtoms(), system.forceField, newBox, system.components,
-                               system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.totalEik,
-                               system.fixedFrameworkStoredEik, system.numberOfMoleculesPerComponent);
+  currentEnergy = Integrators::updateGradients(moleculeAtomPositions, system.spanOfFrameworkAtoms(), system.forceField,
+                                               newBox, system.components, system.eik_x, system.eik_y, system.eik_z,
+                                               system.eik_xy, system.totalEik, system.fixedFrameworkStoredEik,
+                                               system.interpolationGrids, system.numberOfMoleculesPerComponent);
 
   // integrate for N steps
   time_begin = std::chrono::system_clock::now();
@@ -117,8 +118,8 @@ std::optional<RunningEnergy> MC_Moves::volumeMoveNCMC(RandomNumber &random, Syst
   {
     currentEnergy = Integrators::velocityVerlet(
         moleculePositions, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
-        system.forceField, newBox, system.eik_x, system.eik_y, system.eik_z, system.eik_xy,
-        system.totalEik, system.fixedFrameworkStoredEik, system.numberOfMoleculesPerComponent);
+        system.forceField, newBox, system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.totalEik,
+        system.fixedFrameworkStoredEik, system.interpolationGrids, system.numberOfMoleculesPerComponent);
   }
   time_end = std::chrono::system_clock::now();
 

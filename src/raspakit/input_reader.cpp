@@ -78,6 +78,7 @@ import property_number_of_molecules_histogram;
 import property_msd;
 import property_vacf;
 import property_autocorrelation;
+import property_soap;
 import thermostat;
 
 int3 parseInt3(const std::string& item, auto json)
@@ -1349,6 +1350,67 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         }
       }
 
+      if (value.contains("ComputeSoapPowerSpectrum") && value["ComputeSoapPowerSpectrum"].is_boolean())
+      {
+        if (value["ComputeSoapPowerSpectrum"].get<bool>())
+        {
+          size_t soapPowerSpectrumSampleEvery{10};
+          if (value.contains("SoapPowerSpectrumSampleEvery") &&
+              value["SoapPowerSpectrumSampleEvery"].is_number_unsigned())
+          {
+            soapPowerSpectrumSampleEvery = value["SoapPowerSpectrumSampleEvery"].get<size_t>();
+          }
+
+          size_t soapPowerSpectrumWriteOutputEvery{1000};
+          if (value.contains("SoapPowerSpectrumWriteOutputEvery") &&
+              value["SoapPowerSpectrumWriteOutputEvery"].is_number_unsigned())
+          {
+            soapPowerSpectrumWriteOutputEvery = value["SoapPowerSpectrumWriteOutputEvery"].get<size_t>();
+          }
+
+          double soapPowerSpectrumCutOff{10.0};
+          if (value.contains("SoapPowerSpectrumCutOff") && value["SoapPowerSpectrumCutOff"].is_number_unsigned())
+          {
+            soapPowerSpectrumCutOff = value["SoapPowerSpectrumCutOff"].get<double>();
+          }
+
+          double soapPowerSpectrumSmoothingWidth{1.0};
+          if (value.contains("SoapPowerSpectrumSmoothingWidth") &&
+              value["SoapPowerSpectrumSmoothingWidth"].is_number_unsigned())
+          {
+            soapPowerSpectrumSmoothingWidth = value["SoapPowerSpectrumSmoothingWidth"].get<double>();
+          }
+
+          double soapPowerSpectrumGaussianWidth{1.0};
+          if (value.contains("SoapPowerSpectrumGaussianWidth") &&
+              value["SoapPowerSpectrumGaussianWidth"].is_number_unsigned())
+          {
+            soapPowerSpectrumGaussianWidth = value["SoapPowerSpectrumGaussianWidth"].get<double>();
+          }
+
+          size_t soapPowerSpectrumNumberOfRadialBasisFunctions{20};
+          if (value.contains("SoapPowerSpectrumNumberOfRadialBasisFunctions") &&
+              value["SoapPowerSpectrumNumberOfRadialBasisFunctions"].is_number_unsigned())
+          {
+            soapPowerSpectrumNumberOfRadialBasisFunctions =
+                value["SoapPowerSpectrumNumberOfRadialBasisFunctions"].get<size_t>();
+          }
+
+          size_t soapPowerSpectrumNumberOfAngularBasisFunctions{20};
+          if (value.contains("SoapPowerSpectrumNumberOfAngularBasisFunctions") &&
+              value["SoapPowerSpectrumNumberOfAngularBasisFunctions"].is_number_unsigned())
+          {
+            soapPowerSpectrumNumberOfAngularBasisFunctions =
+                value["soapPowerSpectrumNumberOfAngularBasisFunctions"].get<size_t>();
+          }
+
+          systems[systemId].propertySoap = PropertySoap(
+              soapPowerSpectrumSampleEvery, soapPowerSpectrumWriteOutputEvery, soapPowerSpectrumCutOff,
+              soapPowerSpectrumSmoothingWidth, soapPowerSpectrumGaussianWidth,
+              soapPowerSpectrumNumberOfRadialBasisFunctions, soapPowerSpectrumNumberOfAngularBasisFunctions);
+        }
+      }
+
       if (value.contains("ComputeAutocorrelation") && value["ComputeAutocorrelation"].is_boolean())
       {
         if (value["ComputeAutocorrelation"].get<bool>())
@@ -1697,6 +1759,14 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::system
     "VolumeMaxChange",
     "OutputPDBMovie",
     "SampleMovieEvery",
+    "ComputeSoapPowerSpectrum",
+    "SoapPowerSpectrumSampleEvery",
+    "SoapPowerSpectrumCutOff",
+    "SoapPowerSpectrumSmoothingWidth",
+    "SoapPowerSpectrumGaussianWidth",
+    "SoapPowerSpectrumNumberOfRadialBasisFunctions",
+    "SoapPowerSpectrumNumberOfAngularBasisFunctions",
+    "SoapPowerSpectrumWriteOutputEvery",
     "Ensemble",
     "TimeStep",
     "MacroStateUseBias",

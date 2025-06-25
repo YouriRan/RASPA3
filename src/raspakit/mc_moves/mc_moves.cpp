@@ -75,6 +75,7 @@ import mc_moves_deletion;
 import mc_moves_insertion_cbmc;
 import mc_moves_deletion_cbmc;
 import mc_moves_swap_cfcmc;
+import mc_moves_swap_ncmc;
 import mc_moves_swap_cfcmc_cbmc;
 import mc_moves_gibbs_swap_cbmc;
 import mc_moves_volume;

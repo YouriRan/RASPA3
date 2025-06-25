@@ -75,6 +75,7 @@ import property_number_of_molecules_histogram;
 import property_msd;
 import property_autocorrelation;
 import property_vacf;
+import property_soap;
 import multi_site_isotherm;
 import pressure_range;
 import units;
@@ -285,6 +286,7 @@ export struct System
   std::optional<PropertyMeanSquaredDisplacement> propertyMSD;
   std::optional<PropertyVelocityAutoCorrelationFunction> propertyVACF;
   std::map<std::string, PropertyAutocorrelation> propertyAutocorrelation;
+  std::optional<PropertySoap> propertySoap;
 
   std::vector<std::optional<InterpolationEnergyGrid>> interpolationGrids;
 
@@ -396,6 +398,8 @@ export struct System
   nlohmann::json jsonComponentStatus() const;
   nlohmann::json jsonMCMoveStatistics() const;
 
+  size_t atomsOffset(size_t selectedComponent, size_t selectedMolecule) const;
+  void renumberMoleculeAndComponentIds();
   void insertMolecule(size_t selectedComponent, const Molecule &molecule, std::vector<Atom> atoms);
   void insertFractionalMolecule(size_t selectedComponent, const Molecule &molecule, std::vector<Atom> atoms,
                                 size_t moleculeId);

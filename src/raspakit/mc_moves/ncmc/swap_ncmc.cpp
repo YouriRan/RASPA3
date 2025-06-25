@@ -57,6 +57,7 @@ import interactions_intermolecular;
 import interactions_ewald;
 import interactions_external_field;
 import mc_moves_move_types;
+import thermostat;
 
 std::pair<std::optional<RunningEnergy>, double3> NonEqCBMC(RandomNumber& random, System& system,
                                                            size_t selectedComponent)
@@ -151,9 +152,11 @@ std::pair<std::optional<RunningEnergy>, double3> NonEqCBMC(RandomNumber& random,
         std::exp(-system.beta * (energyFourierDifference.potentialEnergy() + tailEnergyDifference.potentialEnergy()));
 
     // insert molecule into copied atom positions
-    std::vector<Atom>::const_iterator iterator = system.iteratorForMolecule(selectedComponent, system.numberOfMoleculesPerComponent[selectedComponent]);
+    std::vector<Atom>::const_iterator iterator =
+        system.iteratorForMolecule(selectedComponent, system.numberOfMoleculesPerComponent[selectedComponent]);
     atomPositions.insert(iterator, growData->atoms.begin(), growData->atoms.end());
-    std::vector<Molecule>::iterator moleculeIterator = system.indexForMolecule(selectedComponent, system.numberOfMoleculesPerComponent[selectedComponent]);
+    std::vector<Molecule>::iterator moleculeIterator =
+        system.indexForMolecule(selectedComponent, system.numberOfMoleculesPerComponent[selectedComponent]);
     moleculePositions.insert(moleculeIterator, growData->molecule);
 
     // MD INTEGRATION
@@ -179,10 +182,11 @@ std::pair<std::optional<RunningEnergy>, double3> NonEqCBMC(RandomNumber& random,
     time_begin = std::chrono::system_clock::now();
     for (size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
     {
-      currentEnergy = Integrators::velocityVerlet(
-          moleculePositions, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
-          system.forceField, system.simulationBox, system.eik_x, system.eik_y, system.eik_z, system.eik_xy,
-          system.totalEik, system.fixedFrameworkStoredEik, system.numberOfMoleculesPerComponent);
+      currentEnergy = Integrators::velocityVerlet(moleculePositions, moleculeAtomPositions, system.components, dt,
+                                                  thermostat, system.spanOfFrameworkAtoms(), system.forceField,
+                                                  system.simulationBox, system.eik_x, system.eik_y, system.eik_z,
+                                                  system.eik_xy, system.totalEik, system.fixedFrameworkStoredEik,
+                                                  system.interpolationGrids, system.numberOfMoleculesPerComponent);
     }
     time_end = std::chrono::system_clock::now();
 
@@ -195,7 +199,6 @@ std::pair<std::optional<RunningEnergy>, double3> NonEqCBMC(RandomNumber& random,
     double preFactor = correctionFactorEwald * system.beta * component.molFraction * fugacity *
                        system.simulationBox.volume /
                        double(1 + system.numberOfIntegerMoleculesPerComponent[selectedComponent]);
-
 
     // Calculate the acceptance probability Pacc
     double drift = currentEnergy.potentialEnergy() - referenceEnergy.potentialEnergy();
@@ -294,9 +297,11 @@ std::pair<std::optional<RunningEnergy>, double3> NonEqCBMC(RandomNumber& random,
     }
 
     // delete molecule from copied atom positions
-    std::vector<Atom>::const_iterator iterator = system.iteratorForMolecule(selectedComponent, system.numberOfMoleculesPerComponent[selectedComponent]);
+    std::vector<Atom>::const_iterator iterator =
+        system.iteratorForMolecule(selectedComponent, system.numberOfMoleculesPerComponent[selectedComponent]);
     atomPositions.erase(iterator, iterator + static_cast<std::vector<Atom>::difference_type>(molecule.size()));
-    std::vector<Molecule>::iterator moleculeIterator = system.indexForMolecule(selectedComponent, system.numberOfMoleculesPerComponent[selectedComponent]);
+    std::vector<Molecule>::iterator moleculeIterator =
+        system.indexForMolecule(selectedComponent, system.numberOfMoleculesPerComponent[selectedComponent]);
     moleculePositions.insert(moleculeIterator, moleculeIterator + 1);
 
     // MD INTEGRATION
@@ -323,10 +328,11 @@ std::pair<std::optional<RunningEnergy>, double3> NonEqCBMC(RandomNumber& random,
     time_begin = std::chrono::system_clock::now();
     for (size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
     {
-      currentEnergy = Integrators::velocityVerlet(
-          moleculePositions, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
-          system.forceField, system.simulationBox, system.eik_x, system.eik_y, system.eik_z, system.eik_xy,
-          system.totalEik, system.fixedFrameworkStoredEik, system.numberOfMoleculesPerComponent);
+      currentEnergy = Integrators::velocityVerlet(moleculePositions, moleculeAtomPositions, system.components, dt,
+                                                  thermostat, system.spanOfFrameworkAtoms(), system.forceField,
+                                                  system.simulationBox, system.eik_x, system.eik_y, system.eik_z,
+                                                  system.eik_xy, system.totalEik, system.fixedFrameworkStoredEik,
+                                                  system.interpolationGrids, system.numberOfMoleculesPerComponent);
     }
     time_end = std::chrono::system_clock::now();
 
@@ -334,10 +340,5 @@ std::pair<std::optional<RunningEnergy>, double3> NonEqCBMC(RandomNumber& random,
     system.mc_moves_statistics.addConstructed(move);
 
     double drift = std::abs(currentEnergy.conservedEnergy() - referenceEnergy.conservedEnergy());
-
-
-
   }
-
-
 }

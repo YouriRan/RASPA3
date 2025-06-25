@@ -102,6 +102,7 @@ import property_widom;
 import property_autocorrelation;
 import property_temperature;
 import property_msd;
+import property_soap;
 import energy_factor;
 import running_energy;
 import threadpool;
@@ -619,7 +620,7 @@ std::span<double3> System::spanOfMoleculeElectricFieldNew()
       electricFieldNew.end());
 }
 
-size_t System::atomsOffset(size_t selectedComponent, size_t selectedMolecule)
+size_t System::atomsOffset(size_t selectedComponent, size_t selectedMolecule) const
 {
   size_t offset = numberOfFrameworkAtoms;
   for (size_t comp = 0; comp < selectedComponent; ++comp)
@@ -1628,6 +1629,10 @@ void System::sampleProperties(size_t currentBlock, size_t currentCycle)
   {
     propertyAutocorrelation["NumberOfMolecules"].addSample(currentCycle, static_cast<double>(numberOfMolecules));
     propertyAutocorrelation["NumberOfMolecules"].writeOutput(systemId, currentCycle);
+  }
+  if (propertySoap.has_value())
+  {
+    propertySoap->sample(currentCycle, spanOfMoleculeAtoms(), simulationBox);
   }
 
   std::chrono::system_clock::time_point t2 = std::chrono::system_clock::now();

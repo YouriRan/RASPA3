@@ -230,6 +230,11 @@ export union double3x3
     return *this;
   }
 
+  inline std::array<std::array<double, 3>, 3> toArray()
+  {
+    return {{{m11, m12, m13}, {m21, m22, m23}, {m31, m32, m33}}};
+  }
+
   friend Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const double3x3& vec);
   friend Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, double3x3& vec);
 

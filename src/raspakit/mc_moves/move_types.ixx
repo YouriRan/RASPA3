@@ -36,6 +36,8 @@ export enum class MoveTypes : size_t {
   ParallelTempering = 17,
   HybridMC = 18,
   VolumeNCMC = 19,
+  SwapNCMC = 20,
+  SwapNonEqCBMC = 21,
   Count
 };
 
@@ -45,8 +47,8 @@ export std::unordered_set<MoveTypes> componentMoves = {
     MoveTypes::SwapCFCMC,       MoveTypes::SwapCBCFCMC,        MoveTypes::Widom,    MoveTypes::WidomCFCMC,
     MoveTypes::WidomCBCFCMC};
 
-export std::unordered_set<MoveTypes> systemMoves = {MoveTypes::VolumeChange, MoveTypes::HybridMC,
-                                                    MoveTypes::VolumeNCMC MoveTypes::SwapNCMC};
+export std::unordered_set<MoveTypes> systemMoves = {MoveTypes::VolumeChange, MoveTypes::HybridMC, MoveTypes::VolumeNCMC,
+                                                    MoveTypes::SwapNCMC, MoveTypes::SwapNonEqCBMC};
 
 export std::unordered_set<MoveTypes> crossSystemMoves = {MoveTypes::GibbsVolume, MoveTypes::GibbsSwapCBMC,
                                                          MoveTypes::GibbsSwapCFCMC, MoveTypes::ParallelTempering};
