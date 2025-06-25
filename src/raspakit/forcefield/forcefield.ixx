@@ -90,6 +90,7 @@ export struct ForceField
 
   enum class InterpolationScheme : size_t
   {
+    Polynomial = 1,
     Tricubic = 8,
     Triquintic = 27
   };
@@ -142,12 +143,13 @@ export struct ForceField
   double3 potentialEnergySurfaceOrigin{0.0, 0.0, 0.0};
 
   std::vector<size_t> gridPseudoAtomIndices;
-  double spacingVDWGrid{0.15};
-  double spacingCoulombGrid{0.15};
+  double spacingVDWGrid{ 0.15 };
+  double spacingCoulombGrid{ 0.15 };
   std::optional<int3> numberOfVDWGridPoints{};
   std::optional<int3> numberOfCoulombGridPoints{};
-  size_t numberOfGridTestPoints{100000};
-  InterpolationScheme interpolationScheme{InterpolationScheme::Tricubic};
+  size_t numberOfGridTestPoints{ 100000 };
+  bool interpolationSchemeAuto{ true };
+  InterpolationScheme interpolationScheme{InterpolationScheme::Polynomial};
 
   /**
    * \brief Default constructor for the ForceField struct.
@@ -240,6 +242,9 @@ export struct ForceField
    */
   std::string printPseudoAtomStatus() const;
 
+
+  std::string printCutOffAutoStatus() const;
+
   /**
    * \brief Returns a string representation of the force field status.
    *
@@ -296,6 +301,8 @@ export struct ForceField
    * \param simulationBox The simulation box to use for initialization.
    */
   void initializeEwaldParameters(const SimulationBox &simulationBox);
+
+  void initializeAutomaticCutOff(const SimulationBox &simulationBox);
 
   friend Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const ForceField &f);
   friend Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, ForceField &f);

@@ -83,6 +83,7 @@ import mc_moves;
 import mc_moves_probabilities;
 import mc_moves_cputime;
 import mc_moves_statistics;
+import mc_moves_move_types;
 import molecule;
 import property_pressure;
 import transition_matrix;
@@ -140,17 +141,29 @@ void MonteCarlo::run()
       // this case only happens at first run, not when using a binart-restart file
       for (System& system : systems)
       {
+        system.forceField.initializeAutomaticCutOff(system.simulationBox);
+        system.forceField.initializeEwaldParameters(system.simulationBox);
+
         // switch the fractional molecule on in the first system, and off in all others
         if (system.systemId == 0uz)
           system.containsTheFractionalMolecule = true;
         else
           system.containsTheFractionalMolecule = false;
+
+        // if the MC/MD hybrid move is on, make sure that interpolation-method include gradients
+        if(system.mc_moves_probabilities.getProbability(MoveTypes::HybridMC) > 0.0 && 
+           system.forceField.interpolationScheme == ForceField::InterpolationScheme::Polynomial)
+        {
+          system.forceField.interpolationScheme = ForceField::InterpolationScheme::Tricubic;
+        }
       }
       if (outputToFiles)
       {
         createOutputFiles();
         writeOutputHeader();
       }
+
+
       createInterpolationGrids();
       break;
     case SimulationStage::Initialization:
