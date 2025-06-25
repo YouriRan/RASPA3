@@ -32,7 +32,9 @@
     {
       "name": "windows_conda_raspa3",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CONDA": true,
         "CMAKE_BUILD_TYPE": "Release",
@@ -56,14 +58,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Windows"]
+          "hostOS": [
+            "Windows"
+          ]
         }
       }
     },
     {
       "name": "mac_conda",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CONDA": true,
         "CMAKE_BUILD_TYPE": "Release",
@@ -89,14 +95,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
     {
       "name": "mac_conda_raspa3",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CONDA": true,
         "CMAKE_BUILD_TYPE": "Release",
@@ -121,14 +131,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
     {
       "name": "linux_conda",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CONDA": true,
         "CMAKE_BUILD_TYPE": "Release",
@@ -156,17 +170,31 @@
         "BUILD_PYTHON": false,
         "BLA_SIZEOF_INTEGER": "4"
       },
-
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Linux"]
+          "hostOS": [
+            "Linux"
+          ]
         }
+      }
+    },
+    {
+      "name": "carbon_conda",
+      "description": "Sets compilers, build type",
+      "inherits": "linux_conda",
+      "cacheVariables": {
+        "OpenCL_INCLUDE_DIRS": "/opt/intel/oneapi/2024.0/include/sycl",
+        "OpenCL_LIBRARY": "/opt/intel/oneapi/2024.0/lib/libOpenCL.so",
+        "BUILD_TESTING": false,
+        "BUILD_PYTHON": true
       }
     },
     {
       "name": "linux_conda_raspa3",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CONDA": true,
         "CMAKE_BUILD_TYPE": "Release",
@@ -188,23 +216,26 @@
         "OpenMP_libgomp_LIBRARY": "$env{PREFIX}/lib/libgomp.so",
         "BLA_VENDOR": "Generic",
         "BUILD_MAC_PACKAGE": false,
-        "SKIP_EXECUTABLE" : false,
-        "BUILD_TESTING": false,
-        "BUILD_PYTHON": false,
+        "SKIP_EXECUTABLE": false,
+        "BUILD_TESTING": true,
         "BUILD_LIBTORCH": false,
+        "BUILD_PYTHON": false,
         "BLA_SIZEOF_INTEGER": "4"
       },
-
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Linux"]
+          "hostOS": [
+            "Linux"
+          ]
         }
       }
     },
     {
       "name": "windows_conda_raspalib",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CONDA": true,
         "CMAKE_BUILD_TYPE": "Release",
@@ -229,14 +260,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Windows"]
+          "hostOS": [
+            "Windows"
+          ]
         }
       }
     },
     {
       "name": "mac_conda_raspalib",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CONDA": true,
         "CMAKE_BUILD_TYPE": "Release",
@@ -262,14 +297,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
     {
       "name": "linux_conda_raspalib",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CONDA": true,
         "CMAKE_BUILD_TYPE": "Release",
@@ -298,17 +337,20 @@
         "BUILD_PYTHON": true,
         "BLA_SIZEOF_INTEGER": "4"
       },
-
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Linux"]
+          "hostOS": [
+            "Linux"
+          ]
         }
       }
     },
     {
       "name": "windows-arm64-package",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_COMPILER": "cl.exe",
@@ -330,6 +372,8 @@
         "HDF5_ROOT": "C:/vcpkg/installed/ARM64-windows-static",
         "ZLIB_INCLUDE_DIR": "C:/vcpkg/installed/ARM64-windows-static/include",
         "ZLIB_LIBRARY": "C:/vcpkg/installed/ARM64-windows-static/lib/zlib.lib",
+        "OpenCL_INCLUDE_DIR": "C:/vcpkg/installed/ARM64-windows/include",
+        "OpenCL_LIBRARY": "C:/vcpkg/installed/ARM64-windows/lib/OpenCL.lib",
         "CMAKE_BUILD_WITH_INSTALL_RPATH": true,
         "BUILD_WINDOWS_PACKAGE": true,
         "BUILD_TESTING": true,
@@ -339,14 +383,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Windows"]
+          "hostOS": [
+            "Windows"
+          ]
         }
       }
     },
     {
       "name": "windows-x64-core-avx2-package",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_COMPILER": "cl.exe",
@@ -368,6 +416,8 @@
         "HDF5_ROOT": "C:/vcpkg/installed/x64-windows-static",
         "ZLIB_INCLUDE_DIR": "C:/vcpkg/installed/x64-windows-static/include",
         "ZLIB_LIBRARY": "C:/vcpkg/installed/x64-windows-static/lib/zlib.lib",
+        "OpenCL_INCLUDE_DIR": "C:/vcpkg/installed/x64-windows/include",
+        "OpenCL_LIBRARY": "C:/vcpkg/installed/x64-windows/lib/OpenCL.lib",
         "CMAKE_BUILD_WITH_INSTALL_RPATH": true,
         "BUILD_WINDOWS_PACKAGE": true,
         "BUILD_TESTING": true,
@@ -377,14 +427,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Windows"]
+          "hostOS": [
+            "Windows"
+          ]
         }
       }
     },
     {
       "name": "windows-x64-skylake-avx512-package",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_COMPILER": "cl.exe",
@@ -406,6 +460,8 @@
         "HDF5_ROOT": "C:/vcpkg/installed/x64-windows-static",
         "ZLIB_INCLUDE_DIR": "C:/vcpkg/installed/x64-windows-static/include",
         "ZLIB_LIBRARY": "C:/vcpkg/installed/x64-windows-static/lib/zlib.lib",
+        "OpenCL_INCLUDE_DIR": "C:/vcpkg/installed/x64-windows/include",
+        "OpenCL_LIBRARY": "C:/vcpkg/installed/x64-windows/lib/OpenCL.lib",
         "CMAKE_BUILD_WITH_INSTALL_RPATH": true,
         "BUILD_WINDOWS_PACKAGE": true,
         "BUILD_TESTING": true,
@@ -415,14 +471,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Windows"]
+          "hostOS": [
+            "Windows"
+          ]
         }
       }
     },
     {
       "name": "macos-x64-core-avx2",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "x86_64",
         "CMAKE_BUILD_TYPE": "Release",
@@ -445,14 +505,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
     {
       "name": "macos-x64-core-avx2-package",
       "description": "Mac create installer",
-      "inherits": ["macos-x64-core-avx2"],
+      "inherits": [
+        "macos-x64-core-avx2"
+      ],
       "cacheVariables": {
         "BUILD_MAC_PACKAGE": true
       }
@@ -460,7 +524,9 @@
     {
       "name": "macos-x64-skylake-avx512",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "x86_64",
         "CMAKE_BUILD_TYPE": "Release",
@@ -483,14 +549,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
     {
       "name": "macos-x64-skylake-avx512-package",
       "description": "Mac create installer",
-      "inherits": ["macos-x64-skylake-avx512"],
+      "inherits": [
+        "macos-x64-skylake-avx512"
+      ],
       "cacheVariables": {
         "BUILD_MAC_PACKAGE": true
       }
@@ -498,7 +568,9 @@
     {
       "name": "macos-x64-debug",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "x86_64",
         "CMAKE_BUILD_TYPE": "Debug",
@@ -520,14 +592,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
     {
       "name": "macos-x64-profile",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "x86_64",
         "CMAKE_BUILD_TYPE": "Release",
@@ -549,14 +625,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
     {
       "name": "macos-apple-silicon",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_BUILD_TYPE": "Release",
@@ -578,14 +658,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
     {
       "name": "macos-apple-silicon-package",
       "description": "Mac create installer",
-      "inherits": ["macos-apple-silicon"],
+      "inherits": [
+        "macos-apple-silicon"
+      ],
       "cacheVariables": {
         "BUILD_MAC_PACKAGE": true
       }
@@ -593,7 +677,9 @@
     {
       "name": "macos-apple-silicon-profile",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_BUILD_TYPE": "Release",
@@ -615,14 +701,18 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
     {
       "name": "macos-apple-silicon-debug",
       "description": "Sets compilers, build type",
-      "inherits": ["base"],
+      "inherits": [
+        "base"
+      ],
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_BUILD_TYPE": "Debug",
@@ -644,7 +734,9 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["macOS"]
+          "hostOS": [
+            "macOS"
+          ]
         }
       }
     },
@@ -667,7 +759,9 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Linux"]
+          "hostOS": [
+            "Linux"
+          ]
         }
       }
     },
@@ -688,25 +782,6 @@
         "OpenMP_libomp_INCLUDES": "$env{HOME}/software/lib/clang/18/include/",
         "BUILD_LIBTORCH": false,
         "BLA_SIZEOF_INTEGER": "8"
-      }
-    },
-    {
-      "name": "yr",
-      "description": "Sets compilers, build type",
-      "inherits": "linux-x86_64",
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS_RELEASE": "-DNDEBUG -stdlib=libc++ -fvisibility=hidden -fexperimental-library -Xclang -fopenmp -g -O3 -march=core-avx2 -mfma  -fomit-frame-pointer -ffast-math",
-        "CMAKE_C_COMPILER": "$env{CONDA_PREFIX}/bin/clang",
-        "CMAKE_CXX_COMPILER": "$env{CONDA_PREFIX}/bin/clang++",
-        "CMAKE_MAKE_PROGRAM": "$env{CONDA_PREFIX}/bin/ninja",
-        "OpenMP_C_FLAGS": "-Xclang -fopenmp",
-        "OpenMP_C_LIB_NAMES": "libomp",
-        "OpenMP_CXX_FLAGS": "-Xclang -fopenmp",
-        "OpenMP_CXX_LIB_NAMES": "libomp",
-        "OpenMP_libgomp_LIBRARY": "$env{PREFIX}/lib/libgomp.so",
-        "BLA_SIZEOF_INTEGER": "8",
-        "BUILD_TESTING": false,
-        "BUILD_PYTHON": false
       }
     },
     {
@@ -992,6 +1067,26 @@
         "Python3_EXECUTABLE": "/usr/bin/python3",
         "BUILD_LIBTORCH": false,
         "BUILD_PYTHON": true,
+        "BLA_SIZEOF_INTEGER": "4"
+      }
+    },
+    {
+      "name": "carbon",
+      "description": "Sets compilers, build type",
+      "inherits": "linux-x86_64",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS_RELEASE": "-DNDEBUG -stdlib=libc++ -fvisibility=hidden -fexperimental-library -Xclang -fopenmp -g -O3 -march=core-avx2 -mfma  -fomit-frame-pointer -ffast-math",
+        "BUILD_RPM_PACKAGE": true,
+        "CPACK_RPM_PACKAGE_DEPENDS": "blas64, lapack64, libgfortran, libquadmath, libomp, glibc, libgcc, zlib, ocl-icd, fftw3",
+        "OpenCL_INCLUDE_DIRS": "/opt/intel/oneapi/2024.0/include/sycl",
+        "OpenCL_LIBRARY": "/opt/intel/oneapi/2024.0/lib/libOpenCL.so",
+        "OpenMP_C_FLAGS": "-fopenmp",
+        "OpenMP_C_LIB_NAMES": "libomp",
+        "OpenMP_CXX_FLAGS": "-fopenmp",
+        "OpenMP_CXX_LIB_NAMES": "libomp",
+        "OpenMP_libomp_LIBRARY": "/home/youriran/software/lib/x86_64-unknown-linux-gnu/libomp.so",
+        "BUILD_LIBTORCH": false,
+        "BUILD_PYTHON": false,
         "BLA_SIZEOF_INTEGER": "4"
       }
     },
@@ -1447,7 +1542,9 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": ["Linux"]
+          "hostOS": [
+            "Linux"
+          ]
         }
       }
     },
