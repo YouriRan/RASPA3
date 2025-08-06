@@ -91,6 +91,7 @@ import mc_moves_reaction_cfcmc_cbmc;
 import mc_moves_widom;
 import mc_moves_parallel_tempering_swap;
 import mc_moves_hybridmc;
+import mc_moves_noneq_cbmc;
 
 void MC_Moves::performRandomMove(RandomNumber &random, System &selectedSystem, System &selectedSecondSystem,
                                  size_t selectedComponent, size_t &fractionalMoleculeSystem)
@@ -439,6 +440,17 @@ void MC_Moves::performRandomMove(RandomNumber &random, System &selectedSystem, S
 
       const auto [energyDifference, Pacc] =
           MC_Moves::swapNCMC(random, selectedSystem, selectedComponent, selectedMolecule);
+      if (energyDifference)
+      {
+        selectedSystem.runningEnergies += energyDifference.value();
+      }
+      selectedSystem.tmmc.updateMatrix(Pacc, oldN);
+      break;
+    }
+        case MoveTypes::SwapNonEqCBMC:
+    {
+      const auto [energyDifference, Pacc] =
+          MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
       if (energyDifference)
       {
         selectedSystem.runningEnergies += energyDifference.value();
@@ -816,6 +828,17 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       {
         selectedSystem.runningEnergies = energy.value();
       }
+      break;
+    }
+    case MoveTypes::SwapNonEqCBMC:
+    {
+      const auto [energyDifference, Pacc] =
+          MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
+      if (energyDifference)
+      {
+        selectedSystem.runningEnergies += energyDifference.value();
+      }
+      selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
     case MoveTypes::Count:

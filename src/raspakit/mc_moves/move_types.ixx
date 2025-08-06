@@ -45,10 +45,9 @@ export std::unordered_set<MoveTypes> componentMoves = {
     MoveTypes::Translation,     MoveTypes::RandomTranslation,  MoveTypes::Rotation, MoveTypes::RandomRotation,
     MoveTypes::ReinsertionCBMC, MoveTypes::IdentityChangeCBMC, MoveTypes::Swap,     MoveTypes::SwapCBMC,
     MoveTypes::SwapCFCMC,       MoveTypes::SwapCBCFCMC,        MoveTypes::Widom,    MoveTypes::WidomCFCMC,
-    MoveTypes::WidomCBCFCMC};
+    MoveTypes::WidomCBCFCMC, MoveTypes::SwapNCMC, MoveTypes::SwapNonEqCBMC};
 
-export std::unordered_set<MoveTypes> systemMoves = {MoveTypes::VolumeChange, MoveTypes::HybridMC, MoveTypes::VolumeNCMC,
-                                                    MoveTypes::SwapNCMC, MoveTypes::SwapNonEqCBMC};
+export std::unordered_set<MoveTypes> systemMoves = {MoveTypes::VolumeChange, MoveTypes::HybridMC, MoveTypes::VolumeNCMC};
 
 export std::unordered_set<MoveTypes> crossSystemMoves = {MoveTypes::GibbsVolume, MoveTypes::GibbsSwapCBMC,
                                                          MoveTypes::GibbsSwapCFCMC, MoveTypes::ParallelTempering};
@@ -74,6 +73,6 @@ export std::map<MoveTypes, std::string> moveNames = {{MoveTypes::Translation, "T
                                                      {MoveTypes::WidomCBCFCMC, "Widom (CB/CFCMC)"},
                                                      {MoveTypes::ParallelTempering, "Parallel tempering"},
                                                      {MoveTypes::HybridMC, "Hybrid MC"},
-                                                     //{MoveTypes::NonEqCBMC, "Swap Non-Eq candidate CBMC"},
+                                                     {MoveTypes::SwapNonEqCBMC, "Swap Non-Eq candidate CBMC"},
                                                      {MoveTypes::VolumeNCMC, "Volume NCMC"},
                                                      {MoveTypes::SwapNCMC, "Swap NCMC"}};

@@ -631,6 +631,24 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         }
       }
 
+      if (item.contains("NonEqCBMC_Probability") && item["NonEqCBMC_Probability"].is_number_float())
+      {
+        double nonEqCBMC_Probability = item["NonEqCBMC_Probability"].get<double>();
+        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        {
+          move_probabilities[i].setProbability(MoveTypes::SwapNonEqCBMC, nonEqCBMC_Probability);
+        }
+      }
+
+            if (item.contains("NonEqCFCMC_Probability") && item["NonEqCFCMC_Probability"].is_number_float())
+      {
+        double nonEqCFCMC_Probability = item["NonEqCFCMC_Probability"].get<double>();
+        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        {
+          move_probabilities[i].setProbability(MoveTypes::SwapNCMC, nonEqCFCMC_Probability);
+        }
+      }
+
       if (item.contains("CreateNumberOfMolecules") && item["CreateNumberOfMolecules"].is_number_integer())
       {
         size_t n = item["CreateNumberOfMolecules"].get<size_t>();
@@ -1404,7 +1422,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           }
 
           systems[systemId].propertySoap = PropertySoap(
-              soapPowerSpectrumSampleEvery, soapPowerSpectrumWriteOutputEvery, soapPowerSpectrumCutOff,
+              soapPowerSpectrumSampleEvery, soapPowerSpectrumWriteOutputEvery, 100, soapPowerSpectrumCutOff,
               soapPowerSpectrumSmoothingWidth, soapPowerSpectrumGaussianWidth,
               soapPowerSpectrumNumberOfRadialBasisFunctions, soapPowerSpectrumNumberOfAngularBasisFunctions);
         }
@@ -1785,6 +1803,8 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::compon
     "SwapProbability",
     "CFCMC_SwapProbability",
     "CFCMC_CBMC_SwapProbability",
+    "NonEqCFCMC_Probability",
+    "NonEqCBMC_Probability",
     "GibbsSwapProbability",
     "Gibbs_CFCMC_SwapProbability",
     "WidomProbability",

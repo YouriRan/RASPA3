@@ -205,12 +205,43 @@ MCMoveCpuTime::MCMoveCpuTime()
                      {"Total", std::chrono::duration<double>::zero()},
                      {"Integration", std::chrono::duration<double>::zero()},
                  }},
-                 {MoveTypes::VolumeNCMC,
-                  {
-                      {"Total", std::chrono::duration<double>::zero()},
-                      {"Volume", std::chrono::duration<double>::zero()},
-                      {"Integration", std::chrono::duration<double>::zero()},
-                  }}}
+                {MoveTypes::VolumeNCMC,
+                 {
+                     {"Total", std::chrono::duration<double>::zero()},
+                     {"Volume", std::chrono::duration<double>::zero()},
+                     {"Integration", std::chrono::duration<double>::zero()},
+                 }},
+                {MoveTypes::SwapNonEqCBMC,
+                 {
+                     {"Total", std::chrono::duration<double>::zero()},
+                     {"Insertion-Total", std::chrono::duration<double>::zero()},
+                     {"Deletion-Total", std::chrono::duration<double>::zero()},
+                     {"NonEwald", std::chrono::duration<double>::zero()},
+                     {"Tail", std::chrono::duration<double>::zero()},
+                     {"Ewald", std::chrono::duration<double>::zero()},
+                 }},
+                {MoveTypes::SwapNCMC,
+                 {
+                     {"Total", std::chrono::duration<double>::zero()},
+                     {"Insertion-ExternalField", std::chrono::duration<double>::zero()},
+                     {"Insertion-Framework", std::chrono::duration<double>::zero()},
+                     {"Insertion-Molecule", std::chrono::duration<double>::zero()},
+                     {"Insertion-NonEwald", std::chrono::duration<double>::zero()},
+                     {"Insertion-Ewald", std::chrono::duration<double>::zero()},
+                     {"Insertion-Tail", std::chrono::duration<double>::zero()},
+                     {"Deletion-ExternalField", std::chrono::duration<double>::zero()},
+                     {"Deletion-Framework", std::chrono::duration<double>::zero()},
+                     {"Deletion-Molecule", std::chrono::duration<double>::zero()},
+                     {"Deletion-NonEwald", std::chrono::duration<double>::zero()},
+                     {"Deletion-Ewald", std::chrono::duration<double>::zero()},
+                     {"Deletion-Tail", std::chrono::duration<double>::zero()},
+                     {"Lambda-ExternalField", std::chrono::duration<double>::zero()},
+                     {"Lambda-Framework", std::chrono::duration<double>::zero()},
+                     {"Lambda-Molecule", std::chrono::duration<double>::zero()},
+                     {"Lambda-NonEwald", std::chrono::duration<double>::zero()},
+                     {"Lambda-Ewald", std::chrono::duration<double>::zero()},
+                     {"Lambda-Tail", std::chrono::duration<double>::zero()},
+                 }}}
 {
 }
 

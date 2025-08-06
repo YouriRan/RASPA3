@@ -34,7 +34,8 @@ MCMoveProbabilities::MCMoveProbabilities(double translationProbability, double r
                                          double gibbsSwapCBMCProbability, double gibbsSwapCFCMCProbability,
                                          double widomProbability, double widomCFCMCProbability,
                                          double widomCBCFCMCProbability, double parallelTemperingProbability,
-                                         double hybridMCProbability, double volumeNCMCProbability)
+                                         double hybridMCProbability, double volumeNCMCProbability,
+                                        double swapNCMCProbability, double swapNonEqCBMCProbability)
 {
   probabilities[MoveTypes::Translation] = translationProbability;
   probabilities[MoveTypes::RandomTranslation] = randomTranslationProbability;
@@ -56,6 +57,8 @@ MCMoveProbabilities::MCMoveProbabilities(double translationProbability, double r
   probabilities[MoveTypes::ParallelTempering] = parallelTemperingProbability;
   probabilities[MoveTypes::HybridMC] = hybridMCProbability;
   probabilities[MoveTypes::VolumeNCMC] = volumeNCMCProbability;
+  probabilities[MoveTypes::SwapNCMC] = swapNCMCProbability;
+  probabilities[MoveTypes::SwapNonEqCBMC] = swapNonEqCBMCProbability;
 }
 
 const std::map<MoveTypes, double> MCMoveProbabilities::normalizedMap() const

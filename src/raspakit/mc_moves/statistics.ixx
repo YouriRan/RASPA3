@@ -51,6 +51,8 @@ export struct MCMoveStatistics
         .maxChange = double3(0.0, 0.0, 0.5), .lowerLimit = double3(0.0), .upperLimit = double3(1.0)};
     statsMapDouble3[MoveTypes::GibbsSwapCFCMC] = MoveStatistics<double3>{
         .maxChange = double3(0.0, 0.0, 0.5), .lowerLimit = double3(0.0), .upperLimit = double3(1.0)};
+    statsMapDouble3[MoveTypes::SwapNCMC] = MoveStatistics<double3>{};
+    statsMapDouble3[MoveTypes::SwapNonEqCBMC] = MoveStatistics<double3>{};
 
     statsMapDouble[MoveTypes::VolumeChange] =
         MoveStatistics<double>{.maxChange = 0.1, .lowerLimit = 0.01, .upperLimit = 1.5};
@@ -65,7 +67,8 @@ export struct MCMoveStatistics
     statsMapDouble[MoveTypes::ParallelTempering] = MoveStatistics<double>{};
     statsMapDouble[MoveTypes::HybridMC] =
         MoveStatistics<double>{.maxChange = 0.0005, .lowerLimit = 0.000001, .upperLimit = 0.01};
-    statsMapDouble[MoveTypes::VolumeNCMC] = MoveStatistics<double>{.maxChange=0.1, .lowerLimit=0.01, .upperLimit=1.5};
+    statsMapDouble[MoveTypes::VolumeNCMC] =
+        MoveStatistics<double>{.maxChange = 0.1, .lowerLimit = 0.01, .upperLimit = 1.5};
   };
 
   void clearMoveStatistics();
