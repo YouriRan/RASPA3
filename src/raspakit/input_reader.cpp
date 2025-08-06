@@ -26,25 +26,7 @@ module;
 module input_reader;
 
 #ifndef USE_LEGACY_HEADERS
-import <filesystem>;
-import <fstream>;
-import <streambuf>;
-import <cstdlib>;
-import <iostream>;
-import <sstream>;
-import <exception>;
-import <numbers>;
-import <vector>;
-import <array>;
-import <complex>;
-import <ios>;
-import <optional>;
-import <algorithm>;
-import <map>;
-import <set>;
-import <iterator>;
-import <functional>;
-import <print>;
+import std;
 #endif
 
 import int3;
@@ -79,6 +61,7 @@ import property_msd;
 import property_vacf;
 import property_autocorrelation;
 import property_soap;
+import write_lammps_data;
 import thermostat;
 
 int3 parseInt3(const std::string& item, auto json)
@@ -93,9 +76,9 @@ int3 parseInt3(const std::string& item, auto json)
     int3 value{};
     try
     {
-      value.x = json[0].template get<int32_t>();
-      value.y = json[1].template get<int32_t>();
-      value.z = json[2].template get<int32_t>();
+      value.x = json[0].template get<std::int32_t>();
+      value.y = json[1].template get<std::int32_t>();
+      value.z = json[2].template get<std::int32_t>();
       return value;
     }
     catch (nlohmann::json::exception& ex)
@@ -136,7 +119,7 @@ double3 parseDouble3(const std::string& item, auto json)
 }
 
 template <typename T>
-std::vector<T> parseList(size_t size, const std::string& item, auto json)
+std::vector<T> parseList(std::size_t size, const std::string& item, auto json)
 {
   if (json.is_array())
   {
@@ -249,7 +232,7 @@ void InputReader::parseBreakthrough(const nlohmann::basic_json<nlohmann::raspa_m
     throw std::runtime_error(
         std::format("[Input reader]: no system defined with keyword 'Systems' and value of array-type\n"));
   }
-  size_t jsonNumberOfSystems = parsed_data["Systems"].size();
+  std::size_t jsonNumberOfSystems = parsed_data["Systems"].size();
   if (jsonNumberOfSystems == 0)
   {
     throw std::runtime_error(std::format("[Input reader]: keyword 'Systems' has empty value of array-type\n"));
@@ -258,7 +241,7 @@ void InputReader::parseBreakthrough(const nlohmann::basic_json<nlohmann::raspa_m
   systems = std::vector<System>(jsonNumberOfSystems);
 
   // count number of components
-  size_t jsonNumberOfComponents{};
+  std::size_t jsonNumberOfComponents{};
   if (parsed_data.contains("Components"))
   {
     jsonNumberOfComponents = parsed_data["Components"].size();
@@ -270,7 +253,7 @@ void InputReader::parseBreakthrough(const nlohmann::basic_json<nlohmann::raspa_m
                                                      std::vector<Component>(jsonNumberOfComponents));
 
   // Parse component options
-  for (size_t componentId = 0; auto& [_, item] : parsed_data["Components"].items())
+  for (std::size_t componentId = 0; auto& [_, item] : parsed_data["Components"].items())
   {
     Component component{};
 
@@ -282,7 +265,7 @@ void InputReader::parseBreakthrough(const nlohmann::basic_json<nlohmann::raspa_m
     component.name = item["Name"].get<std::string>();
 
     // construct Component
-    for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+    for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
     {
       jsonComponents[i][componentId] = component;
     }
@@ -290,7 +273,7 @@ void InputReader::parseBreakthrough(const nlohmann::basic_json<nlohmann::raspa_m
     componentId++;
   }
 
-  for (size_t systemId = 0; auto& [key, value] : parsed_data["Systems"].items())
+  for (std::size_t systemId = 0; auto& [key, value] : parsed_data["Systems"].items())
   {
     if (!value.contains("Type"))
     {
@@ -345,7 +328,7 @@ void InputReader::parseBreakthrough(const nlohmann::basic_json<nlohmann::raspa_m
 
 void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {
-  size_t jsonNumberOfBlocks{5};
+  std::size_t jsonNumberOfBlocks{5};
 
   // count number of systems
   if (!parsed_data.contains("Systems"))
@@ -353,7 +336,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
     throw std::runtime_error(
         std::format("[Input reader]: no system defined with keyword 'Systems' and value of array-type\n"));
   }
-  size_t jsonNumberOfSystems = parsed_data["Systems"].size();
+  std::size_t jsonNumberOfSystems = parsed_data["Systems"].size();
   if (jsonNumberOfSystems == 0)
   {
     throw std::runtime_error(std::format("[Input reader]: keyword 'Systems' has empty value of array-type\n"));
@@ -370,15 +353,15 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
   }
   std::vector<std::optional<ForceField>> forceFields = std::vector<std::optional<ForceField>>(jsonNumberOfSystems);
   const std::optional<ForceField> standard = ForceField::readForceField(directoryName, "force_field.json");
-  for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+  for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
   {
     forceFields[i] = standard;
   }
 
-  size_t jsonNumberOfLambdaBins{41};
+  std::size_t jsonNumberOfLambdaBins{41};
   if (parsed_data.contains("NumberOfLambdaBins") && parsed_data["NumberOfLambdaBins"].is_number_unsigned())
   {
-    jsonNumberOfLambdaBins = parsed_data["NumberOfLambdaBins"].get<size_t>();
+    jsonNumberOfLambdaBins = parsed_data["NumberOfLambdaBins"].get<std::size_t>();
   }
 
   if (parsed_data.contains("RestartFromBinaryFile") && parsed_data["RestartFromBinaryFile"].is_boolean())
@@ -393,39 +376,39 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
   if (parsed_data.contains("NumberOfCycles") && parsed_data["NumberOfCycles"].is_number_unsigned())
   {
-    numberOfCycles = parsed_data["NumberOfCycles"].get<size_t>();
+    numberOfCycles = parsed_data["NumberOfCycles"].get<std::size_t>();
   }
 
   if (parsed_data.contains("NumberOfInitializationCycles") &&
       parsed_data["NumberOfInitializationCycles"].is_number_unsigned())
   {
-    numberOfInitializationCycles = parsed_data["NumberOfInitializationCycles"].get<size_t>();
+    numberOfInitializationCycles = parsed_data["NumberOfInitializationCycles"].get<std::size_t>();
   }
 
   if (parsed_data.contains("NumberOfEquilibrationCycles") &&
       parsed_data["NumberOfEquilibrationCycles"].is_number_unsigned())
   {
-    numberOfEquilibrationCycles = parsed_data["NumberOfEquilibrationCycles"].get<size_t>();
+    numberOfEquilibrationCycles = parsed_data["NumberOfEquilibrationCycles"].get<std::size_t>();
   }
 
   if (parsed_data.contains("PrintEvery") && parsed_data["PrintEvery"].is_number_unsigned())
   {
-    printEvery = parsed_data["PrintEvery"].get<size_t>();
+    printEvery = parsed_data["PrintEvery"].get<std::size_t>();
   }
 
   if (parsed_data.contains("WriteBinaryRestartEvery") && parsed_data["WriteBinaryRestartEvery"].is_number_unsigned())
   {
-    writeBinaryRestartEvery = parsed_data["WriteBinaryRestartEvery"].get<size_t>();
+    writeBinaryRestartEvery = parsed_data["WriteBinaryRestartEvery"].get<std::size_t>();
   }
 
   if (parsed_data.contains("RescaleWangLandauEvery") && parsed_data["RescaleWangLandauEvery"].is_number_unsigned())
   {
-    rescaleWangLandauEvery = parsed_data["RescaleWangLandauEvery"].get<size_t>();
+    rescaleWangLandauEvery = parsed_data["RescaleWangLandauEvery"].get<std::size_t>();
   }
 
   if (parsed_data.contains("OptimizeMCMovesEvery") && parsed_data["OptimizeMCMovesEvery"].is_number_unsigned())
   {
-    optimizeMCMovesEvery = parsed_data["OptimizeMCMovesEvery"].get<size_t>();
+    optimizeMCMovesEvery = parsed_data["OptimizeMCMovesEvery"].get<std::size_t>();
   }
 
   if (parsed_data.contains("ThreadingType") && parsed_data["ThreadingType"].is_string())
@@ -451,7 +434,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
   if (parsed_data.contains("NumberOfThreads") && parsed_data["NumberOfThreads"].is_number_unsigned())
   {
-    numberOfThreads = parsed_data["NumberOfThreads"].get<size_t>();
+    numberOfThreads = parsed_data["NumberOfThreads"].get<std::size_t>();
     if (numberOfThreads > 1)
       threadingType = ThreadPool::ThreadingType::ThreadPool;
     else
@@ -459,7 +442,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
   }
 
   // count number of components
-  size_t jsonNumberOfComponents{};
+  std::size_t jsonNumberOfComponents{};
   if (parsed_data.contains("Components"))
   {
     jsonNumberOfComponents = parsed_data["Components"].size();
@@ -471,13 +454,13 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
                                                      std::vector<Component>(jsonNumberOfComponents));
 
   // for each system, a list of how many molecules to create for each component
-  std::vector<std::vector<size_t>> jsonCreateNumberOfMolecules(jsonNumberOfSystems,
-                                                               std::vector<size_t>(jsonNumberOfComponents));
+  std::vector<std::vector<std::size_t>> jsonCreateNumberOfMolecules(jsonNumberOfSystems,
+                                                                    std::vector<std::size_t>(jsonNumberOfComponents));
 
   // Parse component options
   if (parsed_data.contains("Components"))
   {
-    for (size_t componentId = 0; auto& [_, item] : parsed_data["Components"].items())
+    for (std::size_t componentId = 0; auto& [_, item] : parsed_data["Components"].items())
     {
       std::vector<MCMoveProbabilities> move_probabilities(jsonNumberOfSystems);
 
@@ -508,7 +491,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("TranslationProbability") && item["TranslationProbability"].is_number_float())
       {
         double translationProbability = item["TranslationProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::Translation, translationProbability);
         }
@@ -517,7 +500,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("RandomTranslationProbability") && item["RandomTranslationProbability"].is_number_float())
       {
         double randomTranslationProbability = item["RandomTranslationProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::RandomTranslation, randomTranslationProbability);
         }
@@ -526,7 +509,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("RotationProbability") && item["RotationProbability"].is_number_float())
       {
         double rotationProbability = item["RotationProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::Rotation, rotationProbability);
         }
@@ -535,7 +518,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("RandomRotationProbability") && item["RandomRotationProbability"].is_number_float())
       {
         double randomRotationProbability = item["RandomRotationProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::RandomRotation, randomRotationProbability);
         }
@@ -544,7 +527,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("ReinsertionProbability") && item["ReinsertionProbability"].is_number_float())
       {
         double reinsertionCBMCProbability = item["ReinsertionProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::ReinsertionCBMC, reinsertionCBMCProbability);
         }
@@ -553,7 +536,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("SwapConventionalProbability") && item["SwapConventionalProbability"].is_number_float())
       {
         double swapProbability = item["SwapConventionalProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::Swap, swapProbability);
         }
@@ -562,7 +545,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("SwapProbability") && item["SwapProbability"].is_number_float())
       {
         double swapCBMCProbability = item["SwapProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::SwapCBMC, swapCBMCProbability);
         }
@@ -571,7 +554,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("CFCMC_SwapProbability") && item["CFCMC_SwapProbability"].is_number_float())
       {
         double swapCFCMCProbability = item["CFCMC_SwapProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::SwapCFCMC, swapCFCMCProbability);
         }
@@ -580,7 +563,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("CFCMC_CBMC_SwapProbability") && item["CFCMC_CBMC_SwapProbability"].is_number_float())
       {
         double swapCBCFCMCProbability = item["CFCMC_CBMC_SwapProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::SwapCBCFCMC, swapCBCFCMCProbability);
         }
@@ -589,7 +572,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("Gibbs_CFCMC_SwapProbability") && item["Gibbs_CFCMC_SwapProbability"].is_number_float())
       {
         double gibbsSwapCFCMCProbability = item["Gibbs_CFCMC_SwapProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::GibbsSwapCFCMC, gibbsSwapCFCMCProbability);
         }
@@ -598,7 +581,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("GibbsSwapProbability") && item["GibbsSwapProbability"].is_number_float())
       {
         double gibbsSwapCBMCProbability = item["GibbsSwapProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::GibbsSwapCBMC, gibbsSwapCBMCProbability);
         }
@@ -607,7 +590,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("WidomProbability") && item["WidomProbability"].is_number_float())
       {
         double widomProbability = item["WidomProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::Widom, widomProbability);
         }
@@ -616,7 +599,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("CFCMC_WidomProbability") && item["CFCMC_WidomProbability"].is_number_float())
       {
         double widomCFCMCProbability = item["CFCMC_WidomProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::WidomCFCMC, widomCFCMCProbability);
         }
@@ -625,7 +608,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("CFCMC_CBMC_WidomProbability") && item["CFCMC_CBMC_WidomProbability"].is_number_float())
       {
         double widomCBCFCMCProbability = item["CFCMC_CBMC_WidomProbability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::WidomCBCFCMC, widomCBCFCMCProbability);
         }
@@ -634,7 +617,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("NonEqCBMC_Probability") && item["NonEqCBMC_Probability"].is_number_float())
       {
         double nonEqCBMC_Probability = item["NonEqCBMC_Probability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::SwapNonEqCBMC, nonEqCBMC_Probability);
         }
@@ -643,7 +626,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
             if (item.contains("NonEqCFCMC_Probability") && item["NonEqCFCMC_Probability"].is_number_float())
       {
         double nonEqCFCMC_Probability = item["NonEqCFCMC_Probability"].get<double>();
-        for (size_t i = 0; i < move_probabilities.size(); ++i)
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::SwapNCMC, nonEqCFCMC_Probability);
         }
@@ -651,15 +634,15 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
       if (item.contains("CreateNumberOfMolecules") && item["CreateNumberOfMolecules"].is_number_integer())
       {
-        size_t n = item["CreateNumberOfMolecules"].get<size_t>();
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        std::size_t n = item["CreateNumberOfMolecules"].get<std::size_t>();
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           jsonCreateNumberOfMolecules[i][componentId] = n;
         }
       }
 
       // construct Component
-      for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+      for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
       {
         if (!forceFields[i].has_value())
         {
@@ -673,8 +656,8 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
       if (item.contains("StartingBead") && item["StartingBead"].is_number_integer())
       {
-        size_t n = item["StartingBead"].get<size_t>();
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        std::size_t n = item["StartingBead"].get<std::size_t>();
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           if (n >= jsonComponents[i][componentId].definedAtoms.size())
           {
@@ -688,7 +671,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("FugacityCoefficient") && item["FugacityCoefficient"].is_number_float())
       {
         double fugacity_coefficient = item["FugacityCoefficient"].get<double>();
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           jsonComponents[i][componentId].fugacityCoefficient = fugacity_coefficient;
         }
@@ -697,7 +680,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("IdealGasRosenbluthWeight") && item["IdealGasRosenbluthWeight"].is_number_float())
       {
         double ideal_gas_rosenbluth_weight = item["IdealGasRosenbluthWeight"].get<double>();
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           jsonComponents[i][componentId].idealGasRosenbluthWeight = ideal_gas_rosenbluth_weight;
         }
@@ -706,7 +689,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("MolFraction") && item["MolFraction"].is_number_float())
       {
         double mol_fraction = item["MolFraction"].get<double>();
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           jsonComponents[i][componentId].molFraction = mol_fraction;
         }
@@ -715,7 +698,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("ThermodynamicIntegration") && item["ThermodynamicIntegration"].is_boolean())
       {
         bool thermodynamic_integration = item["ThermodynamicIntegration"].get<bool>();
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           jsonComponents[i][componentId].lambdaGC.computeDUdlambda = thermodynamic_integration;
         }
@@ -728,7 +711,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         try
         {
           std::filesystem::path path(lambda_bias_file_name);
-          for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+          for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
           {
             jsonComponents[i][componentId].lambdaGC.readBiasingFile(path);
           }
@@ -759,7 +742,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
           std::vector<double> data =
               block_pockets_item.is_array() ? block_pockets_item.get<std::vector<double>>() : std::vector<double>{};
-          for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+          for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
           {
             jsonComponents[i][componentId].blockingPockets.push_back(double4(data[0], data[1], data[2], data[3]));
           }
@@ -773,7 +756,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         std::vector<double> fugacity_coefficients =
             parseList<double>(jsonNumberOfSystems, "FugacityCoefficient", item["FugacityCoefficient"]);
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           jsonComponents[i][componentId].fugacityCoefficient = fugacity_coefficients[i];
         }
@@ -783,7 +766,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         std::vector<double> ideal_gas_rosenbluth_weight =
             parseList<double>(jsonNumberOfSystems, "IdealGasRosenbluthWeight", item["IdealGasRosenbluthWeight"]);
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           jsonComponents[i][componentId].idealGasRosenbluthWeight = ideal_gas_rosenbluth_weight[i];
         }
@@ -792,7 +775,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (item.contains("MolFraction") && item["MolFraction"].is_array())
       {
         std::vector<double> mol_fractions = parseList<double>(jsonNumberOfSystems, "MolFraction", item["MolFraction"]);
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           jsonComponents[i][componentId].molFraction = mol_fractions[i];
         }
@@ -800,9 +783,9 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
       if (item.contains("CreateNumberOfMolecules") && item["CreateNumberOfMolecules"].is_array())
       {
-        std::vector<size_t> initialNumberOfMolecule =
-            parseList<size_t>(jsonNumberOfSystems, "CreateNumberOfMolecules", item["CreateNumberOfMolecules"]);
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        std::vector<std::size_t> initialNumberOfMolecule =
+            parseList<std::size_t>(jsonNumberOfSystems, "CreateNumberOfMolecules", item["CreateNumberOfMolecules"]);
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           jsonCreateNumberOfMolecules[i][componentId] = initialNumberOfMolecule[i];
         }
@@ -812,7 +795,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         std::vector<std::string> lambda_bias_file_names =
             parseList<std::string>(jsonNumberOfSystems, "LambdaBiasFileName", item["LambdaBiasFileName"]);
-        for (size_t i = 0; i != jsonNumberOfSystems; ++i)
+        for (std::size_t i = 0; i != jsonNumberOfSystems; ++i)
         {
           try
           {
@@ -832,7 +815,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
   if (parsed_data.contains("Systems"))
   {
-    for (size_t systemId = 0; auto& [key, value] : parsed_data["Systems"].items())
+    for (std::size_t systemId = 0; auto& [key, value] : parsed_data["Systems"].items())
     {
       MCMoveProbabilities mc_moves_probabilities{};
 
@@ -1088,13 +1071,13 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (value.contains("MacroStateMinimumNumberOfMolecules") &&
           value["MacroStateMinimumNumberOfMolecules"].is_number_unsigned())
       {
-        systems[systemId].tmmc.minMacrostate = value["MacroStateMinimumNumberOfMolecules"].get<size_t>();
+        systems[systemId].tmmc.minMacrostate = value["MacroStateMinimumNumberOfMolecules"].get<std::size_t>();
       }
 
       if (value.contains("MacroStateMaximumNumberOfMolecules") &&
           value["MacroStateMaximumNumberOfMolecules"].is_number_unsigned())
       {
-        systems[systemId].tmmc.maxMacrostate = value["MacroStateMaximumNumberOfMolecules"].get<size_t>();
+        systems[systemId].tmmc.maxMacrostate = value["MacroStateMaximumNumberOfMolecules"].get<std::size_t>();
       }
 
       if (value.contains("ExternalField") && value["ExternalField"].is_boolean())
@@ -1106,23 +1089,23 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["ComputeEnergyHistogram"].get<bool>())
         {
-          size_t sampleEnergyHistogramEvery{1};
+          std::size_t sampleEnergyHistogramEvery{1};
           if (value.contains("SampleEnergyHistogramEvery") && value["SampleEnergyHistogramEvery"].is_number_unsigned())
           {
-            sampleEnergyHistogramEvery = value["SampleEnergyHistogramEvery"].get<size_t>();
+            sampleEnergyHistogramEvery = value["SampleEnergyHistogramEvery"].get<std::size_t>();
           }
 
-          size_t writeEnergyHistogramEvery{5000};
+          std::size_t writeEnergyHistogramEvery{5000};
           if (value.contains("WriteEnergyHistogramEvery") && value["WriteEnergyHistogramEvery"].is_number_unsigned())
           {
-            writeEnergyHistogramEvery = value["WriteEnergyHistogramEvery"].get<size_t>();
+            writeEnergyHistogramEvery = value["WriteEnergyHistogramEvery"].get<std::size_t>();
           }
 
-          size_t numberOfBinsEnergyHistogram{128};
+          std::size_t numberOfBinsEnergyHistogram{128};
           if (value.contains("NumberOfBinsEnergyHistogram") &&
               value["NumberOfBinsEnergyHistogram"].is_number_unsigned())
           {
-            numberOfBinsEnergyHistogram = value["NumberOfBinsEnergyHistogram"].get<size_t>();
+            numberOfBinsEnergyHistogram = value["NumberOfBinsEnergyHistogram"].get<std::size_t>();
           }
 
           double lowerLimitEnergyHistogram{-5000.0};
@@ -1148,32 +1131,32 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["ComputeNumberOfMoleculesHistogram"].get<bool>())
         {
-          size_t sampleNumberOfMoleculesHistogramEvery{1};
+          std::size_t sampleNumberOfMoleculesHistogramEvery{1};
           if (value.contains("SampleNumberOfMoleculesHistogramEvery") &&
               value["SampleNumberOfMoleculesHistogramEvery"].is_number_unsigned())
           {
-            sampleNumberOfMoleculesHistogramEvery = value["SampleNumberOfMoleculesHistogramEvery"].get<size_t>();
+            sampleNumberOfMoleculesHistogramEvery = value["SampleNumberOfMoleculesHistogramEvery"].get<std::size_t>();
           }
 
-          size_t writeNumberOfMoleculesHistogramEvery{5000};
+          std::size_t writeNumberOfMoleculesHistogramEvery{5000};
           if (value.contains("WriteNumberOfMoleculesHistogramEvery") &&
               value["WriteNumberOfMoleculesHistogramEvery"].is_number_unsigned())
           {
-            writeNumberOfMoleculesHistogramEvery = value["WriteNumberOfMoleculesHistogramEvery"].get<size_t>();
+            writeNumberOfMoleculesHistogramEvery = value["WriteNumberOfMoleculesHistogramEvery"].get<std::size_t>();
           }
 
-          size_t minimumRangeNumberOfMoleculesHistogram{0};
+          std::size_t minimumRangeNumberOfMoleculesHistogram{0};
           if (value.contains("LowerLimitNumberOfMoleculesHistogram") &&
               value["LowerLimitNumberOfMoleculesHistogram"].is_number_unsigned())
           {
-            minimumRangeNumberOfMoleculesHistogram = value["LowerLimitNumberOfMoleculesHistogram"].get<size_t>();
+            minimumRangeNumberOfMoleculesHistogram = value["LowerLimitNumberOfMoleculesHistogram"].get<std::size_t>();
           }
 
-          size_t maximumRangeNumberOfMoleculesHistogram{200};
+          std::size_t maximumRangeNumberOfMoleculesHistogram{200};
           if (value.contains("UpperLimitNumberOfMoleculesHistogram") &&
               value["UpperLimitNumberOfMoleculesHistogram"].is_number_unsigned())
           {
-            maximumRangeNumberOfMoleculesHistogram = value["UpperLimitNumberOfMoleculesHistogram"].get<size_t>();
+            maximumRangeNumberOfMoleculesHistogram = value["UpperLimitNumberOfMoleculesHistogram"].get<std::size_t>();
           }
 
           systems[systemId].averageNumberOfMoleculesHistogram = PropertyNumberOfMoleculesHistogram(
@@ -1187,22 +1170,22 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["ComputeRDF"].get<bool>())
         {
-          size_t sampleRDFEvery{10};
+          std::size_t sampleRDFEvery{10};
           if (value.contains("SampleRDFEvery") && value["SampleRDFEvery"].is_number_unsigned())
           {
-            sampleRDFEvery = value["SampleRDFEvery"].get<size_t>();
+            sampleRDFEvery = value["SampleRDFEvery"].get<std::size_t>();
           }
 
-          size_t writeRDFEvery{5000};
+          std::size_t writeRDFEvery{5000};
           if (value.contains("WriteRDFEvery") && value["WriteRDFEvery"].is_number_unsigned())
           {
-            writeRDFEvery = value["WriteRDFEvery"].get<size_t>();
+            writeRDFEvery = value["WriteRDFEvery"].get<std::size_t>();
           }
 
-          size_t numberOfBinsRDF{128};
+          std::size_t numberOfBinsRDF{128};
           if (value.contains("NumberOfBinsRDF") && value["NumberOfBinsRDF"].is_number_unsigned())
           {
-            numberOfBinsRDF = value["NumberOfBinsRDF"].get<size_t>();
+            numberOfBinsRDF = value["NumberOfBinsRDF"].get<std::size_t>();
           }
 
           double rangeRDF{15.0};
@@ -1221,23 +1204,23 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["ComputeConventionalRDF"].get<bool>())
         {
-          size_t sampleConventionalRDFEvery{10};
+          std::size_t sampleConventionalRDFEvery{10};
           if (value.contains("SampleConventionalRDFEvery") && value["SampleConventionalRDFEvery"].is_number_unsigned())
           {
-            sampleConventionalRDFEvery = value["SampleConventionalRDFEvery"].get<size_t>();
+            sampleConventionalRDFEvery = value["SampleConventionalRDFEvery"].get<std::size_t>();
           }
 
-          size_t writeConventionalRDFEvery{5000};
+          std::size_t writeConventionalRDFEvery{5000};
           if (value.contains("WriteConventionalRDFEvery") && value["WriteConventionalRDFEvery"].is_number_unsigned())
           {
-            writeConventionalRDFEvery = value["WriteConventionalRDFEvery"].get<size_t>();
+            writeConventionalRDFEvery = value["WriteConventionalRDFEvery"].get<std::size_t>();
           }
 
-          size_t numberOfBinsConventionalRDF{128};
+          std::size_t numberOfBinsConventionalRDF{128};
           if (value.contains("NumberOfBinsConventionalRDF") &&
               value["NumberOfBinsConventionalRDF"].is_number_unsigned())
           {
-            numberOfBinsConventionalRDF = value["NumberOfBinsConventionalRDF"].get<size_t>();
+            numberOfBinsConventionalRDF = value["NumberOfBinsConventionalRDF"].get<std::size_t>();
           }
 
           double rangeConventionalRDF{15.0};
@@ -1257,22 +1240,22 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["ComputeMSD"].get<bool>())
         {
-          size_t sampleMSDEvery{10};
+          std::size_t sampleMSDEvery{10};
           if (value.contains("SampleMSDEvery") && value["SampleMSDEvery"].is_number_unsigned())
           {
-            sampleMSDEvery = value["SampleMSDEvery"].get<size_t>();
+            sampleMSDEvery = value["SampleMSDEvery"].get<std::size_t>();
           }
 
-          size_t writeMSDEvery{5000};
+          std::size_t writeMSDEvery{5000};
           if (value.contains("WriteMSDEvery") && value["WriteMSDEvery"].is_number_unsigned())
           {
-            writeMSDEvery = value["WriteMSDEvery"].get<size_t>();
+            writeMSDEvery = value["WriteMSDEvery"].get<std::size_t>();
           }
 
-          size_t numberOfBlockElementsMSD{25};
+          std::size_t numberOfBlockElementsMSD{25};
           if (value.contains("NumberOfBlockElementsMSD") && value["NumberOfBlockElementsMSD"].is_number_unsigned())
           {
-            numberOfBlockElementsMSD = value["NumberOfBlockElementsMSD"].get<size_t>();
+            numberOfBlockElementsMSD = value["NumberOfBlockElementsMSD"].get<std::size_t>();
           }
 
           systems[systemId].propertyMSD = PropertyMeanSquaredDisplacement(
@@ -1285,28 +1268,28 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["ComputeVACF"].get<bool>())
         {
-          size_t sampleVACFEvery{10};
+          std::size_t sampleVACFEvery{10};
           if (value.contains("SampleVACFEvery") && value["SampleVACFEvery"].is_number_unsigned())
           {
-            sampleVACFEvery = value["SampleVACFEvery"].get<size_t>();
+            sampleVACFEvery = value["SampleVACFEvery"].get<std::size_t>();
           }
 
-          size_t writeVACFEvery{5000};
+          std::size_t writeVACFEvery{5000};
           if (value.contains("WriteVACFEvery") && value["WriteVACFEvery"].is_number_unsigned())
           {
-            writeVACFEvery = value["WriteVACFEvery"].get<size_t>();
+            writeVACFEvery = value["WriteVACFEvery"].get<std::size_t>();
           }
 
-          size_t numberOfBuffersVACF{20};
+          std::size_t numberOfBuffersVACF{20};
           if (value.contains("NumberOfBuffersVACF") && value["NumberOfBuffersVACF"].is_number_unsigned())
           {
-            numberOfBuffersVACF = value["NumberOfBuffersVACF"].get<size_t>();
+            numberOfBuffersVACF = value["NumberOfBuffersVACF"].get<std::size_t>();
           }
 
-          size_t bufferLengthVACF{1000};
+          std::size_t bufferLengthVACF{1000};
           if (value.contains("BufferLengthVACF") && value["BufferLengthVACF"].is_number_unsigned())
           {
-            bufferLengthVACF = value["BufferLengthVACF"].get<size_t>();
+            bufferLengthVACF = value["BufferLengthVACF"].get<std::size_t>();
           }
 
           systems[systemId].propertyVACF = PropertyVelocityAutoCorrelationFunction(
@@ -1319,16 +1302,16 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["ComputeDensityGrid"].get<bool>())
         {
-          size_t sampleDensityGridEvery{10};
+          std::size_t sampleDensityGridEvery{10};
           if (value.contains("SampleDensityGridEvery") && value["SampleDensityGridEvery"].is_number_unsigned())
           {
-            sampleDensityGridEvery = value["SampleDensityGridEvery"].get<size_t>();
+            sampleDensityGridEvery = value["SampleDensityGridEvery"].get<std::size_t>();
           }
 
-          size_t writeDensityGridEvery{5000};
+          std::size_t writeDensityGridEvery{5000};
           if (value.contains("WriteDensityGridEvery") && value["WriteDensityGridEvery"].is_number_unsigned())
           {
-            writeDensityGridEvery = value["WriteDensityGridEvery"].get<size_t>();
+            writeDensityGridEvery = value["WriteDensityGridEvery"].get<std::size_t>();
           }
 
           int3 densityGridSize{128, 128, 128};
@@ -1337,13 +1320,13 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
             densityGridSize = parseInt3("DensityGridSize", value["DensityGridSize"]);
           }
 
-          std::vector<size_t> densityGridPseudoAtomsList{};
+          std::vector<std::size_t> densityGridPseudoAtomsList{};
           if (value.contains("DensityGridPseudoAtomsList") && value["DensityGridPseudoAtomsList"].is_array())
           {
             std::vector<std::string> string_list = value["DensityGridPseudoAtomsList"].get<std::vector<std::string>>();
             for (std::string string : string_list)
             {
-              std::optional<size_t> atomType = systems[systemId].forceField.findPseudoAtom(string);
+              std::optional<std::size_t> atomType = systems[systemId].forceField.findPseudoAtom(string);
               if (atomType.has_value())
               {
                 densityGridPseudoAtomsList.push_back(atomType.value());
@@ -1371,18 +1354,18 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["ComputeSoapPowerSpectrum"].get<bool>())
         {
-          size_t soapPowerSpectrumSampleEvery{10};
+          std::size_t soapPowerSpectrumSampleEvery{10};
           if (value.contains("SoapPowerSpectrumSampleEvery") &&
               value["SoapPowerSpectrumSampleEvery"].is_number_unsigned())
           {
-            soapPowerSpectrumSampleEvery = value["SoapPowerSpectrumSampleEvery"].get<size_t>();
+            soapPowerSpectrumSampleEvery = value["SoapPowerSpectrumSampleEvery"].get<std::size_t>();
           }
 
-          size_t soapPowerSpectrumWriteOutputEvery{1000};
+          std::size_t soapPowerSpectrumWriteOutputEvery{1000};
           if (value.contains("SoapPowerSpectrumWriteOutputEvery") &&
               value["SoapPowerSpectrumWriteOutputEvery"].is_number_unsigned())
           {
-            soapPowerSpectrumWriteOutputEvery = value["SoapPowerSpectrumWriteOutputEvery"].get<size_t>();
+            soapPowerSpectrumWriteOutputEvery = value["SoapPowerSpectrumWriteOutputEvery"].get<std::size_t>();
           }
 
           double soapPowerSpectrumCutOff{10.0};
@@ -1405,20 +1388,20 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
             soapPowerSpectrumGaussianWidth = value["SoapPowerSpectrumGaussianWidth"].get<double>();
           }
 
-          size_t soapPowerSpectrumNumberOfRadialBasisFunctions{20};
+          std::size_t soapPowerSpectrumNumberOfRadialBasisFunctions{20};
           if (value.contains("SoapPowerSpectrumNumberOfRadialBasisFunctions") &&
               value["SoapPowerSpectrumNumberOfRadialBasisFunctions"].is_number_unsigned())
           {
             soapPowerSpectrumNumberOfRadialBasisFunctions =
-                value["SoapPowerSpectrumNumberOfRadialBasisFunctions"].get<size_t>();
+                value["SoapPowerSpectrumNumberOfRadialBasisFunctions"].get<std::size_t>();
           }
 
-          size_t soapPowerSpectrumNumberOfAngularBasisFunctions{20};
+          std::size_t soapPowerSpectrumNumberOfAngularBasisFunctions{20};
           if (value.contains("SoapPowerSpectrumNumberOfAngularBasisFunctions") &&
               value["SoapPowerSpectrumNumberOfAngularBasisFunctions"].is_number_unsigned())
           {
             soapPowerSpectrumNumberOfAngularBasisFunctions =
-                value["soapPowerSpectrumNumberOfAngularBasisFunctions"].get<size_t>();
+                value["soapPowerSpectrumNumberOfAngularBasisFunctions"].get<std::size_t>();
           }
 
           systems[systemId].propertySoap = PropertySoap(
@@ -1432,28 +1415,28 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["ComputeAutocorrelation"].get<bool>())
         {
-          size_t sampleAutocorrelationEvery{10};
+          std::size_t sampleAutocorrelationEvery{10};
           if (value.contains("SampleAutocorrelationEvery") && value["SampleAutocorrelationEvery"].is_number_unsigned())
           {
-            sampleAutocorrelationEvery = value["SampleAutocorrelationEvery"].get<size_t>();
+            sampleAutocorrelationEvery = value["SampleAutocorrelationEvery"].get<std::size_t>();
           }
 
-          size_t writeAutocorrelationEvery{5000};
+          std::size_t writeAutocorrelationEvery{5000};
           if (value.contains("WriteAutocorrelationEvery") && value["WriteAutocorrelationEvery"].is_number_unsigned())
           {
-            writeAutocorrelationEvery = value["WriteAutocorrelationEvery"].get<size_t>();
+            writeAutocorrelationEvery = value["WriteAutocorrelationEvery"].get<std::size_t>();
           }
 
-          size_t numberOfBuffersAutocorrelation{20};
+          std::size_t numberOfBuffersAutocorrelation{20};
           if (value.contains("NumberOfBuffersAutocorrelation") && value["NumberOfBuffersAutocorrelation"].is_number_unsigned())
           {
-            numberOfBuffersAutocorrelation = value["NumberOfBuffersAutocorrelation"].get<size_t>();
+            numberOfBuffersAutocorrelation = value["NumberOfBuffersAutocorrelation"].get<std::size_t>();
           }
 
-          size_t bufferLengthAutocorrelation{1000};
+          std::size_t bufferLengthAutocorrelation{1000};
           if (value.contains("BufferLengthAutocorrelation") && value["BufferLengthAutocorrelation"].is_number_unsigned())
           {
-            bufferLengthAutocorrelation = value["BufferLengthAutocorrelation"].get<size_t>();
+            bufferLengthAutocorrelation = value["BufferLengthAutocorrelation"].get<std::size_t>();
           }
 
           if (value.contains("AutocorrelationValue") && value["AutocorrelationValue"].is_array())
@@ -1489,10 +1472,10 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       {
         if (value["OutputPDBMovie"].get<bool>())
         {
-          size_t sampleMovieEvery{1};
+          std::size_t sampleMovieEvery{1};
           if (value.contains("SampleMovieEvery") && value["SampleMovieEvery"].is_number_unsigned())
           {
-            sampleMovieEvery = value["SampleMovieEvery"].get<size_t>();
+            sampleMovieEvery = value["SampleMovieEvery"].get<std::size_t>();
           }
 
           systems[systemId].samplePDBMovie = SampleMovie(systemId, sampleMovieEvery);
@@ -1506,11 +1489,23 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         systems[systemId].mc_moves_statistics.statsMapDouble[MoveTypes::VolumeChange].optimize = false;
         systems[systemId].mc_moves_statistics.statsMapDouble[MoveTypes::VolumeNCMC].optimize = false;
       }
+      if (value.contains("WriteLammpsData") && value["WriteLammpsData"].is_boolean())
+      {
+        if (value["WriteLammpsData"].get<bool>())
+        {
+          std::size_t writeLammpsDataEvery = 10;
+          if (value.contains("WriteLammpsDataEvery") && value["WriteLammpsDataEvery"].is_number_unsigned())
+          {
+            writeLammpsDataEvery = value["WriteLammpsDataEvery"].get<std::size_t>();
+          }
+          systems[systemId].writeLammpsData = WriteLammpsData(systemId, writeLammpsDataEvery);
+        }
+      }
 
       if (value.contains("Ensemble") && value["Ensemble"].is_string())
       {
-        size_t thermostatChainLength{5};
-        size_t numberOfYoshidaSuzukiSteps{5};
+        std::size_t thermostatChainLength{5};
+        std::size_t numberOfYoshidaSuzukiSteps{5};
 
         std::string ensembleString = value["Ensemble"].get<std::string>();
         if (caseInSensStringCompare(ensembleString, "NVT"))
@@ -1528,7 +1523,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       }
       if (value.contains("HybridMCMoveNumberOfSteps") && value["HybridMCMoveNumberOfSteps"].is_number_unsigned())
       {
-        systems[systemId].numberOfHybridMCSteps = value["HybridMCMoveNumberOfSteps"].get<size_t>();
+        systems[systemId].numberOfHybridMCSteps = value["HybridMCMoveNumberOfSteps"].get<std::size_t>();
         if (value.contains("TimeStep") && value["TimeStep"].is_number_float())
         {
           systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::HybridMC, value["Timestep"].get<double>());
@@ -1542,7 +1537,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
   // Post-compute
   // ========================================================
 
-  for (size_t i = 0uz; i < systems.size(); ++i)
+  for (std::size_t i = 0uz; i < systems.size(); ++i)
   {
     systems[i].maxIsothermTerms = 0uz;
     if (!systems[i].components.empty())
@@ -1556,7 +1551,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
   if (simulationType == SimulationType::MonteCarloTransitionMatrix)
   {
-    for (size_t i = 0uz; i < systems.size(); ++i)
+    for (std::size_t i = 0uz; i < systems.size(); ++i)
     {
       systems[i].tmmc.doTMMC = true;
       systems[i].tmmc.useBias = true;
@@ -1567,9 +1562,9 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
   // Checks
   // ========================================================
 
-  for (size_t i = 0uz; i < systems.size(); ++i)
+  for (std::size_t i = 0uz; i < systems.size(); ++i)
   {
-    for (size_t reactionId = 0uz; const Reaction& reaction : systems[i].reactions.list)
+    for (std::size_t reactionId = 0uz; const Reaction& reaction : systems[i].reactions.list)
     {
       if (reaction.productStoichiometry.size() != systems[i].numerOfAdsorbateComponents() ||
           (reaction.productStoichiometry.size() != systems[i].numerOfAdsorbateComponents()))
@@ -1585,10 +1580,10 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
     }
   }
 
-  for (size_t i = 0uz; i < systems.size(); ++i)
+  for (std::size_t i = 0uz; i < systems.size(); ++i)
   {
-    size_t numberOfDUDlambda{0uz};
-    for (size_t j = 0uz; j < systems[i].components.size(); ++j)
+    std::size_t numberOfDUDlambda{0uz};
+    for (std::size_t j = 0uz; j < systems[i].components.size(); ++j)
     {
       if (systems[i].components[j].lambdaGC.computeDUdlambda)
       {
@@ -1604,10 +1599,10 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
     }
   }
 
-  for (size_t i = 0uz; i < systems.size(); ++i)
+  for (std::size_t i = 0uz; i < systems.size(); ++i)
   {
     double sum = 0.0;
-    for (size_t j = 0uz; j < systems[i].components.size(); ++j)
+    for (std::size_t j = 0uz; j < systems[i].components.size(); ++j)
     {
       if (systems[i].components[j].type != Component::Type::Cation)
       {
@@ -1616,7 +1611,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
     }
     if (std::abs(sum - 1.0) > 1e-15)
     {
-      for (size_t j = 0uz; j < systems[i].components.size(); ++j)
+      for (std::size_t j = 0uz; j < systems[i].components.size(); ++j)
       {
         if (systems[i].components[j].type != Component::Type::Cation)
         {
@@ -1626,11 +1621,11 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
     }
   }
 
-  for (size_t i = 0uz; i < systems.size(); ++i)
+  for (std::size_t i = 0uz; i < systems.size(); ++i)
   {
     systems[i].numberOfCarrierGases = 0uz;
     systems[i].carrierGasComponent = 0uz;
-    for (size_t j = 0uz; j < systems[i].components.size(); ++j)
+    for (std::size_t j = 0uz; j < systems[i].components.size(); ++j)
     {
       if (systems[i].components[j].isCarrierGas)
       {
@@ -1658,7 +1653,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
     }
   }
 
-  for (size_t i = 0uz; i < systems.size(); ++i)
+  for (std::size_t i = 0uz; i < systems.size(); ++i)
   {
     if (systems[i].tmmc.doTMMC)
     {
@@ -1668,11 +1663,11 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       }
 
       // check initial number of molecules is in the range of the TMMC macrostates
-      for (size_t j = 0uz; j < systems[i].components.size(); ++j)
+      for (std::size_t j = 0uz; j < systems[i].components.size(); ++j)
       {
         if (systems[i].components[j].type == Component::Type::Adsorbate)
         {
-          size_t numberOfMolecules = systems[i].initialNumberOfMolecules[j];
+          std::size_t numberOfMolecules = systems[i].initialNumberOfMolecules[j];
           if (numberOfMolecules < systems[i].tmmc.minMacrostate || numberOfMolecules > systems[i].tmmc.maxMacrostate)
           {
             throw std::runtime_error(
@@ -1784,6 +1779,8 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::system
     "SoapPowerSpectrumNumberOfRadialBasisFunctions",
     "SoapPowerSpectrumNumberOfAngularBasisFunctions",
     "SoapPowerSpectrumWriteOutputEvery",
+    "WriteLammpsData",
+    "WriteLammpsDataEvery",
     "Ensemble",
     "TimeStep",
     "MacroStateUseBias",

@@ -18,19 +18,7 @@ module;
 module mc_moves_widom;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <vector>;
-import <array>;
-import <tuple>;
-import <optional>;
-import <span>;
-import <optional>;
-import <tuple>;
-import <algorithm>;
-import <chrono>;
-import <cmath>;
-import <iostream>;
-import <iomanip>;
+import std;
 #endif
 
 import component;
@@ -57,9 +45,9 @@ import interactions_ewald;
 import interactions_external_field;
 import mc_moves_move_types;
 
-std::pair<double, double> MC_Moves::WidomMove(RandomNumber& random, System& system, size_t selectedComponent)
+std::pair<double, double> MC_Moves::WidomMove(RandomNumber& random, System& system, std::size_t selectedComponent)
 {
-  size_t selectedMolecule = system.numberOfMoleculesPerComponent[selectedComponent];
+  std::size_t selectedMolecule = system.numberOfMoleculesPerComponent[selectedComponent];
   MoveTypes move = MoveTypes::Widom;
   Component& component = system.components[selectedComponent];
   std::chrono::system_clock::time_point t1, t2;
@@ -78,7 +66,7 @@ std::pair<double, double> MC_Moves::WidomMove(RandomNumber& random, System& syst
       random, component, system.hasExternalField, system.components, system.forceField, system.simulationBox,
       system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
       system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, selectedMolecule,
-      1.0, 0uz, system.numberOfTrialDirections);
+      1.0, false, false, system.numberOfTrialDirections);
   t2 = std::chrono::system_clock::now();
 
   component.mc_moves_cputime[move]["NonEwald"] += (t2 - t1);

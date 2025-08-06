@@ -18,19 +18,7 @@ module;
 module mc_moves_reaction;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <vector>;
-import <array>;
-import <tuple>;
-import <optional>;
-import <span>;
-import <optional>;
-import <tuple>;
-import <algorithm>;
-import <chrono>;
-import <cmath>;
-import <iostream>;
-import <iomanip>;
+import std;
 #endif
 
 import component;
@@ -58,12 +46,13 @@ import mc_moves_statistics;
 import mc_moves_move_types;
 import mc_moves_probabilities;
 
-std::optional<RunningEnergy> MC_Moves::reactionMove([[maybe_unused]] RandomNumber& random, System& system,
-                                                    [[maybe_unused]] const std::vector<size_t> reactantStoichiometry,
-                                                    [[maybe_unused]] const std::vector<size_t> productStoichiometry)
+std::optional<RunningEnergy> MC_Moves::reactionMove(
+    [[maybe_unused]] RandomNumber& random, System& system,
+    [[maybe_unused]] const std::vector<std::size_t> reactantStoichiometry,
+    [[maybe_unused]] const std::vector<std::size_t> productStoichiometry)
 {
-  size_t selectedComponent = 0;
-  size_t selectedMolecule = 0;
+  std::size_t selectedComponent = 0;
+  std::size_t selectedMolecule = 0;
 
   double cutOffFrameworkVDW = system.forceField.cutOffFrameworkVDW;
   double cutOffMoleculeVDW = system.forceField.cutOffMoleculeVDW;
@@ -77,7 +66,7 @@ std::optional<RunningEnergy> MC_Moves::reactionMove([[maybe_unused]] RandomNumbe
       random, system.components[selectedComponent], system.hasExternalField, system.components, system.forceField,
       system.simulationBox, system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(),
       system.spanOfMoleculeAtoms(), system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb,
-      selectedComponent, selectedMolecule, 1.0, 0uz, system.numberOfTrialDirections);
+      selectedComponent, selectedMolecule, 1.0, false, false, system.numberOfTrialDirections);
 
   if (!growData) return std::nullopt;
 

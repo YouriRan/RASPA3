@@ -21,20 +21,7 @@ module;
 module atom;
 
 #ifndef USE_LEGACY_HEADERS
-import <istream>;
-import <ostream>;
-import <sstream>;
-import <fstream>;
-import <format>;
-import <exception>;
-import <source_location>;
-import <complex>;
-import <vector>;
-import <array>;
-import <map>;
-import <utility>;
-import <algorithm>;
-import <print>;
+import std;
 #endif
 
 import archive;
@@ -53,9 +40,10 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Atom &
   archive << atom.type;
   archive << atom.componentId;
   archive << atom.groupId;
+  archive << atom.isFractional;
 
 #if DEBUG_ARCHIVE
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
 
   return archive;
@@ -63,6 +51,8 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Atom &
 
 Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Atom &atom)
 {
+  std::uint8_t groupIdBitField;
+  std::uint8_t isFractionalBitField;
   archive >> atom.position;
   archive >> atom.velocity;
   archive >> atom.gradient;
@@ -72,12 +62,15 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Atom &atom)
   archive >> atom.moleculeId;
   archive >> atom.type;
   archive >> atom.componentId;
-  archive >> atom.groupId;
+  archive >> groupIdBitField;
+  atom.groupId = groupIdBitField;
+  archive >> isFractionalBitField;
+  atom.isFractional = isFractionalBitField;
 
 #if DEBUG_ARCHIVE
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
     throw std::runtime_error(std::format("Atom: Error in binary restart\n"));
   }

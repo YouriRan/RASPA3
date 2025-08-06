@@ -18,17 +18,7 @@ module;
 module cbmc_util;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
-import <tuple>;
-import <algorithm>;
-import <cmath>;
-import <iostream>;
-import <exception>;
-import <format>;
-#if defined(__has_include) && __has_include(<stacktrace>)
-import <stacktrace>;
-#endif
-import <print>;
+import std;
 #endif
 
 import atom;
@@ -38,11 +28,11 @@ import simd_quatd;
 import randomnumbers;
 import stringutils;
 
-std::vector<Atom> CBMC::rotateRandomlyAround(RandomNumber &random, std::vector<Atom> atoms, size_t startingBead)
+std::vector<Atom> CBMC::rotateRandomlyAround(RandomNumber &random, std::vector<Atom> atoms, std::size_t startingBead)
 {
   double3x3 randomRotationMatrix = random.randomRotationMatrix();
   std::vector<Atom> randomlyRotatedAtoms{};
-  for (size_t i = 0; i < atoms.size(); ++i)
+  for (std::size_t i = 0; i < atoms.size(); ++i)
   {
     Atom b = atoms[i];
     b.position = atoms[startingBead].position + randomRotationMatrix * (b.position - atoms[startingBead].position);
@@ -51,11 +41,11 @@ std::vector<Atom> CBMC::rotateRandomlyAround(RandomNumber &random, std::vector<A
   return randomlyRotatedAtoms;
 }
 
-std::vector<Atom> CBMC::rotateRandomlyAround(simd_quatd &q, std::vector<Atom> atoms, size_t startingBead)
+std::vector<Atom> CBMC::rotateRandomlyAround(simd_quatd &q, std::vector<Atom> atoms, std::size_t startingBead)
 {
   double3x3 randomRotationMatrix = double3x3::buildRotationMatrixInverse(q);
   std::vector<Atom> randomlyRotatedAtoms{};
-  for (size_t i = 0; i < atoms.size(); ++i)
+  for (std::size_t i = 0; i < atoms.size(); ++i)
   {
     Atom b = atoms[i];
     b.position = atoms[startingBead].position + randomRotationMatrix * (b.position - atoms[startingBead].position);
@@ -65,20 +55,16 @@ std::vector<Atom> CBMC::rotateRandomlyAround(simd_quatd &q, std::vector<Atom> at
 }
 
 // LogBoltzmannFactors are (-Beta U)
-size_t CBMC::selectTrialPosition(RandomNumber &random, std::vector<double> LogBoltzmannFactors)
+std::size_t CBMC::selectTrialPosition(RandomNumber &random, std::vector<double> LogBoltzmannFactors)
 {
   std::vector<double> ShiftedBoltzmannFactors(LogBoltzmannFactors.size());
 
   // Energies are always bounded from below [-U_max, infinity>
   // Find the lowest energy value, i.e. the largest value of (-Beta U)
   std::vector<double>::iterator match = std::max_element(LogBoltzmannFactors.begin(), LogBoltzmannFactors.end());
-  ;
+  
   if (match == LogBoltzmannFactors.end())
   {
-    // #if defined(__has_include) && __has_include(<stacktrace>)
-    //     auto trace = std::stacktrace::current();
-    //     std::cout << std::to_string(trace) << '\n';
-    // #endif
     throw std::runtime_error("[cbmc-utils]: no maximum value found\n");
   }
   double largest_value = *match;
@@ -86,14 +72,14 @@ size_t CBMC::selectTrialPosition(RandomNumber &random, std::vector<double> LogBo
   // Standard trick: shift the Boltzmann factors down to avoid numerical problems
   // The largest value of 'ShiftedBoltzmannFactors' will be 1 (which corresponds to the lowest energy).
   double SumShiftedBoltzmannFactors = 0.0;
-  for (size_t i = 0; i < LogBoltzmannFactors.size(); ++i)
+  for (std::size_t i = 0; i < LogBoltzmannFactors.size(); ++i)
   {
     ShiftedBoltzmannFactors[i] = std::exp(LogBoltzmannFactors[i] - largest_value);
     SumShiftedBoltzmannFactors += ShiftedBoltzmannFactors[i];
   }
 
   // select the Boltzmann factor
-  size_t selected = 0;
+  std::size_t selected = 0;
   double cumw = ShiftedBoltzmannFactors[0];
   double ws = random.uniform() * SumShiftedBoltzmannFactors;
   while (cumw < ws) cumw += ShiftedBoltzmannFactors[++selected];

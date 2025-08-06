@@ -21,20 +21,7 @@ module;
 module energy_status;
 
 #ifndef USE_LEGACY_HEADERS
-import <string>;
-import <iostream>;
-import <sstream>;
-import <fstream>;
-import <vector>;
-import <array>;
-import <map>;
-import <algorithm>;
-import <format>;
-import <exception>;
-import <source_location>;
-import <complex>;
-import <type_traits>;
-import <print>;
+import std;
 #endif
 
 import archive;
@@ -70,10 +57,12 @@ std::string EnergyStatus::printEnergyStatus(const std::vector<Component> &compon
              conv * interEnergy.CoulombicReal.energy, Units::displayedUnitOfEnergyString);
   std::print(stream, "    molecule-molecule  Coulombic Fourier:    {: .6e} [{}/-]\n",
              conv * interEnergy.CoulombicFourier.energy, Units::displayedUnitOfEnergyString);
+  std::print(stream, "    polarization:                            {: .6e} [{}/-]\n", conv * polarizationEnergy.energy,
+             Units::displayedUnitOfEnergyString);
   std::print(stream, "    dU/dlambda:                              {: .6e} [{}/-]\n", conv * totalEnergy.dUdlambda,
              Units::displayedUnitOfEnergyString);
 
-  for (size_t i = 0; i < components.size(); ++i)
+  for (std::size_t i = 0; i < components.size(); ++i)
   {
     std::print(stream, "    Component: {} [{}]\n", i, components[i].name);
     std::print(stream, "    ---------------------------------------------------------------------------\n\n");
@@ -103,7 +92,7 @@ std::string EnergyStatus::printEnergyStatus(const std::vector<Component> &compon
                Units::displayedUnitOfEnergyString);
     std::print(stream, "    Molecule intraChargeCharge: {: .6e} [{}]\n\n",
                conv * intraComponentEnergies[i].intraChargeCharge, Units::displayedUnitOfEnergyString);
-    for (size_t j = 0; j < components.size(); ++j)
+    for (std::size_t j = 0; j < components.size(); ++j)
     {
       std::print(stream, "    Component: {}-{} [{}-{}]\n", i, j, components[i].name, components[j].name);
       std::print(stream, "        Van der Waals:        {: .6e} [{}]\n",
@@ -144,10 +133,11 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Energy
   archive << e.externalFieldComponentEnergies;
   archive << e.frameworkComponentEnergies;
   archive << e.interComponentEnergies;
+  archive << e.polarizationEnergy;
   archive << e.dUdlambda;
 
 #if DEBUG_ARCHIVE
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
 
   return archive;
@@ -155,7 +145,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Energy
 
 Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, EnergyStatus &e)
 {
-  uint64_t versionNumber;
+  std::uint64_t versionNumber;
   archive >> versionNumber;
   if (versionNumber > e.versionNumber)
   {
@@ -176,12 +166,13 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, EnergyStatus
   archive >> e.externalFieldComponentEnergies;
   archive >> e.frameworkComponentEnergies;
   archive >> e.interComponentEnergies;
+  archive >> e.polarizationEnergy;
   archive >> e.dUdlambda;
 
 #if DEBUG_ARCHIVE
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
     throw std::runtime_error(std::format("EnergyStatus: Error in binary restart\n"));
   }

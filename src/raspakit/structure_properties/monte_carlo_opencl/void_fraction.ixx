@@ -10,10 +10,7 @@ module;
 export module mc_opencl_void_fraction;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <print>;
-import <string>;
-import <vector>;
+import std;
 #endif
 
 import framework;
@@ -23,10 +20,7 @@ export struct MC_OpenCL_VoidFraction
 {
   std::vector<double> data;
 
-  MC_OpenCL_VoidFraction()
-  {
-  };
+  MC_OpenCL_VoidFraction() {};
 
-  void run(const ForceField &forceField, const Framework &framework, size_t number_of_iterations);
-
+  void run(const ForceField &forceField, const Framework &framework, std::size_t number_of_iterations);
 };

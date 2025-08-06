@@ -14,14 +14,7 @@ module;
 export module molecule;
 
 #ifndef USE_LEGACY_HEADERS
-import <cmath>;
-import <cstddef>;
-import <istream>;
-import <ostream>;
-import <fstream>;
-import <sstream>;
-import <type_traits>;
-import <print>;
+import std;
 #endif
 
 import archive;
@@ -40,8 +33,8 @@ export struct Molecule
   simd_quatd orientationMomentum;  ///< The angular momentum of the molecule's orientation.
   simd_quatd orientationGradient;  ///< The gradient (torque) acting on the molecule's orientation.
   double mass;                     ///< Molecular mass
-  size_t componentId;              ///< Pointing to the index in the components list
-  size_t numberOfAtoms;            ///< Number of subatoms in this molecule
+  std::size_t componentId;         ///< Pointing to the index in the components list
+  std::size_t numberOfAtoms;       ///< Number of subatoms in this molecule
   double invMass;                  ///< 1/mass to save on computing (and set correct size)
 
   /**
@@ -68,7 +61,8 @@ export struct Molecule
         orientationMomentum(0.0, 0.0, 0.0, 0.0),
         orientationGradient(0.0, 0.0, 0.0, 0.0) {};
 
-  Molecule(double3 centerOfMassPosition, simd_quatd orientation, double mass, size_t componentId, size_t numberOfAtoms)
+  Molecule(double3 centerOfMassPosition, simd_quatd orientation, double mass, std::size_t componentId,
+           std::size_t numberOfAtoms)
       : centerOfMassPosition(centerOfMassPosition),
         velocity(0.0, 0.0, 0.0),
         gradient(0.0, 0.0, 0.0),

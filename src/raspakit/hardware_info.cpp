@@ -34,12 +34,7 @@ module;
 module hardware_info;
 
 #ifndef USE_LEGACY_HEADERS
-import <iostream>;
-import <random>;
-import <chrono>;
-import <sstream>;
-import <type_traits>;
-import <print>;
+import std;
 #endif
 
 import stringutils;
@@ -119,16 +114,16 @@ std::string HardwareInfo::writeInfo()
 #if defined(__linux__) || defined(__linux)
   struct utsname uts;
   uname(&uts);
-  std::print(stream, "Hostname:    {}\n", std::string(uts.nodename, strlen(uts.nodename)));
-  std::print(stream, "OS type:     {} on {}\n", std::string(uts.sysname, strlen(uts.sysname)),
-             std::string(uts.machine, strlen(uts.machine)));
-  std::print(stream, "OS release:  {}\n", std::string(uts.release, strlen(uts.release)));
-  std::print(stream, "OS version:  {}\n\n", std::string(uts.version, strlen(uts.version)));
+  std::print(stream, "Hostname:    {}\n", std::string(uts.nodename, std::strlen(uts.nodename)));
+  std::print(stream, "OS type:     {} on {}\n", std::string(uts.sysname, std::strlen(uts.sysname)),
+             std::string(uts.machine, std::strlen(uts.machine)));
+  std::print(stream, "OS release:  {}\n", std::string(uts.release, std::strlen(uts.release)));
+  std::print(stream, "OS version:  {}\n\n", std::string(uts.version, std::strlen(uts.version)));
 #endif
 
 #if defined(__CYGWIN__)
   int mib[2];
-  size_t len;
+  std::size_t len;
   len = sizeof(buffer);
 
   struct utsname uts;
@@ -141,7 +136,7 @@ std::string HardwareInfo::writeInfo()
 
   // get hostname and cpu-info for mac osx
 #if defined(__APPLE__)
-  size_t len;
+  std::size_t len;
   char cpudata[128], cpumodel[128], hostname[256];
   char osrelease[128], ostype[128], osversion[128];
 
@@ -475,16 +470,16 @@ nlohmann::json HardwareInfo::jsonInfo()
   struct utsname uts;
   uname(&uts);
 
-  info["hostname"] = std::string(uts.nodename, strlen(uts.nodename));
-  info["os_type"] = std::string(uts.sysname, strlen(uts.sysname));
-  info["os_arch"] = std::string(uts.machine, strlen(uts.machine));
-  info["os_release"] = std::string(uts.release, strlen(uts.release));
-  info["os_version"] = std::string(uts.version, strlen(uts.version));
+  info["hostname"] = std::string(uts.nodename, std::strlen(uts.nodename));
+  info["os_type"] = std::string(uts.sysname, std::strlen(uts.sysname));
+  info["os_arch"] = std::string(uts.machine, std::strlen(uts.machine));
+  info["os_release"] = std::string(uts.release, std::strlen(uts.release));
+  info["os_version"] = std::string(uts.version, std::strlen(uts.version));
 #endif
 
 #if defined(__CYGWIN__)
   int mib[2];
-  size_t len;
+  std::size_t len;
   len = sizeof(buffer);
 
   struct utsname uts;
@@ -498,7 +493,7 @@ nlohmann::json HardwareInfo::jsonInfo()
 
   // get hostname and cpu-info for mac osx
 #if defined(__APPLE__)
-  size_t len;
+  std::size_t len;
   char cpudata[128], cpumodel[128], hostname[256];
   char osrelease[128], ostype[128], osversion[128];
 

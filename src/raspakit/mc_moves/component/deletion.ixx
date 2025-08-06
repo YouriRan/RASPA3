@@ -10,10 +10,7 @@ module;
 export module mc_moves_deletion;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <tuple>;
+import std;
 #endif
 
 import double3;
@@ -38,5 +35,6 @@ export namespace MC_Moves
  *         representing acceptance probabilities.
  */
 std::pair<std::optional<RunningEnergy>, double3> deletionMove(RandomNumber& random, System& system,
-                                                              size_t selectedComponent, size_t selectedMolecule);
+                                                              std::size_t selectedComponent,
+                                                              std::size_t selectedMolecule);
 }  // namespace MC_Moves

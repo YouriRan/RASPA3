@@ -12,11 +12,7 @@ module;
 export module reactions;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
-import <numbers>;
-import <string>;
-import <sstream>;
-import <fstream>;
+import std;
 #endif
 
 import archive;
@@ -33,7 +29,7 @@ import json;
 export struct Reactions
 {
   ///< The version number of the Reactions data structure.
-  uint64_t versionNumber{1};
+  std::uint64_t versionNumber{1};
 
   bool operator==(Reactions const &) const = default;
 

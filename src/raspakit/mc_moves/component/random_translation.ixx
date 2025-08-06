@@ -10,10 +10,7 @@ module;
 export module mc_moves_random_translation;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <vector>;
+import std;
 #endif
 
 import randomnumbers;
@@ -41,7 +38,8 @@ export namespace MC_Moves
  * @return An optional `RunningEnergy` containing the energy difference if the move is accepted;
  *         `std::nullopt` if the move is rejected.
  */
-std::optional<RunningEnergy> randomTranslationMove(RandomNumber &random, System &system, size_t selectedComponent,
+std::optional<RunningEnergy> randomTranslationMove(RandomNumber &random, System &system, std::size_t selectedComponent,
+                                                   std::size_t selectedMolecule,
                                                    const std::vector<Component> &components, Molecule &molecule,
                                                    std::span<Atom> molecule_atoms);
 }  // namespace MC_Moves

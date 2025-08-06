@@ -22,29 +22,17 @@ module;
 module loadings;
 
 #ifndef USE_LEGACY_HEADERS
-import <string>;
-import <optional>;
-import <fstream>;
-import <iostream>;
-import <sstream>;
-import <vector>;
-import <array>;
-import <map>;
-import <algorithm>;
-import <ostream>;
-import <format>;
-import <exception>;
-import <source_location>;
-import <complex>;
-import <print>;
+import std;
 #endif
 
 import archive;
+import int3;
 import stringutils;
 import component;
 import units;
 
-std::string Loadings::printStatus(const Component &comp, std::optional<double> frameworkMass) const
+std::string Loadings::printStatus(const Component &comp, std::optional<double> frameworkMass,
+                                  std::optional<int3> numberOfUnitCells) const
 {
   std::ostringstream stream;
 
@@ -55,16 +43,23 @@ std::string Loadings::printStatus(const Component &comp, std::optional<double> f
     const double toMolePerKg = 1000.0 / frameworkMass.value();
     const double toMgPerG = 1000.0 * comp.totalMass / frameworkMass.value();
 
+    int3 number_of_unit_cells = numberOfUnitCells.value_or(int3{1, 1, 1});
+    double to_molecules_per_unit_cell =
+        1.0 / (static_cast<double>(number_of_unit_cells.x * number_of_unit_cells.y * number_of_unit_cells.z));
+
     double loading = numberOfMolecules[comp.componentId];
     double excess_loading = numberOfMolecules[comp.componentId] - comp.amountOfExcessMolecules;
     switch (Units::unitSystem)
     {
       case Units::System::RASPA:
         std::print(stream, "    absolute adsorption: {: .6e} molecules\n", loading);
+        std::print(stream, "                         {: .6e} molecules/uc\n", loading * to_molecules_per_unit_cell);
         std::print(stream, "                         {: .6e} mol/kg-framework\n", loading * toMolePerKg);
         std::print(stream, "                         {: .6e} mg/g-framework\n", loading * toMgPerG);
 
         std::print(stream, "    excess adsorption:   {: .6e} molecules\n", excess_loading);
+        std::print(stream, "                         {: .6e} molecules/uc\n",
+                   excess_loading * to_molecules_per_unit_cell);
         std::print(stream, "                         {: .6e} mol/kg-framework\n", excess_loading * toMolePerKg);
         std::print(stream, "                         {: .6e} mg/g-framework\n", excess_loading * toMgPerG);
         break;
@@ -96,7 +91,7 @@ std::string Loadings::printStatus(const Component &comp, std::optional<double> f
 }
 
 std::string Loadings::printStatus(const Component &comp, const Loadings &average, const Loadings &error,
-                                  std::optional<double> frameworkMass) const
+                                  std::optional<double> frameworkMass, std::optional<int3> numberOfUnitCells) const
 {
   std::ostringstream stream;
 
@@ -105,7 +100,9 @@ std::string Loadings::printStatus(const Component &comp, const Loadings &average
     const double toMolePerKg = 1000.0 / frameworkMass.value();
     const double toMgPerKg = 1000.0 * comp.totalMass / frameworkMass.value();
 
-    std::print(stream, "Component {} ({})\n", comp.componentId, comp.name);
+    int3 number_of_unit_cells = numberOfUnitCells.value_or(int3{1, 1, 1});
+    double to_molecules_per_unit_cell =
+        1.0 / (static_cast<double>(number_of_unit_cells.x * number_of_unit_cells.y * number_of_unit_cells.z));
 
     double loading = numberOfMolecules[comp.componentId];
     double loading_avg = average.numberOfMolecules[comp.componentId];
@@ -120,6 +117,9 @@ std::string Loadings::printStatus(const Component &comp, const Loadings &average
       case Units::System::RASPA:
         std::print(stream, "    absolute adsorption: {:.6e} molecules ({:.6e} +/- {:.6e})\n", loading, loading_avg,
                    loading_error);
+        std::print(stream, "                         {:.6e} molec./uc ({:.6e} +/- {:.6e})\n",
+                   loading * to_molecules_per_unit_cell, loading_avg * to_molecules_per_unit_cell,
+                   loading_error * to_molecules_per_unit_cell);
         std::print(stream, "                         {:.6e} mol/kg    ({:.6e} +/- {:.6e})\n", loading * toMolePerKg,
                    loading_avg * toMolePerKg, loading_error * toMolePerKg);
         std::print(stream, "                         {:.6e} mg/g      ({:.6e} +/- {:.6e})\n", loading * toMgPerKg,
@@ -127,6 +127,9 @@ std::string Loadings::printStatus(const Component &comp, const Loadings &average
 
         std::print(stream, "    excess adsorption:   {:.6e} molecules ({:.6e} +/- {:.6e})\n", excess_loading,
                    excess_loading_avg, excess_loading_error);
+        std::print(stream, "                         {:.6e} molec./uc ({:.6e} +/- {:.6e})\n",
+                   excess_loading * to_molecules_per_unit_cell, excess_loading_avg * to_molecules_per_unit_cell,
+                   excess_loading_error * to_molecules_per_unit_cell);
         std::print(stream, "                         {:.6e} mol/kg    ({:.6e} +/- {:.6e})\n",
                    excess_loading * toMolePerKg, excess_loading_avg * toMolePerKg, excess_loading_error * toMolePerKg);
         std::print(stream, "                         {:.6e} mg/g      ({:.6e} +/- {:.6e})\n",
@@ -186,7 +189,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Loadin
   archive << l.inverseNumberDensities;
 
 #if DEBUG_ARCHIVE
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_caststd::<int64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
 
   return archive;
@@ -194,7 +197,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Loadin
 
 Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Loadings &l)
 {
-  uint64_t versionNumber;
+  std::uint64_t versionNumber;
   archive >> versionNumber;
   if (versionNumber > l.versionNumber)
   {
@@ -211,9 +214,9 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Loadings &l)
   archive >> l.inverseNumberDensities;
 
 #if DEBUG_ARCHIVE
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
     throw std::runtime_error(std::format("Loadings: Error in binary restart\n"));
   }

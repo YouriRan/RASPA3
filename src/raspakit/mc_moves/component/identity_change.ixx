@@ -10,10 +10,7 @@ module;
 export module mc_moves_identity_change;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <tuple>;
+import std;
 #endif
 
 import double3;
@@ -25,7 +22,7 @@ import system;
 export namespace MC_Moves
 {
 std::optional<RunningEnergy> identityChangeMove([[maybe_unused]] RandomNumber& random, [[maybe_unused]] System& system,
-                                                [[maybe_unused]] size_t selectedComponent,
-                                                [[maybe_unused]] size_t selectedMolecule,
+                                                [[maybe_unused]] std::size_t selectedComponent,
+                                                [[maybe_unused]] std::size_t selectedMolecule,
                                                 [[maybe_unused]] std::span<Atom> atoms);
 }

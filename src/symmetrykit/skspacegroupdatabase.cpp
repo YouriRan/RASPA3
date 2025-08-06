@@ -11,10 +11,7 @@ module;
 module skspacegroupdatabase;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
-import <array>;
-import <string>;
-import <tuple>;
+import std;
 #endif
 
 import int3;
@@ -10481,7 +10478,7 @@ const std::array<SKSpaceGroupSetting, 531> SKSpaceGroupDataBase::spaceGroupData{
                         {{0, 6}, {-6, 0}, {7, 43}},
                         SKTransformationMatrix::identity}};
 
-const std::vector<std::vector<size_t>> SKSpaceGroupDataBase::spaceGroupHallData = {
+const std::vector<std::vector<std::size_t>> SKSpaceGroupDataBase::spaceGroupHallData = {
     {0},
     {1},
     {2},

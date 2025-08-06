@@ -17,16 +17,7 @@ module;
 module cbmc_interactions_external_field;
 
 #ifndef USE_LEGACY_HEADERS
-import <numbers>;
-import <iostream>;
-import <algorithm>;
-import <vector>;
-import <span>;
-import <cmath>;
-import <optional>;
-import <thread>;
-import <future>;
-import <type_traits>;
+import std;
 #endif
 
 import energy_status;
@@ -62,10 +53,11 @@ import threadpool;
 
     for (std::span<Atom>::iterator it1 = atoms.begin(); it1 != atoms.end(); ++it1)
     {
-      [[maybe_unused]] size_t molA = static_cast<size_t>(it1->moleculeId);
-      [[maybe_unused]] size_t compA = static_cast<size_t>(it1->componentId);
-      [[maybe_unused]] size_t typeA = static_cast<size_t>(it1->type);
+      [[maybe_unused]] std::size_t molA = static_cast<std::size_t>(it1->moleculeId);
+      [[maybe_unused]] std::size_t compA = static_cast<std::size_t>(it1->componentId);
+      [[maybe_unused]] std::size_t typeA = static_cast<std::size_t>(it1->type);
       [[maybe_unused]] bool groupIdA = static_cast<bool>(it1->groupId);
+      [[maybe_unused]] bool isFractional = static_cast<bool>(it1->isFractional);
       [[maybe_unused]] double scalingVDWA = it1->scalingVDW;
       [[maybe_unused]] double scaleCoulombA = it1->scalingCoulomb;
       [[maybe_unused]] double chargeA = it1->charge;

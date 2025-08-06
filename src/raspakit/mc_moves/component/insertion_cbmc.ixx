@@ -10,10 +10,7 @@ module;
 export module mc_moves_insertion_cbmc;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <tuple>;
+import std;
 #endif
 
 import double3;
@@ -37,5 +34,5 @@ export namespace MC_Moves
  *         The RunningEnergy is present if the move is accepted.
  */
 std::pair<std::optional<RunningEnergy>, double3> insertionMoveCBMC(RandomNumber& random, System& system,
-                                                                   size_t selectedComponent);
+                                                                   std::size_t selectedComponent);
 }  // namespace MC_Moves

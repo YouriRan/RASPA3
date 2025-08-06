@@ -10,9 +10,7 @@ module;
 export module integrators_cputime;
 
 #ifndef USE_LEGACY_HEADERS
-import <string>;
-import <chrono>;
-import <fstream>;
+import std;
 #endif
 
 import double3;
@@ -25,7 +23,7 @@ export struct IntegratorsCPUTime
   IntegratorsCPUTime() {};
 
   // Version number
-  uint64_t versionNumber{1};
+  std::uint64_t versionNumber{1};
 
   // Timings
   std::chrono::duration<double> computeTranslationalKineticEnergy{0.0};

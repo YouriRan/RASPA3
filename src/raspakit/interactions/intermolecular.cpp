@@ -16,15 +16,7 @@ module;
 module interactions_intermolecular;
 
 #ifndef USE_LEGACY_HEADERS
-import <numbers>;
-import <iostream>;
-import <algorithm>;
-import <vector>;
-import <span>;
-import <cmath>;
-import <optional>;
-import <thread>;
-import <future>;
+import std;
 #endif
 
 import energy_status;
@@ -65,23 +57,23 @@ RunningEnergy Interactions::computeInterMolecularEnergy(const ForceField &forceF
   for (std::span<const Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end() - 1; ++it1)
   {
     posA = it1->position;
-    size_t molA = static_cast<size_t>(it1->moleculeId);
-    size_t compA = static_cast<size_t>(it1->componentId);
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t molA = static_cast<std::size_t>(it1->moleculeId);
+    std::size_t compA = static_cast<std::size_t>(it1->componentId);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
     double scalingCoulombA = it1->scalingCoulomb;
     double chargeA = it1->charge;
     for (std::span<const Atom>::iterator it2 = it1 + 1; it2 != moleculeAtoms.end(); ++it2)
     {
-      size_t molB = static_cast<size_t>(it2->moleculeId);
-      size_t compB = static_cast<size_t>(it2->componentId);
+      std::size_t molB = static_cast<std::size_t>(it2->moleculeId);
+      std::size_t compB = static_cast<std::size_t>(it2->componentId);
 
       // skip interactions within the same molecule
       if (!((compA == compB) && (molA == molB)))
       {
         posB = it2->position;
-        size_t typeB = static_cast<size_t>(it2->type);
+        std::size_t typeB = static_cast<std::size_t>(it2->type);
         bool groupIdB = static_cast<bool>(it2->groupId);
         double scalingVDWB = it2->scalingVDW;
         double scalingCoulombB = it2->scalingCoulomb;
@@ -126,7 +118,7 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
   double preFactor = 2.0 * std::numbers::pi / simulationBox.volume;
   for (std::span<const Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end(); ++it1)
   {
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
 
@@ -136,7 +128,7 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
 
     for (std::span<const Atom>::iterator it2 = it1 + 1; it2 != moleculeAtoms.end(); ++it2)
     {
-      size_t typeB = static_cast<size_t>(it2->type);
+      std::size_t typeB = static_cast<std::size_t>(it2->type);
       bool groupIdB = static_cast<bool>(it2->groupId);
       double scalingVDWB = it2->scalingVDW;
 
@@ -170,10 +162,10 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
 
   for (std::span<const Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end(); ++it1)
   {
-    size_t molA = static_cast<size_t>(it1->moleculeId);
+    std::size_t molA = static_cast<std::size_t>(it1->moleculeId);
     double3 posA = it1->position;
-    size_t compA = static_cast<size_t>(it1->componentId);
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t compA = static_cast<std::size_t>(it1->componentId);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
     double scalingCoulombA = it1->scalingCoulomb;
@@ -181,13 +173,13 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
 
     for (const Atom &atom : newatoms)
     {
-      size_t compB = static_cast<size_t>(atom.componentId);
-      size_t molB = static_cast<size_t>(atom.moleculeId);
+      std::size_t compB = static_cast<std::size_t>(atom.componentId);
+      std::size_t molB = static_cast<std::size_t>(atom.moleculeId);
 
       if (!(compA == compB && molA == molB))
       {
         double3 posB = atom.position;
-        size_t typeB = static_cast<size_t>(atom.type);
+        std::size_t typeB = static_cast<std::size_t>(atom.type);
         bool groupIdB = static_cast<bool>(atom.groupId);
         double scalingVDWB = atom.scalingVDW;
         double scalingCoulombB = atom.scalingCoulomb;
@@ -220,13 +212,13 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
 
     for (const Atom &atom : oldatoms)
     {
-      size_t compB = static_cast<size_t>(atom.componentId);
-      size_t molB = static_cast<size_t>(atom.moleculeId);
+      std::size_t compB = static_cast<std::size_t>(atom.componentId);
+      std::size_t molB = static_cast<std::size_t>(atom.moleculeId);
 
       if (!(compA == compB && molA == molB))
       {
         double3 posB = atom.position;
-        size_t typeB = static_cast<size_t>(atom.type);
+        std::size_t typeB = static_cast<std::size_t>(atom.type);
         bool groupIdB = static_cast<bool>(atom.groupId);
         double scalingVDWB = atom.scalingVDW;
         double scalingCoulombB = atom.scalingCoulomb;
@@ -274,20 +266,20 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
 
   for (std::span<const Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end(); ++it1)
   {
-    size_t compA = static_cast<size_t>(it1->componentId);
-    size_t molA = static_cast<size_t>(it1->moleculeId);
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t compA = static_cast<std::size_t>(it1->componentId);
+    std::size_t molA = static_cast<std::size_t>(it1->moleculeId);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
 
     for (const Atom &atom : newatoms)
     {
-      size_t compB = static_cast<size_t>(atom.componentId);
-      size_t molB = static_cast<size_t>(atom.moleculeId);
+      std::size_t compB = static_cast<std::size_t>(atom.componentId);
+      std::size_t molB = static_cast<std::size_t>(atom.moleculeId);
 
       if (!(compA == compB && molA == molB))
       {
-        size_t typeB = static_cast<size_t>(atom.type);
+        std::size_t typeB = static_cast<std::size_t>(atom.type);
         bool groupIdB = static_cast<bool>(atom.groupId);
         double scalingVDWB = atom.scalingVDW;
 
@@ -299,12 +291,12 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
 
     for (const Atom &atom : oldatoms)
     {
-      size_t compB = static_cast<size_t>(atom.componentId);
-      size_t molB = static_cast<size_t>(atom.moleculeId);
+      std::size_t compB = static_cast<std::size_t>(atom.componentId);
+      std::size_t molB = static_cast<std::size_t>(atom.moleculeId);
 
       if (!(compA == compB && molA == molB))
       {
-        size_t typeB = static_cast<size_t>(atom.type);
+        std::size_t typeB = static_cast<std::size_t>(atom.type);
         bool groupIdB = static_cast<bool>(atom.groupId);
         double scalingVDWB = atom.scalingVDW;
 
@@ -317,13 +309,13 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
 
   for (const Atom &atomA : newatoms)
   {
-    size_t typeA = static_cast<size_t>(atomA.type);
+    std::size_t typeA = static_cast<std::size_t>(atomA.type);
     bool groupIdA = static_cast<bool>(atomA.groupId);
     double scalingVDWA = atomA.scalingVDW;
 
     for (const Atom &atomB : newatoms)
     {
-      size_t typeB = static_cast<size_t>(atomB.type);
+      std::size_t typeB = static_cast<std::size_t>(atomB.type);
       bool groupIdB = static_cast<bool>(atomB.groupId);
       double scalingVDWB = atomB.scalingVDW;
 
@@ -335,13 +327,13 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
 
   for (const Atom &atomA : oldatoms)
   {
-    size_t typeA = static_cast<size_t>(atomA.type);
+    std::size_t typeA = static_cast<std::size_t>(atomA.type);
     bool groupIdA = static_cast<bool>(atomA.groupId);
     double scalingVDWA = atomA.scalingVDW;
 
     for (const Atom &atomB : oldatoms)
     {
-      size_t typeB = static_cast<size_t>(atomB.type);
+      std::size_t typeB = static_cast<std::size_t>(atomB.type);
       bool groupIdB = static_cast<bool>(atomB.groupId);
       double scalingVDWB = atomB.scalingVDW;
 
@@ -372,9 +364,9 @@ RunningEnergy Interactions::computeInterMolecularGradient(const ForceField &forc
   for (std::span<Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end() - 1; ++it1)
   {
     posA = it1->position;
-    size_t molA = static_cast<size_t>(it1->moleculeId);
-    size_t compA = static_cast<size_t>(it1->componentId);
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t molA = static_cast<std::size_t>(it1->moleculeId);
+    std::size_t compA = static_cast<std::size_t>(it1->componentId);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
     double scalingCoulombA = it1->scalingCoulomb;
@@ -382,14 +374,14 @@ RunningEnergy Interactions::computeInterMolecularGradient(const ForceField &forc
 
     for (std::span<Atom>::iterator it2 = it1 + 1; it2 != moleculeAtoms.end(); ++it2)
     {
-      size_t molB = static_cast<size_t>(it2->moleculeId);
-      size_t compB = static_cast<size_t>(it2->componentId);
+      std::size_t molB = static_cast<std::size_t>(it2->moleculeId);
+      std::size_t compB = static_cast<std::size_t>(it2->componentId);
 
       // skip interactions within the same molecule
       if (!((compA == compB) && (molA == molB)))
       {
         posB = it2->position;
-        size_t typeB = static_cast<size_t>(it2->type);
+        std::size_t typeB = static_cast<std::size_t>(it2->type);
         bool groupIdB = static_cast<bool>(it2->groupId);
         double scalingVDWB = it2->scalingVDW;
         double scalingCoulombB = it2->scalingCoulomb;
@@ -454,9 +446,9 @@ std::pair<EnergyStatus, double3x3> Interactions::computeInterMolecularEnergyStra
   for (std::span<Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end(); ++it1)
   {
     posA = it1->position;
-    size_t molA = static_cast<size_t>(it1->moleculeId);
-    size_t compA = static_cast<size_t>(it1->componentId);
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t molA = static_cast<std::size_t>(it1->moleculeId);
+    std::size_t compA = static_cast<std::size_t>(it1->componentId);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
     double scalingCoulombA = it1->scalingCoulomb;
@@ -466,9 +458,9 @@ std::pair<EnergyStatus, double3x3> Interactions::computeInterMolecularEnergyStra
 
     for (std::span<Atom>::iterator it2 = it1 + 1; it2 != moleculeAtoms.end(); ++it2)
     {
-      size_t molB = static_cast<size_t>(it2->moleculeId);
-      size_t compB = static_cast<size_t>(it2->componentId);
-      size_t typeB = static_cast<size_t>(it2->type);
+      std::size_t molB = static_cast<std::size_t>(it2->moleculeId);
+      std::size_t compB = static_cast<std::size_t>(it2->componentId);
+      std::size_t typeB = static_cast<std::size_t>(it2->type);
       double scalingVDWB = it2->scalingVDW;
 
       Potentials::EnergyFactor temp(
@@ -550,9 +542,9 @@ std::pair<EnergyStatus, double3x3> Interactions::computeInterMolecularEnergyStra
   return {energy, strainDerivativeTensor};
 }
 
-void Interactions::computeInterMolecularElectricPotential(const ForceField &forceField, const SimulationBox &box,
-                                                          std::span<double> electricPotentialMolecules,
-                                                          std::span<const Atom> moleculeAtoms) noexcept
+void Interactions::computeInterMolecularElectrostaticPotential(const ForceField &forceField, const SimulationBox &box,
+                                                               std::span<double> electricPotentialMolecules,
+                                                               std::span<const Atom> moleculeAtoms) noexcept
 {
   double3 dr, posA, posB, f;
   double rr;
@@ -568,15 +560,15 @@ void Interactions::computeInterMolecularElectricPotential(const ForceField &forc
   for (std::span<const Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end() - 1; ++it1)
   {
     posA = it1->position;
-    size_t molA = static_cast<size_t>(it1->moleculeId);
-    size_t compA = static_cast<size_t>(it1->componentId);
+    std::size_t molA = static_cast<std::size_t>(it1->moleculeId);
+    std::size_t compA = static_cast<std::size_t>(it1->componentId);
     double scalingCoulombA = it1->scalingCoulomb;
     double chargeA = it1->charge;
 
     for (std::span<const Atom>::iterator it2 = it1 + 1; it2 != moleculeAtoms.end(); ++it2)
     {
-      size_t molB = static_cast<size_t>(it2->moleculeId);
-      size_t compB = static_cast<size_t>(it2->componentId);
+      std::size_t molB = static_cast<std::size_t>(it2->moleculeId);
+      std::size_t compB = static_cast<std::size_t>(it2->componentId);
 
       // skip interactions within the same molecule
       if (!((compA == compB) && (molA == molB)))
@@ -595,16 +587,17 @@ void Interactions::computeInterMolecularElectricPotential(const ForceField &forc
 
           double potential = Potentials::potentialElectrostatics(forceField, 1.0, r, 1.0);
 
-          size_t indexA = static_cast<size_t>(std::distance(moleculeAtoms.begin(), it1));
+          std::size_t indexA = static_cast<std::size_t>(std::distance(moleculeAtoms.begin(), it1));
           electricPotentialMolecules[indexA] += scalingCoulombB * chargeB * potential;
 
-          size_t indexB = static_cast<size_t>(std::distance(moleculeAtoms.begin(), it2));
+          std::size_t indexB = static_cast<std::size_t>(std::distance(moleculeAtoms.begin(), it2));
           electricPotentialMolecules[indexB] += scalingCoulombA * chargeA * potential;
         }
       }
     }
   }
 }
+
 RunningEnergy Interactions::computeInterMolecularElectricField(const ForceField &forceField, const SimulationBox &box,
                                                                std::span<double3> electricFieldMolecules,
                                                                std::span<const Atom> moleculeAtoms) noexcept
@@ -626,24 +619,24 @@ RunningEnergy Interactions::computeInterMolecularElectricField(const ForceField 
   for (std::span<const Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end() - 1; ++it1)
   {
     posA = it1->position;
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
-    size_t molA = static_cast<size_t>(it1->moleculeId);
-    size_t compA = static_cast<size_t>(it1->componentId);
+    std::size_t molA = static_cast<std::size_t>(it1->moleculeId);
+    std::size_t compA = static_cast<std::size_t>(it1->componentId);
     double scalingVDWA = it1->scalingVDW;
     double scalingCoulombA = it1->scalingCoulomb;
     double chargeA = it1->charge;
 
     for (std::span<const Atom>::iterator it2 = it1 + 1; it2 != moleculeAtoms.end(); ++it2)
     {
-      size_t molB = static_cast<size_t>(it2->moleculeId);
-      size_t compB = static_cast<size_t>(it2->componentId);
+      std::size_t molB = static_cast<std::size_t>(it2->moleculeId);
+      std::size_t compB = static_cast<std::size_t>(it2->componentId);
 
       // skip interactions within the same molecule
       if (!((compA == compB) && (molA == molB)))
       {
         posB = it2->position;
-        size_t typeB = static_cast<size_t>(it2->type);
+        std::size_t typeB = static_cast<std::size_t>(it2->type);
         bool groupIdB = static_cast<bool>(it2->groupId);
         double scalingVDWB = it2->scalingVDW;
         double scalingCoulombB = it2->scalingCoulomb;
@@ -673,11 +666,11 @@ RunningEnergy Interactions::computeInterMolecularElectricField(const ForceField 
               Potentials::potentialCoulombGradient(forceField, groupIdA, groupIdB, 1.0, 1.0, r, 1.0, 1.0);
 
           Potentials::GradientFactor gradientFactorA = scalingCoulombB * chargeB * gradient;
-          size_t indexA = static_cast<size_t>(std::distance(moleculeAtoms.begin(), it1));
+          std::size_t indexA = static_cast<std::size_t>(std::distance(moleculeAtoms.begin(), it1));
           electricFieldMolecules[indexA] -= gradientFactorA.gradientFactor * dr;
 
           Potentials::GradientFactor gradientFactorB = scalingCoulombA * chargeA * gradient;
-          size_t indexB = static_cast<size_t>(std::distance(moleculeAtoms.begin(), it2));
+          std::size_t indexB = static_cast<std::size_t>(std::distance(moleculeAtoms.begin(), it2));
           electricFieldMolecules[indexB] += gradientFactorB.gradientFactor * dr;
         }
       }
@@ -707,11 +700,11 @@ std::optional<RunningEnergy> Interactions::computeInterMolecularElectricFieldDif
 
   for (std::span<const Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end(); ++it1)
   {
-    size_t indexA = static_cast<size_t>(std::distance(moleculeAtoms.begin(), it1));
-    size_t molA = static_cast<size_t>(it1->moleculeId);
+    std::size_t indexA = static_cast<std::size_t>(std::distance(moleculeAtoms.begin(), it1));
+    std::size_t molA = static_cast<std::size_t>(it1->moleculeId);
     double3 posA = it1->position;
-    size_t compA = static_cast<size_t>(it1->componentId);
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t compA = static_cast<std::size_t>(it1->componentId);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
     double scalingCoulombA = it1->scalingCoulomb;
@@ -719,14 +712,14 @@ std::optional<RunningEnergy> Interactions::computeInterMolecularElectricFieldDif
 
     for (std::span<const Atom>::iterator it2 = newatoms.begin(); it2 != newatoms.end(); ++it2)
     {
-      size_t indexB = static_cast<size_t>(std::distance(newatoms.begin(), it2));
-      size_t compB = static_cast<size_t>(it2->componentId);
-      size_t molB = static_cast<size_t>(it2->moleculeId);
+      std::size_t indexB = static_cast<std::size_t>(std::distance(newatoms.begin(), it2));
+      std::size_t compB = static_cast<std::size_t>(it2->componentId);
+      std::size_t molB = static_cast<std::size_t>(it2->moleculeId);
 
       if (!(compA == compB && molA == molB))
       {
         double3 posB = it2->position;
-        size_t typeB = static_cast<size_t>(it2->type);
+        std::size_t typeB = static_cast<std::size_t>(it2->type);
         bool groupIdB = static_cast<bool>(it2->groupId);
         double scalingVDWB = it2->scalingVDW;
         double scalingCoulombB = it2->scalingCoulomb;
@@ -768,14 +761,14 @@ std::optional<RunningEnergy> Interactions::computeInterMolecularElectricFieldDif
 
     for (std::span<const Atom>::iterator it2 = oldatoms.begin(); it2 != oldatoms.end(); ++it2)
     {
-      size_t indexB = static_cast<size_t>(std::distance(oldatoms.begin(), it2));
-      size_t compB = static_cast<size_t>(it2->componentId);
-      size_t molB = static_cast<size_t>(it2->moleculeId);
+      std::size_t indexB = static_cast<std::size_t>(std::distance(oldatoms.begin(), it2));
+      std::size_t compB = static_cast<std::size_t>(it2->componentId);
+      std::size_t molB = static_cast<std::size_t>(it2->moleculeId);
 
       if (!(compA == compB && molA == molB))
       {
         double3 posB = it2->position;
-        size_t typeB = static_cast<size_t>(it2->type);
+        std::size_t typeB = static_cast<std::size_t>(it2->type);
         bool groupIdB = static_cast<bool>(it2->groupId);
         double scalingVDWB = it2->scalingVDW;
         double scalingCoulombB = it2->scalingCoulomb;

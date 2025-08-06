@@ -18,23 +18,14 @@ module;
 #include <vector>
 #endif
 
+#ifndef USE_LEGACY_HEADERS
+#include <string.h>
+#endif
+
 export module input_reader;
 
 #ifndef USE_LEGACY_HEADERS
-import <string>;
-import <map>;
-import <set>;
-import <unordered_set>;
-import <vector>;
-import <complex>;
-import <locale>;
-import <algorithm>;
-import <cctype>;
-import <optional>;
-import <fstream>;
-import <istream>;
-import <string>;
-import <format>;
+import std;
 #endif
 
 import stringutils;
@@ -67,27 +58,27 @@ struct InputDataSystem
 {
   // Sampling the conventional radial distribution function (RDF)
 
-  bool computeConventionalRadialDistributionFunction{false};      ///< Flag to enable computation of conventional RDF.
-  size_t sampleConventionalRadialDistributionFunctionEvery{10};   ///< Interval for sampling conventional RDF.
-  size_t writeConventionalRadialDistributionFunctionEvery{5000};  ///< Interval for writing conventional RDF data.
-  size_t conventionalRadialDistributionFunctionHistogramSize{
+  bool computeConventionalRadialDistributionFunction{false};  ///< Flag to enable computation of conventional RDF.
+  std::size_t sampleConventionalRadialDistributionFunctionEvery{10};   ///< Interval for sampling conventional RDF.
+  std::size_t writeConventionalRadialDistributionFunctionEvery{5000};  ///< Interval for writing conventional RDF data.
+  std::size_t conventionalRadialDistributionFunctionHistogramSize{
       128};                                                ///< Number of bins in the conventional RDF histogram.
   double conventionalRadialDistributionFunctionRange{12};  ///< Range (in appropriate units) for the conventional RDF.
 
   // Sampling the radial distribution function (RDF)
 
-  bool computeRadialDistributionFunction{false};        ///< Flag to enable computation of RDF.
-  size_t sampleRadialDistributionFunctionEvery{10};     ///< Interval for sampling RDF.
-  size_t writeRadialDistributionFunctionEvery{5000};    ///< Interval for writing RDF data.
-  size_t radialDistributionFunctionHistogramSize{128};  ///< Number of bins in the RDF histogram.
-  double radialDistributionFunctionRange{15.0};         ///< Range (in appropriate units) for the RDF.
+  bool computeRadialDistributionFunction{false};             ///< Flag to enable computation of RDF.
+  std::size_t sampleRadialDistributionFunctionEvery{10};     ///< Interval for sampling RDF.
+  std::size_t writeRadialDistributionFunctionEvery{5000};    ///< Interval for writing RDF data.
+  std::size_t radialDistributionFunctionHistogramSize{128};  ///< Number of bins in the RDF histogram.
+  double radialDistributionFunctionRange{15.0};              ///< Range (in appropriate units) for the RDF.
 
   // Sampling the 3D density grid
 
-  bool computeDensityGrid{false};       ///< Flag to enable computation of the density grid.
-  size_t sampleDensityGridEvery{1};     ///< Interval for sampling the density grid.
-  size_t writeDensityGridEvery{5000};   ///< Interval for writing density grid data.
-  int3 densityGridSize{128, 128, 128};  ///< Dimensions of the density grid (x, y, z).
+  bool computeDensityGrid{false};           ///< Flag to enable computation of the density grid.
+  std::size_t sampleDensityGridEvery{1};    ///< Interval for sampling the density grid.
+  std::size_t writeDensityGridEvery{5000};  ///< Interval for writing density grid data.
+  int3 densityGridSize{128, 128, 128};      ///< Dimensions of the density grid (x, y, z).
 };
 
 /**
@@ -137,21 +128,21 @@ export struct InputReader
 
   SimulationType simulationType{SimulationType::MonteCarlo};  ///< Type of simulation to be executed.
 
-  size_t numberOfBlocks{5};  ///< Number of simulation blocks.
+  std::size_t numberOfBlocks{5};  ///< Number of simulation blocks.
 
-  size_t numberOfCycles{0};                ///< Total number of simulation cycles.
-  size_t numberOfInitializationCycles{0};  ///< Number of initialization cycles.
-  size_t numberOfEquilibrationCycles{0};   ///< Number of equilibration cycles.
-  std::size_t printEvery{5000};            ///< Interval for printing simulation progress.
-  size_t writeBinaryRestartEvery{5000};    ///< Interval for writing binary restart files.
-  size_t rescaleWangLandauEvery{5000};     ///< Interval for rescaling in Wang-Landau sampling.
-  size_t optimizeMCMovesEvery{5000};       ///< Interval for optimizing Monte Carlo moves.
-  size_t writeEvery{100};                  ///< Interval for writing simulation data.
-  bool restartFromBinary{false};           ///< Flag to indicate if the simulation should restart from a binary file.
+  std::size_t numberOfCycles{0};                ///< Total number of simulation cycles.
+  std::size_t numberOfInitializationCycles{0};  ///< Number of initialization cycles.
+  std::size_t numberOfEquilibrationCycles{0};   ///< Number of equilibration cycles.
+  std::size_t printEvery{5000};                 ///< Interval for printing simulation progress.
+  std::size_t writeBinaryRestartEvery{5000};    ///< Interval for writing binary restart files.
+  std::size_t rescaleWangLandauEvery{5000};     ///< Interval for rescaling in Wang-Landau sampling.
+  std::size_t optimizeMCMovesEvery{5000};       ///< Interval for optimizing Monte Carlo moves.
+  std::size_t writeEvery{100};                  ///< Interval for writing simulation data.
+  bool restartFromBinary{false};  ///< Flag to indicate if the simulation should restart from a binary file.
 
   std::optional<unsigned long long> randomSeed{std::nullopt};  ///< Optional random seed for reproducibility.
 
-  size_t numberOfThreads{1};  ///< Number of threads to be used in the simulation.
+  std::size_t numberOfThreads{1};  ///< Number of threads to be used in the simulation.
   ThreadPool::ThreadingType threadingType{ThreadPool::ThreadingType::Serial};  ///< Type of threading to be used.
 
   ForceField forceField;          ///< Force field used for defining interactions in the simulation.

@@ -9,13 +9,12 @@ module;
 export module skdefinitions;
 
 #ifndef USE_LEGACY_HEADERS
-import <type_traits>;
-import <cstdint>;
+import std;
 #endif
 
-export enum class Symmorphicity : size_t { asymmorphic = 0, symmorphic = 1, hemisymmorphic = 2 };
+export enum class Symmorphicity : std::size_t { asymmorphic = 0, symmorphic = 1, hemisymmorphic = 2 };
 
-export enum class Centring : size_t {
+export enum class Centring : std::size_t {
   none = 0,
   primitive = 1,
   body = 2,
@@ -29,7 +28,7 @@ export enum class Centring : size_t {
   d = 10
 };
 
-export enum class Holohedry : size_t {
+export enum class Holohedry : std::size_t {
   none = 0,
   triclinic = 1,
   monoclinic = 2,

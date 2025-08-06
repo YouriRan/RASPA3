@@ -24,43 +24,26 @@ module;
 module property_widom;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
-import <map>;
-import <array>;
-import <iostream>;
-import <cmath>;
-import <string>;
-import <sstream>;
-import <format>;
-import <algorithm>;
-import <numeric>;
-import <cmath>;
-import <numbers>;
-import <optional>;
-import <fstream>;
-import <exception>;
-import <source_location>;
-import <complex>;
-import <print>;
+import std;
 #endif
 
 import archive;
+import int3;
 import units;
 import averages;
 import stringutils;
 
 PropertyWidom::PropertyWidom() {}
 
-std::string PropertyWidom::writeAveragesStatistics(double beta, std::optional<double> imposedChemicalPotential,
-                                                   std::optional<double> imposedFugacity) const
+std::string PropertyWidom::writeAveragesRosenbluthWeightStatistics(double temperature, double volume,
+                                                                   std::optional<double> frameworkMass,
+                                                                   std::optional<int3> number_of_unit_cells) const
 {
   std::ostringstream stream;
 
-  double conv = Units::EnergyToKelvin;
-
-  std::print(stream, "    Widom insertion Rosenbluth weight  statistics:\n");
+  std::print(stream, "    Widom insertion Rosenbluth weight statistics:\n");
   std::print(stream, "    ---------------------------------------------------------------------------\n");
-  for (size_t blockIndex = 0; blockIndex < numberOfBlocks; ++blockIndex)
+  for (std::size_t blockIndex = 0; blockIndex < numberOfBlocks; ++blockIndex)
   {
     double blockAverage = averagedRosenbluthWeight(blockIndex);
     std::print(stream, "        Block[ {:2d}] {: .6e}\n", blockIndex, blockAverage);
@@ -71,13 +54,56 @@ std::string PropertyWidom::writeAveragesStatistics(double beta, std::optional<do
              averageRosenbluthWeightValue.second);
   std::print(stream, "\n\n");
 
+  if (frameworkMass.has_value())
+  {
+    double frameworkDensity =
+        1e-3 * frameworkMass.value() /
+        (volume * Units::LengthUnit * Units::LengthUnit * Units::LengthUnit * Units::AvogadroConstant);
+    double conversion_factor_mol_per_kg = 1.0 / (Units::MolarGasConstant * temperature * frameworkDensity);
+
+    std::print(stream, "    Henry coefficient based on Rosenbluth weight:\n");
+    std::print(stream, "    ---------------------------------------------------------------------------\n");
+    for (std::size_t blockIndex = 0; blockIndex < numberOfBlocks; ++blockIndex)
+    {
+      double blockAverage = conversion_factor_mol_per_kg * averagedRosenbluthWeight(blockIndex);
+      std::print(stream, "        Block[ {:2d}] {: .6e}\n", blockIndex, blockAverage);
+    }
+    std::print(stream, "    ---------------------------------------------------------------------------\n");
+    std::print(stream, "    Average Henry coefficient:   {: .6e} +/- {: .6e} [mol/kg/Pa]\n",
+               averageRosenbluthWeightValue.first * conversion_factor_mol_per_kg,
+               averageRosenbluthWeightValue.second * conversion_factor_mol_per_kg);
+    if (number_of_unit_cells.has_value())
+    {
+      double conversion_factor_molecules_per_uc =
+          Units::AvogadroConstant * volume * Units::LengthUnit * Units::LengthUnit * Units::LengthUnit /
+          (Units::MolarGasConstant * temperature *
+           static_cast<double>(number_of_unit_cells->x * number_of_unit_cells->y * number_of_unit_cells->z));
+
+      std::print(stream, "    Average Henry coefficient:   {: .6e} +/- {: .6e} [molec./uc/Pa]\n",
+                 averageRosenbluthWeightValue.first * conversion_factor_molecules_per_uc,
+                 averageRosenbluthWeightValue.second * conversion_factor_molecules_per_uc);
+    }
+    std::print(stream, "\n\n");
+  }
+
+  return stream.str();
+}
+
+std::string PropertyWidom::writeAveragesChemicalPotentialStatistics(double beta,
+                                                                    std::optional<double> imposedChemicalPotential,
+                                                                    std::optional<double> imposedFugacity) const
+{
+  std::ostringstream stream;
+
+  double conv = Units::EnergyToKelvin;
+
   switch (Units::unitSystem)
   {
     case Units::System::RASPA:
     {
       std::print(stream, "    Widom insertion chemical potential  statistics:\n");
       std::print(stream, "    ---------------------------------------------------------------------------\n");
-      for (size_t blockIndex = 0; blockIndex < numberOfBlocks; ++blockIndex)
+      for (std::size_t blockIndex = 0; blockIndex < numberOfBlocks; ++blockIndex)
       {
         double blockAverage = averagedExcessChemicalPotential(blockIndex, beta);
         std::print(stream, "        Block[ {:2d}] {}\n", blockIndex, conv * blockAverage);
@@ -140,7 +166,7 @@ std::string PropertyWidom::writeAveragesStatistics(double beta, std::optional<do
     {
       std::print(stream, "    Widom insertion chemical potential  statistics:\n");
       std::print(stream, "    ---------------------------------------------------------------------------\n");
-      for (size_t blockIndex = 0; blockIndex < numberOfBlocks; ++blockIndex)
+      for (std::size_t blockIndex = 0; blockIndex < numberOfBlocks; ++blockIndex)
       {
         double blockAverage = averagedExcessChemicalPotential(blockIndex, beta);
         std::print(stream, "        Block[ {:2d}] {}\n", blockIndex, beta * blockAverage);
@@ -197,7 +223,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Proper
   archive << w.bookKeepingDensity;
 
 #if DEBUG_ARCHIVE
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
 
   return archive;
@@ -205,7 +231,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Proper
 
 Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PropertyWidom &w)
 {
-  uint64_t versionNumber;
+  std::uint64_t versionNumber;
   archive >> versionNumber;
   if (versionNumber > w.versionNumber)
   {
@@ -219,9 +245,9 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PropertyWido
   archive >> w.bookKeepingDensity;
 
 #if DEBUG_ARCHIVE
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
     throw std::runtime_error(std::format("PropertyWidom: Error in binary restart\n"));
   }

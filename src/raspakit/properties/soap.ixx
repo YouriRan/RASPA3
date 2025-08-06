@@ -9,8 +9,7 @@ module;
 export module property_soap;
 
 #ifndef USE_LEGACY_HEADERS
-import <iostream>;
-import <vector>;
+import std;
 #endif
 
 import atom;
@@ -19,8 +18,8 @@ import featomic;
 
 export struct PropertySoap
 {
-  PropertySoap(size_t sampleEvery, size_t writeOutputEvery, size_t numberOfBuffers, double cutOff, double smoothingWidth, double gaussianWidth,
-               size_t numberOfRadialBasisFunctions, size_t numberOfAngularBasisFunctions)
+  PropertySoap(std::size_t sampleEvery, std::size_t writeOutputEvery, std::size_t numberOfBuffers, double cutOff, double smoothingWidth, double gaussianWidth,
+               std::size_t numberOfRadialBasisFunctions, std::size_t numberOfAngularBasisFunctions)
       : sampleEvery(sampleEvery),
       writeOutputEvery(writeOutputEvery),
       numberOfBuffers(numberOfBuffers),
@@ -34,15 +33,15 @@ export struct PropertySoap
     std::cout << "Creating property " << std::endl;
   }
 
-  uint64_t versionNumber{0};
-  size_t sampleEvery;
-  size_t writeOutputEvery;
-  size_t numberOfBuffers;
+  std::uint64_t versionNumber{0};
+  std::size_t sampleEvery;
+  std::size_t writeOutputEvery;
+  std::size_t numberOfBuffers;
   FeatomicCalculator calculator;
   featomic::CalculationOptions options;
 
   std::vector<FeatomicSystem> featomicSystems;
 
-  void sample(size_t currentCycle, std::span<Atom> atoms, SimulationBox box);
-  void writeOutput(size_t currentCycle);
+  void sample(std::size_t currentCycle, std::span<Atom> atoms, SimulationBox box);
+  void writeOutput(std::size_t currentCycle);
 };

@@ -1,33 +1,23 @@
 #ifdef USE_LEGACY_HEADERS
+#include <complex>
 #include <cstddef>
-#include <exception>
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <span>
 #include <deque>
+#include <exception>
+#include <fstream>
+#include <iostream>
+#include <locale>
+#include <mutex>
 #include <optional>
 #include <semaphore>
-#include <mutex>
-#include <complex>
-#include <locale>
+#include <span>
 #include <string_view>
+#include <vector>
 #endif
 
+
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <exception>;
-import <iostream>;
-import <fstream>;
-import <vector>;
-import <span>;
-import <deque>;
-import <optional>;
-import <semaphore>;
-import <mutex>;
-import <complex>;
-import <locale>;
-import <string_view>;
+#include <locale.h>
+import std;
 #endif
 
 import archive;
@@ -60,9 +50,9 @@ int main(int argc, char* argv[])
 
   std::vector<std::string_view> args(argv, argv + argc);
 
-  for(auto it = args.begin(); it != args.end(); ++it)
+  for (auto it = args.begin(); it != args.end(); ++it)
   {
-    if(*it == "--help"sv || *it == "-h"sv)
+    if (*it == "--help"sv || *it == "-h"sv)
     {
       std::cout << "RASPA is a software package for simulating adsorption and\n"
                    "diffusion of molecules in flexible nanoporous materials.\n"
@@ -82,10 +72,9 @@ int main(int argc, char* argv[])
 
   try
   {
-
     InputReader inputReader("simulation.json");
 
-    auto &pool = ThreadPool::ThreadPool<ThreadPool::details::default_function_type>::instance();
+    auto& pool = ThreadPool::ThreadPool<ThreadPool::details::default_function_type>::instance();
     pool.init(inputReader.numberOfThreads, inputReader.threadingType);
 
     switch (inputReader.simulationType)
@@ -93,10 +82,10 @@ int main(int argc, char* argv[])
       case InputReader::SimulationType::MonteCarlo:
       {
         MonteCarlo mc(inputReader);
-        if(inputReader.restartFromBinary)
+        if (inputReader.restartFromBinary)
         {
           std::ifstream ifile("restart_data.bin", std::ios::binary);
-          if(!ifile.is_open())
+          if (!ifile.is_open())
           {
             throw std::runtime_error("Restart file doesn't exist..\n");
           }
@@ -119,10 +108,10 @@ int main(int argc, char* argv[])
       case InputReader::SimulationType::MolecularDynamics:
       {
         MolecularDynamics md(inputReader);
-        if(inputReader.restartFromBinary)
+        if (inputReader.restartFromBinary)
         {
           std::ifstream ifile("restart_data.bin", std::ios::binary);
-          if(!ifile.is_open())
+          if (!ifile.is_open())
           {
             throw std::runtime_error("Restart file doesn't exist..\n");
           }
@@ -159,6 +148,6 @@ int main(int argc, char* argv[])
   catch (std::exception const& e)
   {
     std::cerr << e.what();
-    exit(-1);
+    std::exit(-1);
   }
 }

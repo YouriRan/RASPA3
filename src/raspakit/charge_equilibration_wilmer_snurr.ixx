@@ -13,12 +13,7 @@ module;
 export module charge_equilibration_wilmer_snurr;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstdint>;
-import <tuple>;
-import <vector>;
-import <span>;
-import <cmath>;
-import <string>;
+import std;
 #endif
 
 import atom;
@@ -36,7 +31,7 @@ import simulationbox;
 
 export namespace ChargeEquilibration
 {
-enum class Type : size_t
+enum class Type : std::size_t
 {
   NonPeriodic = 0,
   Periodic = 1,
@@ -154,11 +149,12 @@ static std::vector<ChargeEquilbrationElementData> chargeEquilbrationElementData 
 // C.E. Wilmer and R.Q. Snurr
 // X_0 = (\partial dE/\partial Q)_{Q=0}  = 0.5 * (IP + EA)
 // the electron affinity can be thought of as the "zero-th" ionization energy
-inline double referenceTableX(const ForceField &forceField, size_t pseudo_atom_type, size_t index)
+inline double referenceTableX(const ForceField &forceField, std::size_t pseudo_atom_type, std::size_t index)
 {
   double electron_affinity, ionization_potential;
 
-  size_t oxidationState = static_cast<size_t>(std::abs(forceField.pseudoAtoms[pseudo_atom_type].oxidationState));
+  std::size_t oxidationState =
+      static_cast<std::size_t>(std::abs(forceField.pseudoAtoms[pseudo_atom_type].oxidationState));
   if (oxidationState == 0)
   {
     ionization_potential = chargeEquilbrationElementData[index].ionizationEnergy[0];
@@ -176,11 +172,12 @@ inline double referenceTableX(const ForceField &forceField, size_t pseudo_atom_t
 // J is the 'idempotential' of the 'chemical hardness' parameter of the atom
 // J_0 = \partial d^2E/\partial Q^2  = IP - EA
 // the electron affinity can be thought of as the "zero-th" ionization energy
-inline double referenceTableJ(const ForceField &forceField, size_t pseudo_atom_type, size_t index)
+inline double referenceTableJ(const ForceField &forceField, std::size_t pseudo_atom_type, std::size_t index)
 {
   double electron_affinity, ionization_potential;
 
-  size_t oxidationState = static_cast<size_t>(std::abs(forceField.pseudoAtoms[pseudo_atom_type].oxidationState));
+  std::size_t oxidationState =
+      static_cast<std::size_t>(std::abs(forceField.pseudoAtoms[pseudo_atom_type].oxidationState));
   if (oxidationState == 0)
   {
     ionization_potential = chargeEquilbrationElementData[index].ionizationEnergy[0];
@@ -197,11 +194,12 @@ inline double referenceTableJ(const ForceField &forceField, size_t pseudo_atom_t
   return (ionization_potential - electron_affinity);
 }
 
-inline double referenceTableXc(const ForceField &forceField, size_t pseudo_atom_type, size_t index)
+inline double referenceTableXc(const ForceField &forceField, std::size_t pseudo_atom_type, std::size_t index)
 {
   double electron_affinity, ionization_potential;
 
-  size_t oxidationState = static_cast<size_t>(std::abs(forceField.pseudoAtoms[pseudo_atom_type].oxidationState));
+  std::size_t oxidationState =
+      static_cast<std::size_t>(std::abs(forceField.pseudoAtoms[pseudo_atom_type].oxidationState));
   if (oxidationState == 0)
   {
     electron_affinity = chargeEquilbrationElementData[index].electronAffinity;

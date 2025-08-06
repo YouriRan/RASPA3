@@ -9,11 +9,11 @@ module;
 module skonethirdseitzmatrix;
 
 #ifndef USE_LEGACY_HEADERS
-import <string>;
+import std;
 #endif
 
-SKOneThirdSeitzMatrix::SKOneThirdSeitzMatrix(std::string text, uint8_t encoding, int8_t r1, int8_t r2, int8_t r3,
-                                             int8_t t)
+SKOneThirdSeitzMatrix::SKOneThirdSeitzMatrix(std::string text, std::uint8_t encoding, std::int8_t r1, 
+                                             std::int8_t r2, std::int8_t r3, std::int8_t t)
 {
   _text = text;
   _encoding = encoding;

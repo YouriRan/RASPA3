@@ -11,10 +11,7 @@ module;
 export module skrotationmatrix;
 
 #ifndef USE_LEGACY_HEADERS
-import <ostream>;
-import <vector>;
-import <type_traits>;
-import <tuple>;
+import std;
 #endif
 
 import int3;
@@ -62,7 +59,7 @@ export struct SKRotationMatrix
   const SKRotationMatrix proper() const;
   SKRotationMatrix::RotationType type() const;
   int3 rotationAxis() const;
-  std::vector<int3> orthogonalToAxisDirection(size_t rotationOrder);
+  std::vector<int3> orthogonalToAxisDirection(std::size_t rotationOrder);
 
   inline int determinant() { return this->int3x3_m.determinant(); }
   inline SKRotationMatrix operator-() const { return -this->int3x3_m; }

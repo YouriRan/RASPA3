@@ -28,33 +28,14 @@ module;
 module monte_carlo;
 
 #ifndef USE_LEGACY_HEADERS
-import <iostream>;
-import <algorithm>;
-import <numeric>;
-import <ranges>;
-import <chrono>;
-import <vector>;
-import <array>;
-import <map>;
-import <utility>;
-import <span>;
-import <string>;
-import <optional>;
-import <fstream>;
-import <sstream>;
-import <filesystem>;
-import <tuple>;
-import <ios>;
-import <complex>;
-import <exception>;
-import <source_location>;
-import <print>;
+import std;
 #endif
 
 import stringutils;
 import hardware_info;
 import archive;
 import system;
+import framework;
 import randomnumbers;
 import input_reader;
 import component;
@@ -110,10 +91,11 @@ MonteCarlo::MonteCarlo(InputReader& reader) noexcept
 {
 }
 
-MonteCarlo::MonteCarlo(size_t numberOfCycles, size_t numberOfInitializationCycles, size_t numberOfEquilibrationCycles,
-                       size_t printEvery, size_t writeBinaryRestartEvery, size_t rescaleWangLandauEvery,
-                       size_t optimizeMCMovesEvery, std::vector<System>& systems, RandomNumber& randomSeed,
-                       size_t numberOfBlocks, bool outputToFiles)
+MonteCarlo::MonteCarlo(std::size_t numberOfCycles, std::size_t numberOfInitializationCycles,
+                       std::size_t numberOfEquilibrationCycles, std::size_t printEvery,
+                       std::size_t writeBinaryRestartEvery, std::size_t rescaleWangLandauEvery,
+                       std::size_t optimizeMCMovesEvery, std::vector<System>& systems, RandomNumber& randomSeed,
+                       std::size_t numberOfBlocks, bool outputToFiles)
     : outputToFiles(outputToFiles),
       random(randomSeed),
       numberOfCycles(numberOfCycles),
@@ -130,8 +112,10 @@ MonteCarlo::MonteCarlo(size_t numberOfCycles, size_t numberOfInitializationCycle
 {
 }
 
-System& MonteCarlo::randomSystem() { return systems[size_t(random.uniform() * static_cast<double>(systems.size()))]; }
-
+System& MonteCarlo::randomSystem()
+{
+  return systems[std::size_t(random.uniform() * static_cast<double>(systems.size()))];
+}
 
 void MonteCarlo::run()
 {
@@ -151,8 +135,8 @@ void MonteCarlo::run()
           system.containsTheFractionalMolecule = false;
 
         // if the MC/MD hybrid move is on, make sure that interpolation-method include gradients
-        if(system.mc_moves_probabilities.getProbability(MoveTypes::HybridMC) > 0.0 && 
-           system.forceField.interpolationScheme == ForceField::InterpolationScheme::Polynomial)
+        if (system.mc_moves_probabilities.getProbability(MoveTypes::HybridMC) > 0.0 &&
+            system.forceField.interpolationScheme == ForceField::InterpolationScheme::Polynomial)
         {
           system.forceField.interpolationScheme = ForceField::InterpolationScheme::Tricubic;
         }
@@ -162,7 +146,6 @@ void MonteCarlo::run()
         createOutputFiles();
         writeOutputHeader();
       }
-
 
       createInterpolationGrids();
       break;
@@ -242,43 +225,49 @@ void MonteCarlo::writeOutputHeader()
       json << outputJsons[system.systemId].dump(4);
     }
   }
-
 }
 
 void MonteCarlo::createInterpolationGrids()
 {
   for (System& system : systems)
   {
-    std::ostream stream(streams[system.systemId].rdbuf());
-
-    system.createInterpolationGrids(stream);
+    if (outputToFiles)
+    {
+      std::ostream stream(streams[system.systemId].rdbuf());
+      system.createInterpolationGrids(stream);
+    }
+    else
+    {
+      std::ostringstream local;
+      system.createInterpolationGrids(local);
+    }
   }
 }
 
 void MonteCarlo::performCycle()
 {
-  size_t totalNumberOfMolecules{0uz};
-  size_t totalNumberOfComponents{0uz};
-  size_t numberOfStepsPerCycle{0uz};
+  std::size_t totalNumberOfMolecules{0uz};
+  std::size_t totalNumberOfComponents{0uz};
+  std::size_t numberOfStepsPerCycle{0uz};
 
   totalNumberOfMolecules = std::transform_reduce(
-      systems.begin(), systems.end(), 0uz, [](const size_t& acc, const size_t& b) { return acc + b; },
+      systems.begin(), systems.end(), 0uz, [](const std::size_t& acc, const std::size_t& b) { return acc + b; },
       [](const System& system) { return system.numberOfMolecules(); });
   totalNumberOfComponents = systems.front().numerOfAdsorbateComponents();
 
   numberOfStepsPerCycle = std::max(totalNumberOfMolecules, 20uz) * totalNumberOfComponents;
 
-  for (size_t j = 0uz; j != numberOfStepsPerCycle; j++)
+  for (std::size_t j = 0uz; j != numberOfStepsPerCycle; j++)
   {
     // move to 'slide' when implemented in llvm
     // [[maybe_unused]] auto s = std::ranges::views::iota(0uz, systems.size());
     // std::ranges::views::slide(s, 2uz);
 
-    std::pair<size_t, size_t> selectedSystemPair = random.randomPairAdjacentIntegers(systems.size());
+    std::pair<std::size_t, std::size_t> selectedSystemPair = random.randomPairAdjacentIntegers(systems.size());
     System& selectedSystem = systems[selectedSystemPair.first];
     System& selectedSecondSystem = systems[selectedSystemPair.second];
 
-    size_t selectedComponent = selectedSystem.randomComponent(random);
+    std::size_t selectedComponent = selectedSystem.randomComponent(random);
 
     switch (simulationStage)
     {
@@ -320,15 +309,12 @@ void MonteCarlo::performCycle()
   }
 }
 
-
 void MonteCarlo::initialize()
 {
   std::chrono::system_clock::time_point t1, t2;
 
   if (simulationStage == SimulationStage::Initialization) goto continueInitializationStage;
   simulationStage = SimulationStage::Initialization;
-
-
 
   for (System& system : systems)
   {
@@ -764,7 +750,7 @@ void MonteCarlo::output()
         stream, "{}",
         system.averageEnergies.writeAveragesStatistics(system.hasExternalField, system.framework, system.components));
 
-    if(!(system.framework.has_value() && system.framework->rigid))
+    if (!(system.framework.has_value() && system.framework->rigid))
     {
       std::print(stream, "{}", system.averagePressure.writeAveragesStatistics());
     }
@@ -772,7 +758,10 @@ void MonteCarlo::output()
     std::print(
         stream, "{}",
         system.averageEnthalpiesOfAdsorption.writeAveragesStatistics(system.swappableComponents, system.components));
-    std::print(stream, "{}", system.averageLoadings.writeAveragesStatistics(system.components, system.frameworkMass()));
+    std::print(stream, "{}",
+               system.averageLoadings.writeAveragesStatistics(
+                   system.components, system.frameworkMass(),
+                   system.framework.transform([](const Framework& f) { return f.numberOfUnitCells; })));
 
     // json statistics
     outputJsons[system.systemId]["output"]["runningEnergies"] = system.runningEnergies.jsonMC();
@@ -843,14 +832,14 @@ Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const MonteC
   archive << mc.totalProductionSimulationTime;
   archive << mc.totalSimulationTime;
 
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 
   return archive;
 }
 
 Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, MonteCarlo& mc)
 {
-  uint64_t versionNumber;
+  std::uint64_t versionNumber;
   archive >> versionNumber;
   if (versionNumber > mc.versionNumber)
   {
@@ -885,11 +874,12 @@ Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, MonteCarlo& 
   archive >> mc.totalProductionSimulationTime;
   archive >> mc.totalSimulationTime;
 
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
   }
-  std::cout << std::format("Magic number read correctly: {} vs {}\n", magicNumber, static_cast<uint64_t>(0x6f6b6179));
+  std::cout << std::format("Magic number read correctly: {} vs {}\n", magicNumber,
+                           static_cast<std::uint64_t>(0x6f6b6179));
   return archive;
 }

@@ -10,10 +10,7 @@ module;
 export module mc_pore_size_distribution;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <print>;
-import <string>;
-import <vector>;
+import std;
 #endif
 
 import framework;
@@ -23,11 +20,8 @@ export struct MC_PoreSizeDistribution
 {
   std::vector<double> data;
 
-  MC_PoreSizeDistribution(size_t numberOfBins):
-    data(numberOfBins)
-  {
-  };
+  MC_PoreSizeDistribution(std::size_t numberOfBins) : data(numberOfBins) {};
 
-  void run(const ForceField &forceField, const Framework &framework, double well_depth_factor, size_t number_of_iterations);
-
+  void run(const ForceField &forceField, const Framework &framework, double well_depth_factor,
+           std::size_t number_of_iterations);
 };

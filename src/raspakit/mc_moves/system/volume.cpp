@@ -19,20 +19,7 @@ module;
 module mc_moves_volume;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <vector>;
-import <array>;
-import <tuple>;
-import <optional>;
-import <span>;
-import <optional>;
-import <tuple>;
-import <algorithm>;
-import <numeric>;
-import <chrono>;
-import <cmath>;
-import <iostream>;
-import <iomanip>;
+import std;
 #endif
 
 import component;
@@ -70,7 +57,7 @@ std::optional<RunningEnergy> MC_Moves::volumeMove(RandomNumber &random, System &
   RunningEnergy oldTotalEnergy = system.runningEnergies;
   // Calculate the total number of molecules
   double numberOfMolecules = static_cast<double>(std::accumulate(system.numberOfIntegerMoleculesPerComponent.begin(),
-                                                             system.numberOfIntegerMoleculesPerComponent.end(), 0));
+                                                                 system.numberOfIntegerMoleculesPerComponent.end(), 0));
   double oldVolume = system.simulationBox.volume;
   double maxVolumeChange = system.mc_moves_statistics.getMaxChange(move);
 

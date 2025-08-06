@@ -10,9 +10,7 @@ module;
 export module rigid;
 
 #ifndef USE_LEGACY_HEADERS
-import <cmath>;
-import <tuple>;
-import <print>;
+import std;
 #endif
 
 import archive;
@@ -56,6 +54,6 @@ namespace Rigid
  * double3 vector. \return A pair of quaternions representing the updated orientation and angular momentum after the
  * rotation.
  */
-std::pair<simd_quatd, simd_quatd> NoSquishRotate(size_t k, double dt, std::pair<simd_quatd, simd_quatd> q,
+std::pair<simd_quatd, simd_quatd> NoSquishRotate(std::size_t k, double dt, std::pair<simd_quatd, simd_quatd> q,
                                                  double3 inverseInertiaVector);
 }  // namespace Rigid

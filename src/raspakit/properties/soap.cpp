@@ -8,15 +8,14 @@ module;
 module property_soap;
 
 #ifndef USE_LEGACY_HEADERS
-import <iostream>;
-import <vector>;
+import std;
 #endif
 
 import atom;
 import simulationbox;
 import featomic;
 
-void PropertySoap::sample(size_t currentCycle, std::span<Atom> atoms, SimulationBox box) 
+void PropertySoap::sample(std::size_t currentCycle, std::span<Atom> atoms, SimulationBox box) 
 {
     if (currentCycle % sampleEvery != 0uz) return;
 
@@ -24,7 +23,7 @@ void PropertySoap::sample(size_t currentCycle, std::span<Atom> atoms, Simulation
     featomicSystems.push_back(FeatomicSystem(atoms, box));
 }
 
-void PropertySoap::writeOutput(size_t currentCycle) 
+void PropertySoap::writeOutput(std::size_t currentCycle) 
 {
     if (currentCycle % writeOutputEvery != 0uz) return;
     std::cout << featomicSystems.size() << std::endl;

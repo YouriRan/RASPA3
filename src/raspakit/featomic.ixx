@@ -24,19 +24,7 @@ module;
 export module featomic;
 
 #ifndef USE_LEGACY_HEADERS
-import <iostream>;
-import <vector>;
-import <cstring>;
-import <cstdint>;
-import <array>;
-import <string>;
-import <vector>;
-import <mutex>;
-import <utility>;
-import <optional>;
-import <stdexcept>;
-import <exception>;
-import <unordered_map>;
+import std;
 #endif
 
 import json;
@@ -49,7 +37,7 @@ export struct FeatomicSystem : featomic::System
 
   FeatomicSystem(std::span<Atom> atoms, SimulationBox box) : positions_(3 * atoms.size()), atomic_types_(atoms.size())
   {
-    for (size_t i = 0; i < atoms.size(); i++)
+    for (std::size_t i = 0; i < atoms.size(); i++)
     {
       positions_[3 * i + 0] = atoms[i].position.x;
       positions_[3 * i + 1] = atoms[i].position.y;
@@ -287,8 +275,8 @@ export struct FeatomicCalculator {
 
 
 export FeatomicCalculator getSoapPowerSpectrumCalculator(double cutOff, double smoothingWidth, double gaussianWidth,
-                                                           size_t numberOfRadialBasisFunctions,
-                                                           size_t numberOfAngularBasisFunctions)
+                                                           std::size_t numberOfRadialBasisFunctions,
+                                                           std::size_t numberOfAngularBasisFunctions)
 {
   const std::string parameters =
       std::format(R"json(

@@ -10,10 +10,7 @@ module;
 export module mc_moves_gibbs_swap_cfcmc;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <tuple>;
+import std;
 #endif
 
 import double3;
@@ -44,6 +41,6 @@ import system;
 export namespace MC_Moves
 {
 std::optional<std::pair<RunningEnergy, RunningEnergy>> GibbsSwapMove_CFCMC(
-    RandomNumber& random, System& systemA, System& systemB, size_t selectedComponent,
-    [[maybe_unused]] size_t& fractionalMoleculeSystem);
+    RandomNumber& random, System& systemA, System& systemB, std::size_t selectedComponent,
+    [[maybe_unused]] std::size_t& fractionalMoleculeSystem);
 }

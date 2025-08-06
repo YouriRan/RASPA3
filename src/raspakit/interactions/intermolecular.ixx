@@ -11,10 +11,7 @@ module;
 export module interactions_intermolecular;
 
 #ifndef USE_LEGACY_HEADERS
-import <span>;
-import <optional>;
-import <tuple>;
-import <vector>;
+import std;
 #endif
 
 import double3;
@@ -141,9 +138,9 @@ std::pair<EnergyStatus, double3x3> computeInterMolecularEnergyStrainDerivative(c
  * \param electricPotentialMolecules A span to store the computed electric potentials.
  * \param moleculeAtoms A span of atoms for which to compute the electric potentials.
  */
-void computeInterMolecularElectricPotential(const ForceField &forceField, const SimulationBox &box,
-                                            std::span<double> electricPotentialMolecules,
-                                            std::span<const Atom> moleculeAtoms) noexcept;
+void computeInterMolecularElectrostaticPotential(const ForceField &forceField, const SimulationBox &box,
+                                                 std::span<double> electricPotentialMolecules,
+                                                 std::span<const Atom> moleculeAtoms) noexcept;
 
 /**
  * \brief Computes the inter-molecular polarization energy.

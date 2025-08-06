@@ -9,6 +9,7 @@ module;
 #include <cstddef>
 #include <iomanip>
 #include <iostream>
+#include <numbers>
 #include <optional>
 #include <span>
 #include <tuple>
@@ -18,19 +19,7 @@ module;
 module mc_moves_random_rotation;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <vector>;
-import <array>;
-import <tuple>;
-import <optional>;
-import <span>;
-import <optional>;
-import <tuple>;
-import <algorithm>;
-import <chrono>;
-import <cmath>;
-import <iostream>;
-import <iomanip>;
+import std;
 #endif
 
 import component;
@@ -54,10 +43,11 @@ import interactions_framework_molecule;
 import interactions_intermolecular;
 import interactions_ewald;
 import interactions_external_field;
+import interactions_polarization;
 import mc_moves_move_types;
 
 std::optional<RunningEnergy> MC_Moves::randomRotationMove(RandomNumber &random, System &system,
-                                                          size_t selectedComponent,
+                                                          std::size_t selectedComponent, std::size_t selectedMolecule,
                                                           const std::vector<Component> &components, Molecule &molecule,
                                                           std::span<Atom> molecule_atoms)
 {
@@ -67,9 +57,8 @@ std::optional<RunningEnergy> MC_Moves::randomRotationMove(RandomNumber &random, 
   Component &component = system.components[selectedComponent];
 
   std::array<double3, 3> axes{double3(1.0, 0.0, 0.0), double3(0.0, 1.0, 0.0), double3(0.0, 0.0, 1.0)};
-  double maxAngle = component.mc_moves_statistics.getMaxChange(move);
-  size_t selectedDirection = size_t(3.0 * random.uniform());
-  angle[selectedDirection] = maxAngle * 2.0 * (random.uniform() - 0.5);
+  std::size_t selectedDirection = std::size_t(3.0 * random.uniform());
+  angle[selectedDirection] = std::numbers::pi * 2.0 * (random.uniform() - 0.5);
 
   // Update move statistics for the selected direction
   component.mc_moves_statistics.addTrial(move, selectedDirection);
@@ -87,6 +76,9 @@ std::optional<RunningEnergy> MC_Moves::randomRotationMove(RandomNumber &random, 
     return std::nullopt;
   }
 
+  std::vector<double3> electricFieldMoleculeNew(molecule_atoms.size());
+  std::vector<double3> electricFieldMoleculeOld(molecule_atoms.size());
+
   // Compute external field energy contribution
   time_begin = std::chrono::system_clock::now();
   std::optional<RunningEnergy> externalFieldMolecule = Interactions::computeExternalFieldEnergyDifference(
@@ -99,9 +91,20 @@ std::optional<RunningEnergy> MC_Moves::randomRotationMove(RandomNumber &random, 
 
   // Compute framework-molecule energy contribution
   time_begin = std::chrono::system_clock::now();
-  std::optional<RunningEnergy> frameworkMolecule = Interactions::computeFrameworkMoleculeEnergyDifference(
-      system.forceField, system.simulationBox, system.interpolationGrids, system.framework,
-      system.spanOfFrameworkAtoms(), trialMolecule.second, molecule_atoms);
+  std::optional<RunningEnergy> frameworkMolecule;
+  if (system.forceField.computePolarization)
+  {
+    frameworkMolecule = Interactions::computeFrameworkMoleculeEnergyDifference(
+        system.forceField, system.simulationBox, system.interpolationGrids, system.framework,
+        system.spanOfFrameworkAtoms(), electricFieldMoleculeNew, electricFieldMoleculeOld, trialMolecule.second,
+        molecule_atoms);
+  }
+  else
+  {
+    frameworkMolecule = Interactions::computeFrameworkMoleculeEnergyDifference(
+        system.forceField, system.simulationBox, system.interpolationGrids, system.framework,
+        system.spanOfFrameworkAtoms(), trialMolecule.second, molecule_atoms);
+  }
   time_end = std::chrono::system_clock::now();
 
   component.mc_moves_cputime[move]["Framework-Molecule"] += (time_end - time_begin);
@@ -120,17 +123,36 @@ std::optional<RunningEnergy> MC_Moves::randomRotationMove(RandomNumber &random, 
 
   // Compute Ewald energy contribution
   time_begin = std::chrono::system_clock::now();
-  RunningEnergy ewaldFourierEnergy = Interactions::energyDifferenceEwaldFourier(
-      system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.storedEik, system.totalEik, system.forceField,
-      system.simulationBox, trialMolecule.second, molecule_atoms);
+  RunningEnergy ewaldFourierEnergy;
+  if (system.forceField.computePolarization)
+  {
+    ewaldFourierEnergy = Interactions::energyDifferenceEwaldFourier(
+        system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.fixedFrameworkStoredEik, system.storedEik,
+        system.totalEik, system.forceField, system.simulationBox, electricFieldMoleculeNew, electricFieldMoleculeOld,
+        trialMolecule.second, molecule_atoms);
+  }
+  else
+  {
+    ewaldFourierEnergy = Interactions::energyDifferenceEwaldFourier(
+        system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.storedEik, system.totalEik, system.forceField,
+        system.simulationBox, trialMolecule.second, molecule_atoms);
+  }
   time_end = std::chrono::system_clock::now();
 
   component.mc_moves_cputime[move]["Ewald"] += (time_end - time_begin);
   system.mc_moves_cputime[move]["Ewald"] += (time_end - time_begin);
 
+  RunningEnergy polarizationDifference;
+  if (system.forceField.computePolarization)
+  {
+    // Compute polarization energy difference
+    polarizationDifference = Interactions::computePolarizationEnergyDifference(
+        system.forceField, electricFieldMoleculeNew, electricFieldMoleculeOld, trialMolecule.second, molecule_atoms);
+  }
+
   // Get the total difference in energy
-  RunningEnergy energyDifference =
-      externalFieldMolecule.value() + frameworkMolecule.value() + interMolecule.value() + ewaldFourierEnergy;
+  RunningEnergy energyDifference = externalFieldMolecule.value() + frameworkMolecule.value() + interMolecule.value() +
+                                   ewaldFourierEnergy + polarizationDifference;
 
   // Update constructed move statistics
   component.mc_moves_statistics.addConstructed(move, selectedDirection);
@@ -145,6 +167,13 @@ std::optional<RunningEnergy> MC_Moves::randomRotationMove(RandomNumber &random, 
     Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
     std::copy(trialMolecule.second.cbegin(), trialMolecule.second.cend(), molecule_atoms.begin());
     molecule = trialMolecule.first;
+
+    // Update the electric field if polarization is computed
+    if (system.forceField.computePolarization)
+    {
+      std::span<double3> electricFieldMolecule = system.spanElectricFieldNew(selectedComponent, selectedMolecule);
+      std::copy(electricFieldMoleculeNew.begin(), electricFieldMoleculeNew.end(), electricFieldMolecule.begin());
+    }
 
     return energyDifference;
   };

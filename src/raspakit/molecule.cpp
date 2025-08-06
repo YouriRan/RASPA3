@@ -21,20 +21,7 @@ module;
 module molecule;
 
 #ifndef USE_LEGACY_HEADERS
-import <istream>;
-import <ostream>;
-import <sstream>;
-import <fstream>;
-import <format>;
-import <exception>;
-import <source_location>;
-import <complex>;
-import <vector>;
-import <array>;
-import <map>;
-import <utility>;
-import <algorithm>;
-import <print>;
+import std;
 #endif
 
 import archive;
@@ -50,6 +37,10 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Molecu
   archive << atom.orientation;
   archive << atom.orientationMomentum;
   archive << atom.orientationGradient;
+  archive << atom.mass;
+  archive << atom.componentId;
+  archive << atom.numberOfAtoms;
+  archive << atom.invMass;
 
 #if DEBUG_ARCHIVE
   archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
@@ -66,6 +57,10 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Molecule &at
   archive >> atom.orientation;
   archive >> atom.orientationMomentum;
   archive >> atom.orientationGradient;
+  archive >> atom.mass;
+  archive >> atom.componentId;
+  archive >> atom.numberOfAtoms;
+  archive >> atom.invMass;
 
 #if DEBUG_ARCHIVE
   uint64_t magicNumber;

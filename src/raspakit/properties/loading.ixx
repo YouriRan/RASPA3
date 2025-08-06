@@ -18,20 +18,11 @@ module;
 export module property_loading;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
-import <array>;
-import <optional>;
-import <cmath>;
-import <string>;
-import <algorithm>;
-import <numeric>;
-import <numbers>;
-import <tuple>;
-import <iostream>;
-import <fstream>;
+import std;
 #endif
 
 import archive;
+import int3;
 import averages;
 import loadings;
 import component;
@@ -46,7 +37,7 @@ export struct PropertyLoading
 {
   PropertyLoading() {};
 
-  PropertyLoading(size_t numberOfBlocks, size_t numberOfComponents)
+  PropertyLoading(std::size_t numberOfBlocks, std::size_t numberOfComponents)
       : numberOfBlocks(numberOfBlocks),
         numberOfComponents(numberOfComponents),
         bookKeepingLoadings(
@@ -56,20 +47,20 @@ export struct PropertyLoading
 
   bool operator==(PropertyLoading const &) const = default;
 
-  uint64_t versionNumber{1};
+  std::uint64_t versionNumber{1};
 
-  size_t numberOfBlocks;
-  size_t numberOfComponents;
+  std::size_t numberOfBlocks;
+  std::size_t numberOfComponents;
   std::vector<std::pair<Loadings, double>> bookKeepingLoadings;
 
-  void resize(size_t newNumberOfComponents)
+  void resize(std::size_t newNumberOfComponents)
   {
     numberOfComponents = newNumberOfComponents;
     bookKeepingLoadings =
         std::vector<std::pair<Loadings, double>>(numberOfBlocks, std::make_pair(Loadings(numberOfComponents), 0.0));
   }
 
-  inline void addSample(size_t blockIndex, const Loadings &loading, const double &weight)
+  inline void addSample(std::size_t blockIndex, const Loadings &loading, const double &weight)
   {
     bookKeepingLoadings[blockIndex].first += weight * loading;
     bookKeepingLoadings[blockIndex].second += weight;
@@ -77,7 +68,7 @@ export struct PropertyLoading
 
   //====================================================================================================================
 
-  Loadings averagedLoading(size_t blockIndex) const
+  Loadings averagedLoading(std::size_t blockIndex) const
   {
     return bookKeepingLoadings[blockIndex].first / bookKeepingLoadings[blockIndex].second;
   }
@@ -95,8 +86,8 @@ export struct PropertyLoading
     Loadings average = averagedLoading();
 
     Loadings sumOfSquares(numberOfComponents);
-    size_t numberOfSamples = 0;
-    for (size_t blockIndex = 0; blockIndex != numberOfBlocks; ++blockIndex)
+    std::size_t numberOfSamples = 0;
+    for (std::size_t blockIndex = 0; blockIndex != numberOfBlocks; ++blockIndex)
     {
       if (bookKeepingLoadings[blockIndex].second / bookKeepingLoadings[0].second > 0.5)
       {
@@ -108,9 +99,9 @@ export struct PropertyLoading
     Loadings confidenceIntervalError(numberOfComponents);
     if (numberOfSamples >= 3)
     {
-      size_t degreesOfFreedom = numberOfSamples - 1;
+      std::size_t degreesOfFreedom = numberOfSamples - 1;
       Loadings standardDeviation = sqrt((1.0 / static_cast<double>(degreesOfFreedom)) * sumOfSquares);
-      Loadings standardError = (1.0 / sqrt(static_cast<double>(numberOfSamples))) * standardDeviation;
+      Loadings standardError = (1.0 / std::sqrt(static_cast<double>(numberOfSamples))) * standardDeviation;
       double intermediateStandardNormalDeviate = standardNormalDeviates[degreesOfFreedom][chosenConfidenceLevel];
       confidenceIntervalError = intermediateStandardNormalDeviate * standardError;
     }
@@ -118,9 +109,10 @@ export struct PropertyLoading
     return std::make_pair(average, confidenceIntervalError);
   }
 
-  std::pair<double, double> averageLoadingNumberOfMolecules(size_t comp) const;
+  std::pair<double, double> averageLoadingNumberOfMolecules(std::size_t comp) const;
 
-  std::string writeAveragesStatistics(std::vector<Component> components, std::optional<double> frameworkMass) const;
+  std::string writeAveragesStatistics(std::vector<Component> components, std::optional<double> frameworkMass,
+                                      std::optional<int3> numberOfUnitCells) const;
 
   /**
    * \brief Returns a string representation of the PropertyLoading.

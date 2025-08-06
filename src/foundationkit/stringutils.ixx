@@ -10,22 +10,34 @@ module;
 #include <string>
 #include <type_traits>
 #endif
+
+
 export module stringutils;
 
 #ifndef USE_LEGACY_HEADERS
-import <string>;
-import <locale>;
-import <algorithm>;
-import <cctype>;
-import <format>;
-import <type_traits>;
+import std;
+import std.compat;
 #endif
 
-export inline bool caseInSensStringCompare(const std::string& str1, const std::string& str2)
+export inline bool caseInSensStringCompare(const std::string& lhs, const std::string& rhs)
 {
-  return str1.size() == str2.size() && std::equal(str1.begin(), str1.end(), str2.begin(),
+  return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin(),
                                                   [](auto a, auto b) { return std::tolower(a) == std::tolower(b); });
 }
+
+export struct caseInsensitiveComparator
+{
+  struct nocase_compare
+  {
+    bool operator() (const unsigned char& c1, const unsigned char& c2) const {
+        return tolower (c1) < tolower (c2);
+    }
+  };
+  bool operator() (const std::string & lhs, const std::string & rhs) const 
+  {
+    return std::lexicographical_compare(lhs.begin (), lhs.end (), rhs.begin (), rhs.end (), nocase_compare ());
+  }
+};
 
 export inline bool startsWith(const std::string& str, const std::string& prefix)
 {

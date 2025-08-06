@@ -13,12 +13,7 @@ module;
 export module energy_status_inter;
 
 #ifndef USE_LEGACY_HEADERS
-import <string>;
-import <iostream>;
-import <sstream>;
-import <fstream>;
-import <cmath>;
-import <print>;
+import std;
 #endif
 
 import archive;
@@ -26,7 +21,7 @@ import energy_factor;
 
 export struct EnergyInter
 {
-  uint64_t versionNumber{1};
+  std::uint64_t versionNumber{1};
 
   Potentials::EnergyFactor VanDerWaals;
   Potentials::EnergyFactor VanDerWaalsTailCorrection;

@@ -10,10 +10,7 @@ module;
 export module mc_moves_rotation;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <vector>;
+import std;
 #endif
 
 import randomnumbers;
@@ -25,7 +22,7 @@ import system;
 
 export namespace MC_Moves
 {
-std::optional<RunningEnergy> rotationMove(RandomNumber &random, System &system, size_t selectedComponent,
-                                          const std::vector<Component> &components, Molecule &molecule,
-                                          std::span<Atom> molecule_atoms);
+std::optional<RunningEnergy> rotationMove(RandomNumber &random, System &system, std::size_t selectedComponent,
+                                          std::size_t selectedMolecule, const std::vector<Component> &components,
+                                          Molecule &molecule, std::span<Atom> molecule_atoms);
 }

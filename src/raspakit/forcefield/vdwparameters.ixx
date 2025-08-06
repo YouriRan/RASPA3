@@ -14,13 +14,7 @@ module;
 export module vdwparameters;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
-import <string>;
-import <algorithm>;
-import <iostream>;
-import <ostream>;
-import <fstream>;
-import <optional>;
+import std;
 #endif
 
 import archive;
@@ -40,7 +34,7 @@ export struct VDWParameters
   /**
    * \brief Enumeration of van der Waals potential types.
    */
-  enum class Type : size_t
+  enum class Type : std::size_t
   {
     None = 0,
     LennardJones = 1,
@@ -136,7 +130,7 @@ export struct VDWParameters
 
   double sizeParameter() const
   {
-    switch(type)
+    switch (type)
     {
       case Type::LennardJones:
         return parameters.y;

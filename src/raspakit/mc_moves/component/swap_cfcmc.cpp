@@ -19,20 +19,7 @@ module;
 module mc_moves_swap_cfcmc;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <vector>;
-import <array>;
-import <tuple>;
-import <optional>;
-import <span>;
-import <optional>;
-import <tuple>;
-import <algorithm>;
-import <chrono>;
-import <cmath>;
-import <iostream>;
-import <iomanip>;
-import <type_traits>;
+import std;
 #endif
 
 import component;
@@ -58,10 +45,11 @@ import interactions_intermolecular;
 import interactions_ewald;
 import interactions_external_field;
 import mc_moves_move_types;
+import scaling;
 
 std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(RandomNumber& random, System& system,
-                                                                          size_t selectedComponent,
-                                                                          size_t selectedMolecule,
+                                                                          std::size_t selectedComponent,
+                                                                          std::size_t selectedMolecule,
                                                                           bool insertionDisabled, bool deletionDisabled)
 {
   std::chrono::system_clock::time_point time_begin, time_end;
@@ -70,13 +58,13 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
 
   // Retrieve lambda parameters and select a new lambda bin for the move
   PropertyLambdaProbabilityHistogram& lambda = component.lambdaGC;
-  size_t oldBin = lambda.currentBin;
+  std::size_t oldBin = lambda.currentBin;
   double deltaLambda = lambda.delta;
   double maxChange = component.mc_moves_statistics.getMaxChange(move, 2);
   std::make_signed_t<std::size_t> selectedNewBin = lambda.selectNewBin(random, maxChange);
-  size_t oldN = system.numberOfIntegerMoleculesPerComponent[selectedComponent];
+  std::size_t oldN = system.numberOfIntegerMoleculesPerComponent[selectedComponent];
 
-  size_t indexFractionalMolecule = system.indexOfGCFractionalMoleculesPerComponent_CFCMC(selectedComponent);
+  std::size_t indexFractionalMolecule = system.indexOfGCFractionalMoleculesPerComponent_CFCMC(selectedComponent);
 
   if (selectedNewBin >= std::make_signed_t<std::size_t>(lambda.numberOfSamplePoints))  // Insertion move
   {
@@ -90,7 +78,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     // (1) Unbiased: the fractional molecule with lambda=lambda_old is made integer (lambda=1) and deltaU is computed
     // (2) Unbiased: a new fractional molecule is inserted with lambda_new = epsilon
 
-    size_t newBin = static_cast<size_t>(selectedNewBin - std::make_signed_t<std::size_t>(lambda.numberOfSamplePoints));
+    std::size_t newBin =
+        static_cast<std::size_t>(selectedNewBin - std::make_signed_t<std::size_t>(lambda.numberOfSamplePoints));
     double newLambda = deltaLambda * static_cast<double>(newBin);
 
     // Update counts for insertion move
@@ -104,7 +93,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     // Fractional particle becomes integer (lambda=1.0)
     for (Atom& atom : fractionalMolecule)
     {
-      atom.setScalingFullyOn();
+      atom.setScalingToInteger();
     }
 
     if ((system.insideBlockedPockets(component, fractionalMolecule)))
@@ -196,14 +185,15 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     }
 
     // Copy atoms from the old fractional molecule, including the groupIds
-    size_t upcomingMoleculeId = system.numberOfMoleculesPerComponent[selectedComponent];
-    size_t groupId = static_cast<size_t>(oldFractionalMolecule.front().groupId);
+    std::size_t upcomingMoleculeId = system.numberOfMoleculesPerComponent[selectedComponent];
+    bool groupId = system.components[selectedComponent].lambdaGC.computeDUdlambda;
     std::for_each(std::begin(trialMolecule.second), std::end(trialMolecule.second),
                   [selectedComponent, upcomingMoleculeId, groupId, newLambda](Atom& atom)
                   {
-                    atom.moleculeId = static_cast<uint32_t>(upcomingMoleculeId);
-                    atom.componentId = static_cast<uint8_t>(selectedComponent);
-                    atom.groupId = static_cast<uint8_t>(groupId);
+                    atom.moleculeId = static_cast<std::uint32_t>(upcomingMoleculeId);
+                    atom.componentId = static_cast<std::uint8_t>(selectedComponent);
+                    atom.groupId = groupId;
+                    atom.isFractional = true;
                     atom.setScaling(newLambda);
                   });
 
@@ -292,14 +282,14 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     double biasTerm = lambda.biasFactor[newBin] - lambda.biasFactor[oldBin];
     double Pacc =
         preFactor *
-        exp(-system.beta * (energyDifferenceStep1.potentialEnergy() + energyDifferenceStep2.potentialEnergy()) +
-            biasTerm);
+        std::exp(-system.beta * (energyDifferenceStep1.potentialEnergy() + energyDifferenceStep2.potentialEnergy()) +
+                 biasTerm);
 
     double biasTransitionMatrix = system.tmmc.biasFactor(oldN + 1, oldN);
 
     if (system.tmmc.doTMMC)
     {
-      size_t newN = oldN + 1;
+      std::size_t newN = oldN + 1;
       if (newN > system.tmmc.maxMacrostate)
       {
         return {std::nullopt, double3(0.0, 1.0 - Pacc, Pacc)};
@@ -309,15 +299,6 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     // Apply acceptance/rejection rule
     if (random.uniform() < biasTransitionMatrix * Pacc)
     {
-      for (auto& atom : fractionalMolecule)
-      {
-        atom.groupId = uint8_t{0};
-      }
-      std::optional<RunningEnergy> energyDifferenceInterpolation =
-          Interactions::computeFrameworkMoleculeEnergyDifferenceInterpolationExplicit(
-              system.forceField, system.simulationBox, system.interpolationGrids, system.framework,
-              system.spanOfFrameworkAtoms(), fractionalMolecule);
-
       Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
 
       component.lambdaGC.setCurrentBin(newBin);
@@ -326,7 +307,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       system.insertMolecule(selectedComponent, trialMolecule.first, trialMolecule.second);
 
       // Swap molecules to maintain fractional molecule index
-      size_t lastMoleculeId = system.numberOfMoleculesPerComponent[selectedComponent] - 1;
+      std::size_t lastMoleculeId = system.numberOfMoleculesPerComponent[selectedComponent] - 1;
       std::span<Atom> lastMolecule = system.spanOfMolecule(selectedComponent, lastMoleculeId);
       fractionalMolecule = system.spanOfMolecule(selectedComponent, indexFractionalMolecule);
       std::swap_ranges(fractionalMolecule.begin(), fractionalMolecule.end(), lastMolecule.begin());
@@ -335,8 +316,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
 
       component.mc_moves_statistics.addAccepted(move, 0);
 
-      return {energyDifferenceStep1 + energyDifferenceStep2 - energyDifferenceInterpolation.value(),
-              double3(0.0, 1.0 - Pacc, Pacc)};
+      return {energyDifferenceStep1 + energyDifferenceStep2, double3(0.0, 1.0 - Pacc, Pacc)};
     };
 
     // Restore old lambda
@@ -372,6 +352,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       for (Atom& atom : fractionalMolecule)
       {
         atom.setScalingFullyOff();
+        atom.groupId = false;
+        atom.isFractional = true;
       }
 
       if ((system.insideBlockedPockets(component, fractionalMolecule)))
@@ -454,14 +436,19 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       std::vector<Atom> savedFractionalMolecule(newFractionalMolecule.begin(), newFractionalMolecule.end());
 
       // (2) Unbiased: A new fractional molecule is chosen with lambda_new = 1 - epsilon, deltaU is computed.
-      size_t newBin =
-          static_cast<size_t>(selectedNewBin + std::make_signed_t<std::size_t>(lambda.numberOfSamplePoints));
+      std::size_t newBin =
+          static_cast<std::size_t>(selectedNewBin + std::make_signed_t<std::size_t>(lambda.numberOfSamplePoints));
       double newLambda = deltaLambda * static_cast<double>(newBin);
 
       // Update new fractional molecule with new lambda
-      std::transform(newFractionalMolecule.begin(), newFractionalMolecule.end(), oldFractionalMolecule.begin(),
-                     newFractionalMolecule.begin(), [newLambda](const Atom& a, const Atom& b)
-                     { return Atom(a.position, a.charge, newLambda, a.moleculeId, a.type, a.componentId, b.groupId); });
+      bool groupId = system.components[selectedComponent].lambdaGC.computeDUdlambda;
+      for (Atom& atom : newFractionalMolecule)
+      {
+        atom.scalingVDW = Scaling::scalingVDW(newLambda);
+        atom.scalingCoulomb = Scaling::scalingCoulomb(newLambda);
+        atom.groupId = groupId;
+        atom.isFractional = true;
+      }
 
       // Compute external field energy contribution
       time_begin = std::chrono::system_clock::now();
@@ -548,14 +535,14 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       double biasTerm = lambda.biasFactor[newBin] - lambda.biasFactor[oldBin];
       double Pacc =
           preFactor *
-          exp(-system.beta * (energyDifferenceStep1.potentialEnergy() + energyDifferenceStep2.potentialEnergy()) +
-              biasTerm);
+          std::exp(-system.beta * (energyDifferenceStep1.potentialEnergy() + energyDifferenceStep2.potentialEnergy()) +
+                   biasTerm);
 
       double biasTransitionMatrix = system.tmmc.biasFactor(oldN - 1, oldN);
 
       if (system.tmmc.doTMMC)
       {
-        size_t newN = oldN - 1;
+        std::size_t newN = oldN - 1;
         if (newN < system.tmmc.minMacrostate)
         {
           return {std::nullopt, double3(Pacc, 1.0 - Pacc, 0.0)};
@@ -565,21 +552,6 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       // Apply acceptance/rejection rule
       if (random.uniform() < biasTransitionMatrix * Pacc)
       {
-        for (auto& atom : fractionalMolecule)
-        {
-          atom.groupId = uint8_t{0};
-        }
-
-        for (auto& atom : savedFractionalMolecule)
-        {
-          atom.groupId = uint8_t{0};
-        }
-
-        std::optional<RunningEnergy> energyDifferenceInterpolation =
-            Interactions::computeFrameworkMoleculeEnergyDifferenceInterpolationExplicit(
-                system.forceField, system.simulationBox, system.interpolationGrids, system.framework,
-                system.spanOfFrameworkAtoms(), savedFractionalMolecule);
-
         Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
         component.lambdaGC.setCurrentBin(newBin);
 
@@ -592,8 +564,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
 
         component.mc_moves_statistics.addAccepted(move, 1);
 
-        return {energyDifferenceStep1 + energyDifferenceStep2 + energyDifferenceInterpolation.value(),
-                double3(Pacc, 1.0 - Pacc, 0.0)};
+        return {energyDifferenceStep1 + energyDifferenceStep2, double3(Pacc, 1.0 - Pacc, 0.0)};
       };
 
       // Restore the old and the newly chosen fractional molecule
@@ -606,7 +577,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
   }
   else  // Lambda-move
   {
-    size_t newBin = static_cast<size_t>(selectedNewBin);
+    std::size_t newBin = static_cast<std::size_t>(selectedNewBin);
     double newLambda = deltaLambda * static_cast<double>(newBin);
 
     component.mc_moves_statistics.addTrial(move, 2);

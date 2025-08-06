@@ -14,14 +14,7 @@ module;
 export module atom;
 
 #ifndef USE_LEGACY_HEADERS
-import <cmath>;
-import <cstddef>;
-import <istream>;
-import <ostream>;
-import <fstream>;
-import <sstream>;
-import <type_traits>;
-import <print>;
+import std;
 #endif
 
 import archive;
@@ -42,16 +35,17 @@ import scaling;
  */
 export struct Atom
 {
-  double3 position;            ///< The position of the atom in 3D space.
-  double3 velocity{};          ///< The velocity of the atom.
-  double3 gradient{};          ///< The gradient acting on the atom.
-  double charge;               ///< The electric charge of the atom.
-  double scalingVDW{1.0};      ///< Scaling factor for van der Waals interactions.
-  double scalingCoulomb{1.0};  ///< Scaling factor for Coulomb interactions.
-  uint32_t moleculeId{0};      ///< Identifier for the molecule this atom belongs to.
-  uint16_t type{0};            ///< Type identifier of the atom.
-  uint8_t componentId{0};      ///< Component identifier within the system.
-  uint8_t groupId{0};          ///< Group identifier, defaults to false.
+  double3 position;               ///< The position of the atom in 3D space.
+  double3 velocity{};             ///< The velocity of the atom.
+  double3 gradient{};             ///< The gradient acting on the atom.
+  double charge;                  ///< The electric charge of the atom.
+  double scalingVDW{1.0};         ///< Scaling factor for van der Waals interactions.
+  double scalingCoulomb{1.0};     ///< Scaling factor for Coulomb interactions.
+  std::uint32_t moleculeId{0};    ///< Identifier for the molecule this atom belongs to.
+  std::uint16_t type{0};          ///< Type identifier of the atom.
+  std::uint8_t componentId{0};    ///< Component identifier within the system.
+  std::uint8_t groupId : 4;       ///< Group identifier, defaults to false.
+  std::uint8_t isFractional : 4;  ///< Fractional or not, defaults to false.
 
   /**
    * \brief Default constructor for the Atom struct.
@@ -75,8 +69,8 @@ export struct Atom
    * \param componentId Component identifier within the system.
    * \param groupId Group identifier, defaults to false.
    */
-  Atom(double3 position, double charge, double scalingVDW, double scalingCoulomb, uint32_t moleculeId, uint16_t type,
-       uint8_t componentId, uint8_t groupId)
+  Atom(double3 position, double charge, double scalingVDW, double scalingCoulomb, std::uint32_t moleculeId,
+       std::uint16_t type, std::uint8_t componentId, std::uint8_t groupId, std::uint8_t isFractional)
       : position(position),
         charge(charge),
         scalingVDW(scalingVDW),
@@ -84,7 +78,8 @@ export struct Atom
         moleculeId(moleculeId),
         type(type),
         componentId(componentId),
-        groupId(groupId)
+        groupId(groupId),
+        isFractional(isFractional)
   {
   }
 
@@ -103,14 +98,15 @@ export struct Atom
    * \param componentId Component identifier within the system.
    * \param groupId Group identifier, defaults to false.
    */
-  Atom(double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t type, uint8_t componentId,
-       uint8_t groupId)
+  Atom(double3 position, double charge, double lambda, std::uint32_t moleculeId, std::uint16_t type,
+       std::uint8_t componentId, std::uint8_t groupId, std::uint8_t isFractional)
       : position(position),
         charge(charge),
         moleculeId(moleculeId),
         type(type),
         componentId(componentId),
-        groupId(groupId)
+        groupId(groupId),
+        isFractional(isFractional)
   {
     scalingVDW = Scaling::scalingVDW(lambda);
     scalingCoulomb = Scaling::scalingCoulomb(lambda);
@@ -165,7 +161,8 @@ export struct Atom
   {
     scalingVDW = 1.0;
     scalingCoulomb = 1.0;
-    groupId = uint8_t{0};
+    groupId = false;
+    isFractional = false;
   }
 
   // scaling is linear and first switch LJ on in 0-0.5, then the electrostatics from 0.5 to 1.0
@@ -195,15 +192,23 @@ export struct Atom
 
 export void to_json(nlohmann::json &j, const Atom &a)
 {
-  j = nlohmann::json{{"position", a.position},       {"velocity", a.velocity},
-                     {"gradient", a.gradient},       {"charge", a.charge},
-                     {"scalingVDW", a.scalingVDW},   {"scalingCoulomb", a.scalingCoulomb},
-                     {"moleculeId", a.moleculeId},   {"type", a.type},
-                     {"componentId", a.componentId}, {"groupId", a.groupId}};
+  j = nlohmann::json{{"position", a.position},
+                     {"velocity", a.velocity},
+                     {"gradient", a.gradient},
+                     {"charge", a.charge},
+                     {"scalingVDW", a.scalingVDW},
+                     {"scalingCoulomb", a.scalingCoulomb},
+                     {"moleculeId", a.moleculeId},
+                     {"type", a.type},
+                     {"componentId", a.componentId},
+                     {"groupId", static_cast<std::uint8_t>(a.groupId)},
+                     {"isFractional", static_cast<std::uint8_t>(a.isFractional)}};
 }
 
 export void from_json(const nlohmann::json &j, Atom &a)
 {
+  std::uint8_t groupIdBitField;
+  std::uint8_t isFractionalBitField;
   j.at("position").get_to(a.position);
   j.at("velocity").get_to(a.velocity);
   j.at("gradient").get_to(a.gradient);
@@ -213,5 +218,8 @@ export void from_json(const nlohmann::json &j, Atom &a)
   j.at("moleculeId").get_to(a.moleculeId);
   j.at("type").get_to(a.type);
   j.at("componentId").get_to(a.componentId);
-  j.at("groupId").get_to(a.groupId);
+  j.at("groupId").get_to(groupIdBitField);
+  a.groupId = groupIdBitField;
+  j.at("isFractional").get_to(isFractionalBitField);
+  a.isFractional = isFractionalBitField;
 }

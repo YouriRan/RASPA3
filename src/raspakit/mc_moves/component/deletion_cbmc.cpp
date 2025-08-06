@@ -18,19 +18,7 @@ module;
 module mc_moves_deletion_cbmc;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <vector>;
-import <array>;
-import <tuple>;
-import <optional>;
-import <span>;
-import <optional>;
-import <tuple>;
-import <algorithm>;
-import <chrono>;
-import <cmath>;
-import <iostream>;
-import <iomanip>;
+import std;
 #endif
 
 import double3;
@@ -56,11 +44,12 @@ import interactions_framework_molecule;
 import interactions_intermolecular;
 import interactions_ewald;
 import interactions_external_field;
+import interactions_polarization;
 import mc_moves_move_types;
 
 std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMoveCBMC(RandomNumber& random, System& system,
-                                                                            size_t selectedComponent,
-                                                                            size_t selectedMolecule)
+                                                                            std::size_t selectedComponent,
+                                                                            std::size_t selectedMolecule)
 {
   std::chrono::system_clock::time_point time_begin, time_end;
   MoveTypes move = MoveTypes::SwapCBMC;
@@ -74,6 +63,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMoveCBMC(Rand
   {
     // Get a reference to the molecule being deleted
     std::span<Atom> molecule = system.spanOfMolecule(selectedComponent, selectedMolecule);
+    std::copy(system.electricField.begin(), system.electricField.end(), system.electricFieldNew.begin());
+    // std::span<double3> electricFieldMoleculeNew = system.spanElectricFieldNew(selectedComponent, selectedMolecule);
 
     // Retrieve cutoff distances from the force field
     double cutOffFrameworkVDW = system.forceField.cutOffFrameworkVDW;
@@ -118,9 +109,27 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMoveCBMC(Rand
     // Update the constructed count for the move statistics
     component.mc_moves_statistics.addConstructed(move, 1);
 
+    RunningEnergy polarizationDifference;
+    if (system.forceField.computePolarization)
+    {
+      Interactions::computeFrameworkMoleculeElectricFieldDifference(system.forceField, system.simulationBox,
+                                                                    system.spanOfFrameworkAtoms(), {},
+                                                                    retraceData.electricField, {}, retraceData.atom);
+
+      Interactions::computeEwaldFourierElectricFieldDifference(system.eik_x, system.eik_y, system.eik_z, system.eik_xy,
+                                                               system.fixedFrameworkStoredEik, system.storedEik,
+                                                               system.totalEik, system.forceField, system.simulationBox,
+                                                               {}, retraceData.electricField, {}, retraceData.atom);
+
+      // Compute polarization energy difference
+      polarizationDifference = Interactions::computePolarizationEnergyDifference(
+          system.forceField, {}, retraceData.electricField, {}, retraceData.atom);
+    }
+
     // Calculate the correction factor for Ewald summation
     double correctionFactorEwald =
-        std::exp(-system.beta * (energyFourierDifference.potentialEnergy() + tailEnergyDifference.potentialEnergy()));
+        std::exp(-system.beta * (energyFourierDifference.potentialEnergy() + tailEnergyDifference.potentialEnergy() +
+                                 polarizationDifference.potentialEnergy()));
 
     // Compute acceptance probability factors
     double fugacity = component.fugacityCoefficient.value_or(1.0) * system.pressure;
@@ -128,13 +137,13 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMoveCBMC(Rand
     double preFactor = correctionFactorEwald * double(system.numberOfIntegerMoleculesPerComponent[selectedComponent]) /
                        (system.beta * component.molFraction * fugacity * system.simulationBox.volume);
     double Pacc = preFactor * idealGasRosenbluthWeight / retraceData.RosenbluthWeight;
-    size_t oldN = system.numberOfIntegerMoleculesPerComponent[selectedComponent];
+    std::size_t oldN = system.numberOfIntegerMoleculesPerComponent[selectedComponent];
     double biasTransitionMatrix = system.tmmc.biasFactor(oldN - 1, oldN);
 
     // Check if the new macrostate is within the allowed TMMC range
     if (system.tmmc.doTMMC)
     {
-      size_t newN = oldN - 1;
+      std::size_t newN = oldN - 1;
       if (newN < system.tmmc.minMacrostate)
       {
         return {std::nullopt, double3(Pacc, 1.0 - Pacc, 0.0)};
@@ -149,7 +158,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMoveCBMC(Rand
       Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
       system.deleteMolecule(selectedComponent, selectedMolecule, molecule);
 
-      return {retraceData.energies - energyFourierDifference - tailEnergyDifference, double3(Pacc, 1.0 - Pacc, 0.0)};
+      return {retraceData.energies - energyFourierDifference - tailEnergyDifference - polarizationDifference,
+              double3(Pacc, 1.0 - Pacc, 0.0)};
     };
     return {std::nullopt, double3(Pacc, 1.0 - Pacc, 0.0)};
   }

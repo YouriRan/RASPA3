@@ -25,24 +25,7 @@ module;
 module pseudo_atom;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstdint>;
-import <filesystem>;
-import <fstream>;
-import <cstdlib>;
-import <iostream>;
-import <sstream>;
-import <vector>;
-import <array>;
-import <map>;
-import <algorithm>;
-import <format>;
-import <exception>;
-import <source_location>;
-import <complex>;
-import <type_traits>;
-import <iterator>;
-import <functional>;
-import <print>;
+import std;
 #endif
 
 import archive;
@@ -61,7 +44,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Pseudo
   archive << a.printToPDB;
 
 #if DEBUG_ARCHIVE
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
 
   return archive;
@@ -69,7 +52,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Pseudo
 
 Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PseudoAtom &a)
 {
-  uint64_t versionNumber;
+  std::uint64_t versionNumber;
   archive >> versionNumber;
   if (versionNumber > a.versionNumber)
   {
@@ -88,9 +71,9 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PseudoAtom &
   archive >> a.printToPDB;
 
 #if DEBUG_ARCHIVE
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
     throw std::runtime_error(std::format("PseudoAtom: Error in binary restart\n"));
   }

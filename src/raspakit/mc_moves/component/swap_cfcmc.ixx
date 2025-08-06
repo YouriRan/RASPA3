@@ -10,10 +10,7 @@ module;
 export module mc_moves_swap_cfcmc;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <tuple>;
+import std;
 #endif
 
 import double3;
@@ -54,7 +51,8 @@ export namespace MC_Moves
  * respectively.
  */
 std::pair<std::optional<RunningEnergy>, double3> swapMove_CFCMC(RandomNumber& random, System& system,
-                                                                size_t selectedComponent, size_t selectedMolecule,
+                                                                std::size_t selectedComponent,
+                                                                std::size_t selectedMolecule,
                                                                 bool insertionDisabled = false,
                                                                 bool deletionDisabled = false);
 }  // namespace MC_Moves

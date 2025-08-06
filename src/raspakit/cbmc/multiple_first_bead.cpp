@@ -17,15 +17,7 @@ module;
 module cbmc_multiple_first_bead;
 
 #ifndef USE_LEGACY_HEADERS
-import <optional>;
-import <cmath>;
-import <vector>;
-import <algorithm>;
-import <numeric>;
-import <iterator>;
-import <span>;
-import <tuple>;
-import <stdexcept>;
+import std;
 #endif
 
 import cbmc_util;
@@ -45,7 +37,7 @@ import interpolation_energy_grid;
     const SimulationBox& simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
-    double cutOffCoulomb, const Atom& atom, size_t numberOfTrialDirections) noexcept
+    double cutOffCoulomb, const Atom& atom, std::size_t numberOfTrialDirections) noexcept
 {
   std::vector<Atom> trialPositions(numberOfTrialDirections, atom);
 
@@ -64,11 +56,11 @@ import interpolation_energy_grid;
   std::transform(externalEnergies.begin(), externalEnergies.end(), std::back_inserter(logBoltmannFactors),
                  [&](const std::pair<Atom, RunningEnergy>& v) { return -beta * v.second.potentialEnergy(); });
 
-  size_t selected = selectTrialPosition(random, logBoltmannFactors);
+  std::size_t selected = selectTrialPosition(random, logBoltmannFactors);
 
   double RosenbluthWeight = std::accumulate(logBoltmannFactors.begin(), logBoltmannFactors.end(), 0.0,
-                                        [&](const double& acc, const double& logBoltmannFactor)
-                                        { return acc + std::exp(logBoltmannFactor); });
+                                            [&](const double& acc, const double& logBoltmannFactor)
+                                            { return acc + std::exp(logBoltmannFactor); });
 
   if (RosenbluthWeight < forceField.minimumRosenbluthFactor) return std::nullopt;
 
@@ -81,7 +73,7 @@ import interpolation_energy_grid;
     const SimulationBox& simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
-    double cutOffCoulomb, const Atom atom, double scaling, size_t numberOfTrialDirections) noexcept
+    double cutOffCoulomb, const Atom atom, double scaling, std::size_t numberOfTrialDirections) noexcept
 {
   std::vector<Atom> trialPositions(numberOfTrialDirections, atom);
   for (Atom& trialPosition : trialPositions)
@@ -102,9 +94,9 @@ import interpolation_energy_grid;
   std::transform(std::begin(externalEnergies), std::end(externalEnergies), std::back_inserter(logBoltmannFactors),
                  [&](const std::pair<Atom, RunningEnergy>& v) { return -beta * v.second.potentialEnergy(); });
 
-  double RosenbluthWeight =
-      std::accumulate(logBoltmannFactors.begin(), logBoltmannFactors.end(), 0.0,
-                  [](const double& acc, const double& logBoltmannFactor) { return acc + std::exp(logBoltmannFactor); });
+  double RosenbluthWeight = std::accumulate(logBoltmannFactors.begin(), logBoltmannFactors.end(), 0.0,
+                                            [](const double& acc, const double& logBoltmannFactor)
+                                            { return acc + std::exp(logBoltmannFactor); });
 
   return FirstBeadData(atom, externalEnergies[0].second, RosenbluthWeight / double(numberOfTrialDirections), 0.0);
 }
@@ -114,7 +106,7 @@ import interpolation_energy_grid;
     const SimulationBox& simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
-    double cutOffCoulomb, const Atom& atom, size_t numberOfTrialDirections) noexcept
+    double cutOffCoulomb, const Atom& atom, std::size_t numberOfTrialDirections) noexcept
 {
   std::vector<Atom> trialPositions(numberOfTrialDirections, atom);
   std::for_each(trialPositions.begin(), trialPositions.end(),
@@ -139,11 +131,11 @@ import interpolation_energy_grid;
   std::transform(externalEnergies.begin(), externalEnergies.end(), std::back_inserter(logBoltmannFactors),
                  [&](const std::pair<Atom, RunningEnergy>& v) { return -beta * v.second.potentialEnergy(); });
 
-  size_t selected = CBMC::selectTrialPosition(random, logBoltmannFactors);
+  std::size_t selected = CBMC::selectTrialPosition(random, logBoltmannFactors);
 
   double RosenbluthWeight = std::accumulate(logBoltmannFactors.begin(), logBoltmannFactors.end(), 0.0,
-                                        [&](const double& acc, const double& logBoltmannFactor)
-                                        { return acc + std::exp(logBoltmannFactor); });
+                                            [&](const double& acc, const double& logBoltmannFactor)
+                                            { return acc + std::exp(logBoltmannFactor); });
 
   if (RosenbluthWeight < forceField.minimumRosenbluthFactor) return std::nullopt;
 
@@ -160,7 +152,7 @@ import interpolation_energy_grid;
     const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
-    double cutOffCoulomb, const Atom& atom, double storedR, size_t numberOfTrialDirections)
+    double cutOffCoulomb, const Atom& atom, double storedR, std::size_t numberOfTrialDirections)
 {
   std::vector<Atom> trialPositions({atom});
 
@@ -178,9 +170,9 @@ import interpolation_energy_grid;
   std::transform(std::begin(externalEnergies), std::end(externalEnergies), std::back_inserter(logBoltmannFactors),
                  [&](const std::pair<Atom, RunningEnergy>& v) { return -beta * v.second.potentialEnergy(); });
 
-  double RosenbluthWeight =
-      std::accumulate(logBoltmannFactors.begin(), logBoltmannFactors.end(), 0.0,
-                  [](const double& acc, const double& logBoltmannFactor) { return acc + std::exp(logBoltmannFactor); });
+  double RosenbluthWeight = std::accumulate(logBoltmannFactors.begin(), logBoltmannFactors.end(), 0.0,
+                                            [](const double& acc, const double& logBoltmannFactor)
+                                            { return acc + std::exp(logBoltmannFactor); });
 
   // w(o)=exp(-beta u(o))+r  Eq. 18 from Esselink et al.
   return FirstBeadData(atom, externalEnergies[0].second, (RosenbluthWeight + storedR) / double(numberOfTrialDirections),

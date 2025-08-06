@@ -13,12 +13,7 @@ module;
 module integrators;
 
 #ifndef USE_LEGACY_HEADERS
-import <optional>;
-import <span>;
-import <vector>;
-import <complex>;
-import <chrono>;
-import <iostream>;
+import std;
 #endif
 
 import molecule;
@@ -39,8 +34,8 @@ RunningEnergy Integrators::velocityVerlet(
     std::vector<std::complex<double>>& eik_z, std::vector<std::complex<double>>& eik_xy,
     std::vector<std::pair<std::complex<double>, std::complex<double>>>& totalEik,
     std::vector<std::pair<std::complex<double>, std::complex<double>>>& fixedFrameworkStoredEik,
-    const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
-    const std::vector<size_t> numberOfMoleculesPerComponent)
+    const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
+    const std::vector<std::size_t> numberOfMoleculesPerComponent)
 {
   // Start timing the integration step
   std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();
@@ -68,10 +63,9 @@ RunningEnergy Integrators::velocityVerlet(
   createCartesianPositions(moleculePositions, moleculeAtomPositions, components);
 
   // compute the gradient on all the atoms
-  RunningEnergy runningEnergies =
-      updateGradients(moleculeAtomPositions, frameworkAtomPositions, forceField, simulationBox, components, eik_x,
-                      eik_y, eik_z, eik_xy, totalEik, fixedFrameworkStoredEik, interpolationGrids,
-                      numberOfMoleculesPerComponent);
+  RunningEnergy runningEnergies = updateGradients(
+      moleculeAtomPositions, frameworkAtomPositions, forceField, simulationBox, components, eik_x, eik_y, eik_z, eik_xy,
+      totalEik, fixedFrameworkStoredEik, interpolationGrids, numberOfMoleculesPerComponent);
 
   // compute the gradients on the center of mass and the orientation
   updateCenterOfMassAndQuaternionGradients(moleculePositions, moleculeAtomPositions, components);

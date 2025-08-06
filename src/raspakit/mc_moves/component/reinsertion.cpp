@@ -18,19 +18,7 @@ module;
 module mc_moves_reinsertion;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <vector>;
-import <array>;
-import <tuple>;
-import <optional>;
-import <span>;
-import <optional>;
-import <tuple>;
-import <algorithm>;
-import <chrono>;
-import <cmath>;
-import <iostream>;
-import <iomanip>;
+import std;
 #endif
 
 import component;
@@ -57,11 +45,12 @@ import interactions_framework_molecule;
 import interactions_intermolecular;
 import interactions_ewald;
 import interactions_external_field;
+import interactions_polarization;
 import mc_moves_move_types;
 
-std::optional<RunningEnergy> MC_Moves::reinsertionMove(RandomNumber &random, System &system, size_t selectedComponent,
-                                                       size_t selectedMolecule, Molecule &molecule,
-                                                       std::span<Atom> molecule_atoms)
+std::optional<RunningEnergy> MC_Moves::reinsertionMove(RandomNumber &random, System &system,
+                                                       std::size_t selectedComponent, std::size_t selectedMolecule,
+                                                       Molecule &molecule, std::span<Atom> molecule_atoms)
 {
   // Variables to record timing for performance measurement.
   std::chrono::system_clock::time_point time_begin, time_end;
@@ -156,8 +145,26 @@ std::optional<RunningEnergy> MC_Moves::reinsertionMove(RandomNumber &random, Sys
                                  (energyOld->potentialEnergy() - retraceData.energies.potentialEnergy())));
   }
 
+  RunningEnergy polarizationDifference;
+  if (system.forceField.computePolarization)
+  {
+    Interactions::computeFrameworkMoleculeElectricFieldDifference(
+        system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), growData->electricField,
+        retraceData.electricField, growData->atom, retraceData.atom);
+
+    Interactions::computeEwaldFourierElectricFieldDifference(
+        system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.fixedFrameworkStoredEik, system.storedEik,
+        system.totalEik, system.forceField, system.simulationBox, growData->electricField, retraceData.electricField,
+        growData->atom, retraceData.atom);
+
+    // Compute polarization energy difference
+    polarizationDifference = Interactions::computePolarizationEnergyDifference(
+        system.forceField, growData->electricField, retraceData.electricField, growData->atom, retraceData.atom);
+  }
+
   // Compute correction factor from the Fourier energy difference.
-  double correctionFactorFourier = std::exp(-system.beta * energyFourierDifference.potentialEnergy());
+  double correctionFactorFourier =
+      std::exp(-system.beta * (energyFourierDifference.potentialEnergy() + polarizationDifference.potentialEnergy()));
 
   // Apply Metropolis acceptance criterion.
   if (random.uniform() <
@@ -168,14 +175,17 @@ std::optional<RunningEnergy> MC_Moves::reinsertionMove(RandomNumber &random, Sys
 
     Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
     std::copy(newMolecule.begin(), newMolecule.end(), molecule_atoms.begin());
+
+    std::span<double3> electricFieldMolecule = system.spanElectricFieldOld(selectedComponent, selectedMolecule);
+    std::copy(growData->electricField.begin(), growData->electricField.end(), electricFieldMolecule.begin());
     molecule = growData->molecule;
 
     if (system.forceField.useDualCutOff)
     {
-      return (energyNew.value() - energyOld.value()) + energyFourierDifference;
+      return (energyNew.value() - energyOld.value()) + energyFourierDifference + polarizationDifference;
     }
 
-    return (growData->energies - retraceData.energies) + energyFourierDifference;
+    return (growData->energies - retraceData.energies) + energyFourierDifference + polarizationDifference;
   };
 
   // Move is rejected.

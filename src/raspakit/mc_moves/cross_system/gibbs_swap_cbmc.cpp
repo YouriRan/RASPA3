@@ -13,12 +13,7 @@ module;
 module mc_moves_gibbs_swap_cbmc;
 
 #ifndef USE_LEGACY_HEADERS
-import <optional>;
-import <span>;
-import <chrono>;
-import <vector>;
-import <cmath>;
-import <tuple>;
+import std;
 #endif
 
 import randomnumbers;
@@ -45,7 +40,7 @@ import mc_moves_move_types;
 
 std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsSwapMove_CBMC(RandomNumber& random,
                                                                                     System& systemA, System& systemB,
-                                                                                    size_t selectedComponent)
+                                                                                    std::size_t selectedComponent)
 {
   std::chrono::system_clock::time_point time_begin, time_end;
   MoveTypes move = MoveTypes::GibbsSwapCBMC;
@@ -56,7 +51,7 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsSwapMove_C
   if (systemB.numberOfIntegerMoleculesPerComponent[selectedComponent] == 0) return std::nullopt;
 
   // Index for the new molecule in system A
-  size_t newMoleculeIndex = systemA.numberOfMoleculesPerComponent[selectedComponent];
+  std::size_t newMoleculeIndex = systemA.numberOfMoleculesPerComponent[selectedComponent];
 
   // Update move counts statistics for both systems
   componentA.mc_moves_statistics.addTrial(move);
@@ -77,7 +72,7 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsSwapMove_C
       random, componentA, systemA.hasExternalField, systemA.components, systemA.forceField, systemA.simulationBox,
       systemA.interpolationGrids, systemA.framework, systemA.spanOfFrameworkAtoms(), systemA.spanOfMoleculeAtoms(),
       systemA.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, newMoleculeIndex,
-      1.0, 0uz, systemA.numberOfTrialDirections);
+      1.0, false, false, systemA.numberOfTrialDirections);
   time_end = std::chrono::system_clock::now();
 
   // Update CPU time statistics for CBMC insertion (non-Ewald part)
@@ -121,7 +116,7 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsSwapMove_C
       std::exp(-systemA.beta * (energyFourierDifferenceA.potentialEnergy() + tailEnergyDifferenceA.potentialEnergy()));
 
   // Select a random molecule of the selected component from system B
-  size_t selectedMolecule = systemB.randomMoleculeOfComponent(random, selectedComponent);
+  std::size_t selectedMolecule = systemB.randomMoleculeOfComponent(random, selectedComponent);
   std::span<Atom> molecule = systemB.spanOfMolecule(selectedComponent, selectedMolecule);
 
   // Retrace the selected molecule in system B for deletion using CBMC

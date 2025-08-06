@@ -15,14 +15,7 @@ module;
 module interactions_polarization;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <span>;
-import <numbers>;
-import <cmath>;
-import <vector>;
-import <iostream>;
-import <algorithm>;
-import <type_traits>;
+import std;
 #endif
 
 import int3;
@@ -47,16 +40,41 @@ RunningEnergy Interactions::computePolarizationEnergyDifference(const ForceField
 {
   RunningEnergy energy;
 
-  for (size_t i = 0; i < moleculeAtomPositions.size(); ++i)
+  for (std::size_t i = 0; i < moleculeAtomPositions.size(); ++i)
   {
-    size_t type = moleculeAtomPositions[i].type;
+    std::size_t type = moleculeAtomPositions[i].type;
     double polarizability = forceField.pseudoAtoms[type].polarizability / Units::CoulombicConversionFactor;
     energy.polarization -= 0.5 * polarizability * double3::dot(electricFieldNew[i], electricFieldNew[i]);
   }
 
-  for (size_t i = 0; i < moleculeAtomPositions.size(); ++i)
+  for (std::size_t i = 0; i < moleculeAtomPositions.size(); ++i)
   {
-    size_t type = moleculeAtomPositions[i].type;
+    std::size_t type = moleculeAtomPositions[i].type;
+    double polarizability = forceField.pseudoAtoms[type].polarizability / Units::CoulombicConversionFactor;
+    energy.polarization += 0.5 * polarizability * double3::dot(electricField[i], electricField[i]);
+  }
+
+  return energy;
+}
+
+RunningEnergy Interactions::computePolarizationEnergyDifference(const ForceField &forceField,
+                                                                std::span<double3> electricFieldNew,
+                                                                std::span<double3> electricField,
+                                                                std::span<Atom> moleculeAtomPositionsNew,
+                                                                std::span<Atom> moleculeAtomPositionsOld)
+{
+  RunningEnergy energy;
+
+  for (std::size_t i = 0; i < moleculeAtomPositionsNew.size(); ++i)
+  {
+    std::size_t type = moleculeAtomPositionsNew[i].type;
+    double polarizability = forceField.pseudoAtoms[type].polarizability / Units::CoulombicConversionFactor;
+    energy.polarization -= 0.5 * polarizability * double3::dot(electricFieldNew[i], electricFieldNew[i]);
+  }
+
+  for (std::size_t i = 0; i < moleculeAtomPositionsOld.size(); ++i)
+  {
+    std::size_t type = moleculeAtomPositionsOld[i].type;
     double polarizability = forceField.pseudoAtoms[type].polarizability / Units::CoulombicConversionFactor;
     energy.polarization += 0.5 * polarizability * double3::dot(electricField[i], electricField[i]);
   }

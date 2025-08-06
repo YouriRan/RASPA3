@@ -10,9 +10,7 @@ module;
 export module mc_moves_random_rotation;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <vector>;
+import std;
 #endif
 
 import randomnumbers;
@@ -41,7 +39,7 @@ export namespace MC_Moves
  * \return An optional RunningEnergy object containing the energy difference if the move is accepted;
  *         returns std::nullopt if the move is rejected.
  */
-std::optional<RunningEnergy> randomRotationMove(RandomNumber &random, System &system, size_t selectedComponent,
-                                                const std::vector<Component> &components, Molecule &molecule,
-                                                std::span<Atom> molecule_atoms);
+std::optional<RunningEnergy> randomRotationMove(RandomNumber &random, System &system, std::size_t selectedComponent,
+                                                std::size_t selectedMolecule, const std::vector<Component> &components,
+                                                Molecule &molecule, std::span<Atom> molecule_atoms);
 }  // namespace MC_Moves

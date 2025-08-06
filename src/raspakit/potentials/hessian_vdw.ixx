@@ -9,8 +9,7 @@ module;
 export module potential_hessian_vdw;
 
 #ifndef USE_LEGACY_HEADERS
-import <cmath>;
-import <iostream>;
+import std;
 #endif
 
 import double4;
@@ -42,7 +41,7 @@ export namespace Potentials
 [[clang::always_inline]] inline HessianFactor potentialVDWHessian(const ForceField& forcefield, const bool& groupIdA,
                                                                   const bool& groupIdB, const double& scalingA,
                                                                   const double& scalingB, const double& rr,
-                                                                  const size_t& typeA, const size_t& typeB)
+                                                                  const std::size_t& typeA, const std::size_t& typeB)
 {
   VDWParameters::Type potentialType = forcefield(typeA, typeB).type;
 

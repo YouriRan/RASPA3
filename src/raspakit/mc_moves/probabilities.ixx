@@ -10,9 +10,7 @@ module;
 export module mc_moves_probabilities;
 
 #ifndef USE_LEGACY_HEADERS
-import <random>;
-import <map>;
-import <vector>;
+import std;
 #endif
 
 import archive;
@@ -21,7 +19,7 @@ import mc_moves_move_types;
 
 export struct MCMoveProbabilities
 {
-  uint64_t versionNumber{2};
+  std::uint64_t versionNumber{2};
 
   bool operator==(MCMoveProbabilities const &) const = default;
 

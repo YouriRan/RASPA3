@@ -10,10 +10,7 @@ module;
 export module mc_surface_area;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <print>;
-import <string>;
-import <vector>;
+import std;
 #endif
 
 import framework;
@@ -23,12 +20,8 @@ export struct MC_SurfaceArea
 {
   std::vector<double> data;
 
-  MC_SurfaceArea()
-  {
-  };
+  MC_SurfaceArea() {};
 
-  void run(const ForceField &forceField, const Framework &framework, double probe_distance, 
-           std::string probe_pseudo_atom, size_t number_of_iterations) const;
-
+  void run(const ForceField &forceField, const Framework &framework, double probe_distance,
+           std::string probe_pseudo_atom, std::size_t number_of_iterations) const;
 };
-

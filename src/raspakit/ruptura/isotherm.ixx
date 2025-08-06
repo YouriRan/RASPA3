@@ -14,20 +14,13 @@ module;
 export module isotherm;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <array>;
-import <vector>;
-import <cmath>;
-import <iostream>;
-import <string>;
-import <exception>;
-import <numbers>;
+import std;
 #endif
 
 import special_functions;
 import randomnumbers;
 
-constexpr size_t maxTerms = 5;
+constexpr std::size_t maxTerms = 5;
 
 // Langmuir:
 // parameter 0: K
@@ -57,13 +50,13 @@ export struct Isotherm
     Temkin = 12
   };
 
-  Isotherm(Isotherm::Type type, const std::vector<double> &values, size_t numberOfValues);
+  Isotherm(Isotherm::Type type, const std::vector<double> &values, std::size_t numberOfValues);
 
   bool operator==(Isotherm const &) const = default;
 
   Isotherm::Type type;
   std::vector<double> parameters;
-  size_t numberOfParameters;
+  std::size_t numberOfParameters;
 
   std::string print() const;
   std::string printAsInputFormat() const;
@@ -197,7 +190,7 @@ export struct Isotherm
           double numerator = 1.0;
           double sum = 0.0;
           // quickly converging sum
-          for (size_t k = 1; k <= 15; k++)
+          for (std::size_t k = 1; k <= 15; k++)
           {
             numerator *= term1;
             sum += numerator / (static_cast<double>(k) * parameters[2] - 1.0);
@@ -215,7 +208,7 @@ export struct Isotherm
         // use the first 100 terms of the sum
         double temp1 = parameters[0] * theta;
         double temp2 = 0.0;
-        for (size_t k = 1; k <= 100; ++k)
+        for (std::size_t k = 1; k <= 100; ++k)
         {
           temp1 *= theta_pow;
           temp2 += parameters[2];
@@ -303,7 +296,7 @@ export struct Isotherm
         // use bisection algorithm
         double s = psiForPressure(p_start);
 
-        size_t nr_steps = 0;
+        std::size_t nr_steps = 0;
         double left_bracket = p_start;
         double right_bracket = p_start;
 
@@ -387,5 +380,5 @@ export struct Isotherm
 
   bool isUnphysical() const;
 
-  std::string gnuplotFunctionString(char s, size_t i) const;
+  std::string gnuplotFunctionString(char s, std::size_t i) const;
 };

@@ -19,20 +19,7 @@ module;
 module mc_moves_noneq_cbmc;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <vector>;
-import <array>;
-import <tuple>;
-import <optional>;
-import <span>;
-import <optional>;
-import <tuple>;
-import <algorithm>;
-import <chrono>;
-import <cmath>;
-import <iostream>;
-import <iomanip>;
-import <numeric>;
+import std;
 #endif
 
 import component;
@@ -66,12 +53,12 @@ import integrators_update;
 import integrators_compute;
 
 std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumber& random, System& system,
-                                                                     size_t selectedComponent)
+                                                                     std::size_t selectedComponent)
 {
   std::chrono::system_clock::time_point time_begin, time_end;
   MoveTypes move = MoveTypes::SwapNonEqCBMC;
   Component& component = system.components[selectedComponent];
-  size_t oldN = system.numberOfMoleculesPerComponent[selectedComponent];
+  std::size_t oldN = system.numberOfMoleculesPerComponent[selectedComponent];
 
   // Update move counts statistics for swap insertion move
 
@@ -104,7 +91,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
         random, component, system.hasExternalField, system.components, system.forceField, system.simulationBox,
         system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-        system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, oldN, 1.0, 0uz,
+        system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, oldN, 1.0, false, false,
         system.numberOfTrialDirections);
     time_end = std::chrono::system_clock::now();
 
@@ -152,8 +139,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     system.mc_moves_cputime[move]["Tail"] += (time_end - time_begin);
 
     // insert molecule into copied atom positions
-    size_t index = 0;
-    for (size_t comp = 0; comp < selectedComponent + 1; ++comp)
+    std::size_t index = 0;
+    for (std::size_t comp = 0; comp < selectedComponent + 1; ++comp)
     {
       index += system.components[comp].atoms.size() * system.numberOfMoleculesPerComponent[comp];
     }
@@ -191,7 +178,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
 
     // integrate for N steps
     time_begin = std::chrono::system_clock::now();
-    for (size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
+    for (std::size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
     {
       currentEnergy = Integrators::velocityVerlet(moleculePositions, moleculeAtomPositions, system.components, dt,
                                                   thermostat, system.spanOfFrameworkAtoms(), system.forceField,
@@ -223,7 +210,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     // Check if TMMC is enabled and macrostate limit is not exceeded
     if (system.tmmc.doTMMC)
     {
-      size_t newN = oldN + 1;
+      std::size_t newN = oldN + 1;
       if (newN > system.tmmc.maxMacrostate)
       {
         return {std::nullopt, double3(0.0, 1.0 - Pacc, Pacc)};
@@ -258,7 +245,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     component.mc_moves_statistics.addTrial(move, 1);
 
     // Get a reference to the molecule being deleted
-    size_t selectedMolecule = system.randomIntegerMoleculeOfComponent(random, selectedComponent);
+    std::size_t selectedMolecule = system.randomIntegerMoleculeOfComponent(random, selectedComponent);
     std::span<Atom> molecule = system.spanOfMolecule(selectedComponent, selectedMolecule);
 
     // MD INTEGRATION
@@ -283,7 +270,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
 
     // integrate for N steps
     time_begin = std::chrono::system_clock::now();
-    for (size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
+    for (std::size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
     {
       currentEnergy = Integrators::velocityVerlet(moleculePositions, moleculeAtomPositions, system.components, dt,
                                                   thermostat, system.spanOfFrameworkAtoms(), system.forceField,
@@ -329,8 +316,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     system.mc_moves_cputime[move]["Tail"] += (time_end - time_begin);
 
     // delete molecule from copied atom positions
-    size_t index = 0;
-    for (size_t comp = 0; comp < selectedComponent; ++comp)
+    std::size_t index = 0;
+    for (std::size_t comp = 0; comp < selectedComponent; ++comp)
     {
       index += system.components[comp].atoms.size() * system.numberOfMoleculesPerComponent[comp];
     }
@@ -363,7 +350,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     // Check if the new macrostate is within the allowed TMMC range
     if (system.tmmc.doTMMC)
     {
-      size_t newN = oldN - 1;
+      std::size_t newN = oldN - 1;
       if (newN < system.tmmc.minMacrostate)
       {
         return {std::nullopt, double3(Pacc, 1.0 - Pacc, 0.0)};

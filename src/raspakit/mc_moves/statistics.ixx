@@ -12,12 +12,7 @@ module;
 export module mc_moves_statistics;
 
 #ifndef USE_LEGACY_HEADERS
-import <variant>;
-import <string>;
-import <map>;
-import <print>;
-import <format>;
-import <string>;
+import std;
 #endif
 
 import archive;
@@ -28,7 +23,7 @@ import mc_moves_move_types;
 
 export struct MCMoveStatistics
 {
-  uint64_t versionNumber{2};
+  std::uint64_t versionNumber{2};
 
   bool operator==(MCMoveStatistics const&) const = default;
 
@@ -76,17 +71,17 @@ export struct MCMoveStatistics
 
   void addAllCounts(const MoveTypes& move);
   void addTrial(const MoveTypes& move);
-  void addTrial(const MoveTypes& move, size_t direction);
+  void addTrial(const MoveTypes& move, std::size_t direction);
   void addConstructed(const MoveTypes& move);
-  void addConstructed(const MoveTypes& move, size_t direction);
+  void addConstructed(const MoveTypes& move, std::size_t direction);
   void addAccepted(const MoveTypes& move);
-  void addAccepted(const MoveTypes& move, size_t direction);
+  void addAccepted(const MoveTypes& move, std::size_t direction);
   double getMaxChange(const MoveTypes& move);
-  double getMaxChange(const MoveTypes& move, size_t direction);
+  double getMaxChange(const MoveTypes& move, std::size_t direction);
   void setMaxChange(const MoveTypes& move, double value);
 
   const std::string writeMCMoveStatistics() const;
-  const std::string writeMCMoveStatistics(size_t countTotal) const;
+  const std::string writeMCMoveStatistics(std::size_t countTotal) const;
   const nlohmann::json jsonMCMoveStatistics() const;
 
   inline MCMoveStatistics& operator+=(const MCMoveStatistics& b)

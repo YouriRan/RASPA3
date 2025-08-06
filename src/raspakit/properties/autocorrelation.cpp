@@ -13,19 +13,13 @@ module;
 module property_autocorrelation;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
-import <string>;
-import <filesystem>;
-import <iostream>;
-import <sstream>;
-import <fstream>;
-import <source_location>;
+import std;
 #endif
 
 import archive;
 
-PropertyAutocorrelation::PropertyAutocorrelation(size_t numberOfBuffersACF, size_t bufferLengthACF, size_t sampleEvery,
-                                                 size_t writeEvery, std::string variableName)
+PropertyAutocorrelation::PropertyAutocorrelation(std::size_t numberOfBuffersACF, std::size_t bufferLengthACF, std::size_t sampleEvery,
+                                                 std::size_t writeEvery, std::string variableName)
     : numberOfBuffersACF(numberOfBuffersACF),
       bufferLengthACF(bufferLengthACF),
       sampleEvery(sampleEvery),
@@ -36,35 +30,35 @@ PropertyAutocorrelation::PropertyAutocorrelation(size_t numberOfBuffersACF, size
       counts(numberOfBuffersACF)
 {
   // trick to space the origins evenly (see for example Rapaport 2004)
-  for (size_t currentBuffer = 0; currentBuffer < numberOfBuffersACF; ++currentBuffer)
+  for (std::size_t currentBuffer = 0; currentBuffer < numberOfBuffersACF; ++currentBuffer)
   {
-    counts[currentBuffer] = -static_cast<int64_t>(currentBuffer * bufferLengthACF / numberOfBuffersACF);
+    counts[currentBuffer] = -static_cast<std::int64_t>(currentBuffer * bufferLengthACF / numberOfBuffersACF);
   }
 }
 
-void PropertyAutocorrelation::addSample(size_t currentCycle, double value)
+void PropertyAutocorrelation::addSample(std::size_t currentCycle, double value)
 {
   sumValue += value;
   if (currentCycle % sampleEvery != 0uz) return;
 
-  for (size_t currentBuffer = 0; currentBuffer < numberOfBuffersACF; ++currentBuffer)
+  for (std::size_t currentBuffer = 0; currentBuffer < numberOfBuffersACF; ++currentBuffer)
   {
     if (counts[currentBuffer] >= 0)
     {
-      size_t index = static_cast<size_t>(counts[currentBuffer]);
+      std::size_t index = static_cast<std::size_t>(counts[currentBuffer]);
       buffer[currentBuffer][index] = value;
     }
     counts[currentBuffer]++;
   }
 
   double mean = sumValue / static_cast<double>(currentCycle + 1);
-  for (size_t currentBuffer = 0; currentBuffer < numberOfBuffersACF; ++currentBuffer)
+  for (std::size_t currentBuffer = 0; currentBuffer < numberOfBuffersACF; ++currentBuffer)
   {
     if (counts[currentBuffer] == static_cast<std::make_signed_t<std::size_t>>(bufferLengthACF))
     {
-      for (size_t t = 0; t < bufferLengthACF; ++t)
+      for (std::size_t t = 0; t < bufferLengthACF; ++t)
       {
-        for (size_t i = 0; i < bufferLengthACF - t; ++i)
+        for (std::size_t i = 0; i < bufferLengthACF - t; ++i)
         {
           accumulatedAcf[t] += (buffer[currentBuffer][i] - mean) * (buffer[currentBuffer][i+t] - mean) / static_cast<double>(bufferLengthACF - t);
         }
@@ -75,7 +69,7 @@ void PropertyAutocorrelation::addSample(size_t currentCycle, double value)
   }
 }
 
-void PropertyAutocorrelation::writeOutput(size_t systemId, size_t currentCycle)
+void PropertyAutocorrelation::writeOutput(std::size_t systemId, std::size_t currentCycle)
 {
     if (currentCycle % writeEvery != 0uz) return;
 
@@ -93,7 +87,7 @@ void PropertyAutocorrelation::writeOutput(size_t systemId, size_t currentCycle)
 
     // start at -1 to compensate 2* c0/c0 without if statement
     double tEff = -1.0;
-    for (size_t k = 0; k < bufferLengthACF; ++k)
+    for (std::size_t k = 0; k < bufferLengthACF; ++k)
     {
       if (k * sampleEvery < currentCycle)
       {

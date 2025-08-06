@@ -30,29 +30,7 @@ module;
 module vdwparameters;
 
 #ifndef USE_LEGACY_HEADERS
-import <filesystem>;
-import <fstream>;
-import <cstdlib>;
-import <iostream>;
-import <sstream>;
-import <vector>;
-import <array>;
-import <map>;
-import <cmath>;
-import <string>;
-import <string_view>;
-import <optional>;
-import <numbers>;
-import <algorithm>;
-import <format>;
-import <exception>;
-import <source_location>;
-import <complex>;
-import <type_traits>;
-import <iterator>;
-import <functional>;
-import <print>;
-import <unordered_map>;
+import std;
 #endif
 
 import archive;
@@ -103,7 +81,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const VDWPar
   archive << p.type;
 
 #if DEBUG_ARCHIVE
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
 
   return archive;
@@ -118,9 +96,9 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, VDWParameter
   archive >> p.type;
 
 #if DEBUG_ARCHIVE
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
     throw std::runtime_error(std::format("VDWParameters: Error in binary restart\n"));
   }

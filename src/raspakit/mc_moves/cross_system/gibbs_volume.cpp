@@ -19,20 +19,7 @@ module;
 module mc_moves_gibbs_volume;
 
 #ifndef USE_LEGACY_HEADERS
-import <complex>;
-import <vector>;
-import <array>;
-import <tuple>;
-import <optional>;
-import <span>;
-import <optional>;
-import <tuple>;
-import <algorithm>;
-import <numeric>;
-import <chrono>;
-import <cmath>;
-import <iostream>;
-import <iomanip>;
+import std;
 #endif
 
 import component;
@@ -80,8 +67,8 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
 
   // Scale systemA to new volume and calculate new positions
   RunningEnergy oldTotalEnergyA = systemA.runningEnergies;
-  double numberOfMoleculesA = static_cast<double>(std::accumulate(systemA.numberOfIntegerMoleculesPerComponent.begin(),
-                                                              systemA.numberOfIntegerMoleculesPerComponent.end(), 0));
+  double numberOfMoleculesA = static_cast<double>(std::accumulate(
+      systemA.numberOfIntegerMoleculesPerComponent.begin(), systemA.numberOfIntegerMoleculesPerComponent.end(), 0));
   double scaleA = std::pow(newVolumeA / oldVolumeA, 1.0 / 3.0);
   SimulationBox newBoxA = systemA.simulationBox.scaled(scaleA);
   std::pair<std::vector<Molecule>, std::vector<Atom>> newPositionsA = systemA.scaledCenterOfMassPositions(scaleA);
@@ -124,8 +111,8 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
 
   // Scale systemB to new volume and calculate new positions
   RunningEnergy oldTotalEnergyB = systemB.runningEnergies;
-  double numberOfMoleculesB = static_cast<double>(std::accumulate(systemB.numberOfIntegerMoleculesPerComponent.begin(),
-                                                              systemB.numberOfIntegerMoleculesPerComponent.end(), 0));
+  double numberOfMoleculesB = static_cast<double>(std::accumulate(
+      systemB.numberOfIntegerMoleculesPerComponent.begin(), systemB.numberOfIntegerMoleculesPerComponent.end(), 0));
   double scaleB = std::pow(newVolumeB / oldVolumeB, 1.0 / 3.0);
   SimulationBox newBoxB = systemB.simulationBox.scaled(scaleB);
   std::pair<std::vector<Molecule>, std::vector<Atom>> newPositionsB = systemB.scaledCenterOfMassPositions(scaleB);
@@ -204,7 +191,6 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
   systemB.forceField.cutOffCoulomb = cutOffCoulomb_stored_B;
   systemB.forceField.EwaldAlpha = ewald_alpha_stored_B;
   systemB.forceField.numberOfWaveVectors = ewald_k_stored_B;
-
 
   return std::nullopt;
 }

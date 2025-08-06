@@ -20,19 +20,7 @@ module;
 module cif_reader;
 
 #ifndef USE_LEGACY_HEADERS
-import <map>;
-import <vector>;
-import <string>;
-import <optional>;
-import <algorithm>;
-import <sstream>;
-import <cmath>;
-import <cctype>;
-import <numbers>;
-import <iostream>;
-import <exception>;
-import <format>;
-import <print>;
+import std;
 #endif
 
 import double3;
@@ -174,7 +162,7 @@ void CIFReader::parseSymmetry(std::string& string)
     if ((string == std::string("_space_group_IT_number")) || (string == std::string("_symmetry_Int_Tables_number")) ||
         (string == std::string("_symmetry.Int_Tables_number")))
     {
-      size_t spaceGroupNumber = scanInt();
+      std::size_t spaceGroupNumber = scanInt();
       _spaceGroupHallNumber = SKSpaceGroup::HallNumberFromSpaceGroupNumber(spaceGroupNumber);
     }
   }
@@ -239,7 +227,7 @@ void CIFReader::parseLoop([[maybe_unused]] std::string& string, const ForceField
           std::replace_if(chemicalElement.begin(), chemicalElement.end(), [](char c) { return std::isdigit(c); }, ' ');
 
           // First character to uppercase
-          chemicalElement[0] = static_cast<char>(toupper(chemicalElement[0]));
+          chemicalElement[0] = static_cast<char>(std::toupper(chemicalElement[0]));
         }
 
         Atom atom = Atom();
@@ -254,7 +242,7 @@ void CIFReader::parseLoop([[maybe_unused]] std::string& string, const ForceField
           std::string value2;
           if (ss >> value2)
           {
-            std::optional<size_t> index1 = forceField.findPseudoAtom(value2);
+            std::optional<std::size_t> index1 = forceField.findPseudoAtom(value2);
 
             // find by stripping of numbers
             if (!index1.has_value())
@@ -273,7 +261,7 @@ void CIFReader::parseLoop([[maybe_unused]] std::string& string, const ForceField
 
             if (index1.has_value())
             {
-              atom.type = static_cast<uint16_t>(index1.value());
+              atom.type = static_cast<std::uint16_t>(index1.value());
             }
           }
 
@@ -326,7 +314,7 @@ void CIFReader::parseLoop([[maybe_unused]] std::string& string, const ForceField
           //}
         }
 
-        if (std::map<std::string, size_t>::iterator chemicalElementIndex =
+        if (std::map<std::string, std::size_t>::iterator chemicalElementIndex =
                 PredefinedElements::atomicNumberData.find(chemicalElement);
             chemicalElementIndex != PredefinedElements::atomicNumberData.end())
         {
@@ -419,7 +407,7 @@ std::optional<std::string> CIFReader::parseValue()
   }
 }
 
-size_t CIFReader::scanInt()
+std::size_t CIFReader::scanInt()
 {
   std::string tempString;
   if (_scanner.scanUpToCharacters(CharacterSet::whitespaceAndNewlineCharacterSet(), tempString))
@@ -427,7 +415,7 @@ size_t CIFReader::scanInt()
     std::replace_if(tempString.begin(), tempString.end(), [](char c) { return !std::isalnum(c); }, ' ');
 
     std::istringstream ss(tempString);
-    size_t value;
+    std::size_t value;
     if (ss >> value)
     {
       return value;

@@ -1,22 +1,37 @@
 module;
 
 #ifdef USE_LEGACY_HEADERS
-#include <cstddef>
 #include <array>
-#include <vector>
+#include <cstddef>
 #include <optional>
 #include <string>
+#include <vector>
 #define CL_TARGET_OPENCL_VERSION 120
 #ifdef __APPLE__
-  #include <OpenCL/cl.h>
+#include <OpenCL/cl.h>
 #elif _WIN32
-  #include <CL/cl.h>
+#include <CL/cl.h>
 #else
-  #include <CL/opencl.h>
+#include <CL/opencl.h>
+#endif
+#endif
+
+#ifndef USE_LEGACY_HEADERS
+#define CL_TARGET_OPENCL_VERSION 120
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#elif _WIN32
+#include <CL/cl.h>
+#else
+#include <CL/opencl.h>
 #endif
 #endif
 
 export module energy_opencl_surface_area;
+
+#ifndef USE_LEGACY_HEADERS
+import std;
+#endif
 
 import int3;
 import double2;
@@ -27,7 +42,6 @@ import double3x3;
 import forcefield;
 import framework;
 
-
 export struct EnergyOpenCLSurfaceArea
 {
   EnergyOpenCLSurfaceArea();
@@ -35,16 +49,16 @@ export struct EnergyOpenCLSurfaceArea
 
   cl_program energyGridProgram;
   cl_kernel energyGridKernel;
-  static const char* energyGridKernelSource;
-  size_t energyGridWorkGroupSize;
+  static const char *energyGridKernelSource;
+  std::size_t energyGridWorkGroupSize;
 
   cl_program energyEnergyOpenCLSurfaceAreaProgram;
   cl_kernel constructHPLevelKernel;
   cl_kernel classifyCubesKernel;
   cl_kernel traverseHPKernel[10];
-  size_t constructHPLevelKernelWorkGroupSize;
-  size_t classifyCubesKernelWorkGroupSize;
-  size_t traverseHPKernelWorkGroupSize[10];
+  std::size_t constructHPLevelKernelWorkGroupSize;
+  std::size_t classifyCubesKernelWorkGroupSize;
+  std::size_t traverseHPKernelWorkGroupSize[10];
   static std::string marchingCubesKernelSource;
 
   void run(const ForceField &forceField, const Framework &framework, int3 grid_size);

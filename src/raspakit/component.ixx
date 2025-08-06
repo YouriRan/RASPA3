@@ -21,21 +21,7 @@ module;
 export module component;
 
 #ifndef USE_LEGACY_HEADERS
-import <format>;
-import <tuple>;
-import <vector>;
-import <string>;
-import <chrono>;
-import <cstdint>;
-import <fstream>;
-import <sstream>;
-import <ostream>;
-import <vector>;
-import <array>;
-import <map>;
-import <optional>;
-import <span>;
-import <print>;
+import std;
 #endif
 
 import stringutils;
@@ -54,12 +40,24 @@ import simulationbox;
 import property_widom;
 import isotherm;
 import multi_site_isotherm;
-import bond_potential;
 import move_statistics;
 import mc_moves_move_types;
 import mc_moves_probabilities;
 import mc_moves_statistics;
 import mc_moves_cputime;
+import bond_potential;
+import urey_bradley_potential;
+import bend_potential;
+import inversion_bend_potential;
+import out_of_plane_bend_potential;
+import torsion_potential;
+import bond_bond_potential;
+import bond_bend_potential;
+import bond_torsion_potential;
+import bend_bend_potential;
+import bend_torsion_potential;
+import internal_potentials;
+import connectivity_table;
 import json;
 
 /**
@@ -77,7 +75,7 @@ export struct Component
   /**
    * \brief Enumeration of component types.
    */
-  enum class Type : size_t
+  enum class Type : std::size_t
   {
     Adsorbate = 0,  ///< Represents an adsorbate component.
     Cation = 1      ///< Represents a cation component.
@@ -86,7 +84,7 @@ export struct Component
   /**
    * \brief Enumeration of growth types for the component.
    */
-  enum class GrowType : size_t
+  enum class GrowType : std::size_t
   {
     Rigid = 0,     ///< Rigid growth type.
     Flexible = 1,  ///< Flexible growth type.
@@ -95,11 +93,18 @@ export struct Component
   /**
    * \brief Enumeration of molecular shapes.
    */
-  enum class Shape : size_t
+  enum class Shape : std::size_t
   {
     NonLinear = 0,  ///< Non-linear molecular shape.
     Linear = 1,     ///< Linear molecular shape.
     Point = 2       ///< Point-particle molecular shape.
+  };
+
+  enum class Chirality : std::size_t
+  {
+    NoCharility = 0,
+    S_Chiral = 1,
+    R_Chiral = 2
   };
 
   /**
@@ -128,9 +133,9 @@ export struct Component
    *
    * \throws std::runtime_error If the component file cannot be read or parsed.
    */
-  Component(Component::Type type, size_t currentComponent, const ForceField &forceField,
-            const std::string &componentName, std::optional<const std::string> fileName, size_t numberOfBlocks,
-            size_t numberOfLambdaBins, const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
+  Component(Component::Type type, std::size_t currentComponent, const ForceField &forceField,
+            const std::string &componentName, std::optional<const std::string> fileName, std::size_t numberOfBlocks,
+            std::size_t numberOfLambdaBins, const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
             std::optional<double> fugacityCoefficient = std::nullopt,
             bool thermodynamicIntegration = false) noexcept(false);
 
@@ -154,27 +159,27 @@ export struct Component
    *
    * \throws std::runtime_error If pseudo-atoms are not recognized or data is invalid.
    */
-  Component(size_t componentId, const ForceField &forceField, std::string componentName, double T_c, double P_c,
-            double w, std::vector<Atom> definedAtoms, size_t numberOfBlocks, size_t numberOfLambdaBins,
+  Component(std::size_t componentId, const ForceField &forceField, std::string componentName, double T_c, double P_c,
+            double w, std::vector<Atom> definedAtoms, std::size_t numberOfBlocks, std::size_t numberOfLambdaBins,
             const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
             std::optional<double> fugacityCoefficient = std::nullopt,
             bool thermodynamicIntegration = false) noexcept(false);
 
-  uint64_t versionNumber{1};  ///< Version number for serialization.
+  std::uint64_t versionNumber{1};  ///< Version number for serialization.
 
   Type type{0};          ///< Type of the component (Adsorbate or Cation).
   GrowType growType{0};  ///< Growth type of the component.
 
-  size_t componentId{0};                      ///< Unique identifier for the component.
+  std::size_t componentId{0};                 ///< Unique identifier for the component.
   std::string name{};                         ///< Name of the component.
   std::optional<std::string> filenameData{};  ///< Optional filename containing component data.
   std::string filename{};                     ///< Filename associated with the component.
 
   std::vector<double4> blockingPockets{};  ///< List of blocking pockets defined by position and radius.
 
-  bool rigid{true};                        ///< Flag indicating if the component is rigid.
-  size_t translationalDegreesOfFreedom{};  ///< Number of translational degrees of freedom.
-  size_t rotationalDegreesOfFreedom{};     ///< Number of rotational degrees of freedom.
+  bool rigid{true};                             ///< Flag indicating if the component is rigid.
+  std::size_t translationalDegreesOfFreedom{};  ///< Number of translational degrees of freedom.
+  std::size_t rotationalDegreesOfFreedom{};     ///< Number of rotational degrees of freedom.
 
   double criticalTemperature{0.0};  ///< Critical temperature of the component [K].
   double criticalPressure{0.0};     ///< Critical pressure of the component [Pa].
@@ -193,7 +198,7 @@ export struct Component
   std::optional<double> idealGasEnergy{};            ///< Optional ideal gas energy [J].
 
   double netCharge{0.0};                                ///< Net charge of the component [e].
-  size_t startingBead{0};                               ///< Starting bead index for simulations.
+  std::size_t startingBead{0};                          ///< Starting bead index for simulations.
   std::vector<std::pair<Atom, double>> definedAtoms{};  ///< List of defined atoms and their masses.
 
   double3 inertiaVector{};         ///< Inertia vector of the component.
@@ -201,32 +206,11 @@ export struct Component
   Shape shapeType;                 ///< Shape type of the molecule.
   std::vector<Atom> atoms{};       ///< List of atoms in the component.
 
-  size_t initialNumberOfMolecules{0};  ///< Initial number of molecules in the component.
+  std::size_t initialNumberOfMolecules{0};  ///< Initial number of molecules in the component.
 
   PropertyLambdaProbabilityHistogram lambdaGC;     ///< Lambda probability histogram for Gibbs-Chebyshev integration.
   PropertyLambdaProbabilityHistogram lambdaGibbs;  ///< Lambda probability histogram for Gibbs integration.
   bool hasFractionalMolecule{false};               ///< Flag indicating if the component has fractional molecules.
-
-  std::vector<size_t> chiralCenters{};                      ///< List of chiral centers in the component.
-  std::vector<BondPotential> bonds{};                       ///< List of bond potentials.
-  std::vector<std::pair<size_t, size_t>> bondDipoles{};     ///< List of bond dipoles.
-  std::vector<std::tuple<size_t, size_t, size_t>> bends{};  ///< List of bending potentials.
-  std::vector<std::pair<size_t, size_t>> UreyBradley{};     ///< List of Urey-Bradley potentials.
-  std::vector<std::tuple<size_t, size_t, size_t, size_t>> inversionBends{};    ///< List of inversion bends.
-  std::vector<std::tuple<size_t, size_t, size_t, size_t>> Torsion{};           ///< List of torsion potentials.
-  std::vector<std::tuple<size_t, size_t, size_t, size_t>> ImproperTorsions{};  ///< List of improper torsions.
-  std::vector<std::tuple<size_t, size_t, size_t>> bondBonds{};                 ///< List of bond-bond interactions.
-  std::vector<std::tuple<size_t, size_t, size_t>> stretchBends{};              ///< List of stretch-bend interactions.
-  std::vector<std::tuple<size_t, size_t, size_t, size_t>> bendBends{};         ///< List of bend-bend interactions.
-  std::vector<std::tuple<size_t, size_t, size_t, size_t>> stretchTorsions{};  ///< List of stretch-torsion interactions.
-  std::vector<std::tuple<size_t, size_t, size_t, size_t>> bendTorsions{};     ///< List of bend-torsion interactions.
-  std::vector<std::pair<size_t, size_t>> intraVDW{};      ///< List of intra-molecular van der Waals interactions.
-  std::vector<std::pair<size_t, size_t>> intraCoulomb{};  ///< List of intra-molecular Coulomb interactions.
-  std::vector<std::pair<size_t, size_t>>
-      excludedIntraCoulomb{};  ///< List of excluded intra-molecular Coulomb interactions.
-  std::vector<std::pair<size_t, std::vector<size_t>>> configMoves{};  ///< List of configuration moves.
-
-  std::vector<bool> connectivityTable{};  ///< Connectivity table for the component.
 
   MCMoveProbabilities mc_moves_probabilities;  ///< Move probabilities for Monte Carlo simulations.
   MCMoveStatistics mc_moves_statistics;
@@ -239,9 +223,9 @@ export struct Component
   double axialDispersionCoefficient{0.0};  ///< Axial dispersion coefficient [m²/s].
   bool isCarrierGas{false};                ///< Flag indicating if the component is a carrier gas.
 
-  size_t columnPressure{0};  ///< Column index for pressure data.
-  size_t columnLoading{1};   ///< Column index for loading data.
-  size_t columnError{2};     ///< Column index for error data.
+  std::size_t columnPressure{0};  ///< Column index for pressure data.
+  std::size_t columnLoading{1};   ///< Column index for loading data.
+  std::size_t columnError{2};     ///< Column index for error data.
 
   double lnPartitionFunction{0};  ///< Natural logarithm of the partition function [-].
 
@@ -255,6 +239,10 @@ export struct Component
   };
 
   PressureScale pressureScale{PressureScale::Log};  ///< Pressure scaling type.
+
+  Potentials::InternalPotentials internalPotentials{};  ///< List of internal potentials.
+
+  ConnectivityTable connectivityTable{};  ///< Connectivity table for the component.
 
   /**
    * \brief Reads component data from a file.
@@ -399,7 +387,7 @@ export struct Component
  * \throws std::runtime_error If no valid values are found before encountering a comment or invalid entry.
  */
 template <typename T>
-std::vector<T> parseListOfParameters(const std::string &arguments, size_t lineNumber)
+std::vector<T> parseListOfParameters(const std::string &arguments, std::size_t lineNumber)
 {
   std::vector<T> list{};
 

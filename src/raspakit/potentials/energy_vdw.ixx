@@ -9,8 +9,7 @@ module;
 export module potential_energy_vdw;
 
 #ifndef USE_LEGACY_HEADERS
-import <cmath>;
-import <iostream>;
+import std;
 #endif
 
 import vdwparameters;
@@ -45,7 +44,7 @@ export namespace Potentials
 [[clang::always_inline]] inline EnergyFactor potentialVDWEnergy(const ForceField& forcefield, const bool& groupIdA,
                                                                 const bool& groupIdB, const double& scalingA,
                                                                 const double& scalingB, const double& rr,
-                                                                const size_t& typeA, const size_t& typeB)
+                                                                const std::size_t& typeA, const std::size_t& typeB)
 {
   VDWParameters::Type potentialType = forcefield(typeA, typeB).type;
 
@@ -66,6 +65,17 @@ export namespace Potentials
       double dlambda_term = arg1 * scaling * inv_scaling * (2.0 * rri6 * rri3 - rri6);
       return EnergyFactor(scaling * term, (groupIdA ? scalingB * (term + dlambda_term) : 0.0) +
                                               (groupIdB ? scalingA * (term + dlambda_term) : 0.0));
+    }
+    case VDWParameters::Type::Morse:
+    {
+      double wellDepth = forcefield(typeA, typeB).parameters.x;
+      double stiffness = forcefield(typeA, typeB).parameters.y;
+      double equilibriumDistance = forcefield(typeA, typeB).parameters.z;
+      double r = std::sqrt(rr);
+      double scaledDistance = -stiffness * (r - equilibriumDistance);
+      double expTerm = std::exp(scaledDistance);
+      double energy = wellDepth * (1 - expTerm) * (1 - expTerm);
+      return EnergyFactor(energy, 0.0);
     }
     case VDWParameters::Type::RepulsiveHarmonic:
     {

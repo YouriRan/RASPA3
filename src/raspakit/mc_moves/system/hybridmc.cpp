@@ -12,10 +12,7 @@ module;
 module mc_moves_hybridmc;
 
 #ifndef USE_LEGACY_HEADERS
-import <chrono>;
-import <span>;
-import <optional>;
-import <iostream>;
+import std;
 #endif
 
 import double3;
@@ -80,13 +77,13 @@ std::optional<RunningEnergy> MC_Moves::hybridMCMove(RandomNumber& random, System
 
   // integrate for N steps
   time_begin = std::chrono::system_clock::now();
-  for (size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
+  for (std::size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
   {
-    currentEnergy = Integrators::velocityVerlet(
-        moleculePositions, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
-        system.forceField, system.simulationBox, system.eik_x, system.eik_y, system.eik_z, system.eik_xy,
-        system.totalEik, system.fixedFrameworkStoredEik, system.interpolationGrids, 
-        system.numberOfMoleculesPerComponent);
+    currentEnergy = Integrators::velocityVerlet(moleculePositions, moleculeAtomPositions, system.components, dt,
+                                                thermostat, system.spanOfFrameworkAtoms(), system.forceField,
+                                                system.simulationBox, system.eik_x, system.eik_y, system.eik_z,
+                                                system.eik_xy, system.totalEik, system.fixedFrameworkStoredEik,
+                                                system.interpolationGrids, system.numberOfMoleculesPerComponent);
   }
   time_end = std::chrono::system_clock::now();
 

@@ -24,24 +24,7 @@ module;
 module property_vacf;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <string>;
-import <iostream>;
-import <fstream>;
-import <sstream>;
-import <tuple>;
-import <vector>;
-import <algorithm>;
-import <complex>;
-import <format>;
-import <numbers>;
-import <span>;
-import <array>;
-import <cmath>;
-import <exception>;
-import <source_location>;
-import <print>;
-import <filesystem>;
+import std;
 #endif
 
 import archive;
@@ -53,21 +36,22 @@ import forcefield;
 import component;
 import averages;
 
-void PropertyVelocityAutoCorrelationFunction::addSample(size_t currentCycle, const std::vector<Component> &components,
-                                                        const std::vector<size_t> &numberOfMoleculesPerComponent,
+void PropertyVelocityAutoCorrelationFunction::addSample(std::size_t currentCycle,
+                                                        const std::vector<Component> &components,
+                                                        const std::vector<std::size_t> &numberOfMoleculesPerComponent,
                                                         std::vector<Molecule> &moleculePositions)
 {
   if (currentCycle % sampleEvery != 0uz) return;
 
-  for (size_t currentBuffer = 0; currentBuffer < numberOfBuffersVACF; ++currentBuffer)
+  for (std::size_t currentBuffer = 0; currentBuffer < numberOfBuffersVACF; ++currentBuffer)
   {
     if (countVACF[currentBuffer] == 0)
     {
-      size_t molecule_index{0};
-      for (size_t i = 0; i != components.size(); ++i)
+      std::size_t molecule_index{0};
+      for (std::size_t i = 0; i != components.size(); ++i)
       {
         originOnsagerVACF[currentBuffer][i] = double3(0.0, 0.0, 0.0);
-        for (size_t m = 0; m != numberOfMoleculesPerComponent[i]; ++m)
+        for (std::size_t m = 0; m != numberOfMoleculesPerComponent[i]; ++m)
         {
           double3 value = moleculePositions[molecule_index].velocity;
           originVACF[currentBuffer][molecule_index] = value;
@@ -79,18 +63,18 @@ void PropertyVelocityAutoCorrelationFunction::addSample(size_t currentCycle, con
 
     if (countVACF[currentBuffer] >= 0)
     {
-      size_t index = static_cast<size_t>(countVACF[currentBuffer]);
+      std::size_t index = static_cast<std::size_t>(countVACF[currentBuffer]);
 
-      for (size_t i = 0; i < numberOfComponents; ++i)
+      for (std::size_t i = 0; i < numberOfComponents; ++i)
       {
         acfVACF[currentBuffer][i][index] = double4(0.0, 0.0, 0.0, 0.0);
         sumVel[i] = double3(0.0, 0.0, 0.0);
       }
 
-      size_t molecule_index{0};
-      for (size_t i = 0; i != components.size(); ++i)
+      std::size_t molecule_index{0};
+      for (std::size_t i = 0; i != components.size(); ++i)
       {
-        for (size_t m = 0; m != numberOfMoleculesPerComponent[i]; ++m)
+        for (std::size_t m = 0; m != numberOfMoleculesPerComponent[i]; ++m)
         {
           double3 value = moleculePositions[molecule_index].velocity;
           acfVACF[currentBuffer][i][index].x += value.x * originVACF[currentBuffer][molecule_index].x;
@@ -105,9 +89,9 @@ void PropertyVelocityAutoCorrelationFunction::addSample(size_t currentCycle, con
         }
       }
 
-      for (size_t i = 0; i < numberOfComponents; ++i)
+      for (std::size_t i = 0; i < numberOfComponents; ++i)
       {
-        for (size_t j = 0; j < numberOfComponents; ++j)
+        for (std::size_t j = 0; j < numberOfComponents; ++j)
         {
           acfOnsagerVACF[currentBuffer][i][j][index].x = sumVel[i].x * originOnsagerVACF[currentBuffer][j].x;
           acfOnsagerVACF[currentBuffer][i][j][index].y = sumVel[i].y * originOnsagerVACF[currentBuffer][j].y;
@@ -122,13 +106,13 @@ void PropertyVelocityAutoCorrelationFunction::addSample(size_t currentCycle, con
   }
 
   // accumulate the vacf
-  for (size_t currentBuffer = 0; currentBuffer < numberOfBuffersVACF; ++currentBuffer)
+  for (std::size_t currentBuffer = 0; currentBuffer < numberOfBuffersVACF; ++currentBuffer)
   {
     if (countVACF[currentBuffer] == static_cast<std::make_signed_t<std::size_t>>(bufferLengthVACF))
     {
-      for (size_t k = 0; k < numberOfComponents; ++k)
+      for (std::size_t k = 0; k < numberOfComponents; ++k)
       {
-        for (size_t i = 0; i < bufferLengthVACF; ++i)
+        for (std::size_t i = 0; i < bufferLengthVACF; ++i)
         {
           accumulatedAcfVACF[k][i].x += acfVACF[currentBuffer][k][i].x;
           accumulatedAcfVACF[k][i].y += acfVACF[currentBuffer][k][i].y;
@@ -136,11 +120,11 @@ void PropertyVelocityAutoCorrelationFunction::addSample(size_t currentCycle, con
           accumulatedAcfVACF[k][i].w += acfVACF[currentBuffer][k][i].w;
         }
       }
-      for (size_t k = 0; k < numberOfComponents; ++k)
+      for (std::size_t k = 0; k < numberOfComponents; ++k)
       {
-        for (size_t l = 0; l < numberOfComponents; ++l)
+        for (std::size_t l = 0; l < numberOfComponents; ++l)
         {
-          for (size_t i = 0; i < bufferLengthVACF; ++i)
+          for (std::size_t i = 0; i < bufferLengthVACF; ++i)
           {
             accumulatedAcfOnsagerVACF[k][l][i].x += acfOnsagerVACF[currentBuffer][k][l][i].x;
             accumulatedAcfOnsagerVACF[k][l][i].y += acfOnsagerVACF[currentBuffer][k][l][i].y;
@@ -155,15 +139,16 @@ void PropertyVelocityAutoCorrelationFunction::addSample(size_t currentCycle, con
   }
 }
 
-void PropertyVelocityAutoCorrelationFunction::writeOutput(size_t systemId, const std::vector<Component> &components,
-                                                          const std::vector<size_t> &numberOfMoleculesPerComponent,
-                                                          double deltaT, size_t currentCycle)
+void PropertyVelocityAutoCorrelationFunction::writeOutput(std::size_t systemId,
+                                                          const std::vector<Component> &components,
+                                                          const std::vector<std::size_t> &numberOfMoleculesPerComponent,
+                                                          double deltaT, std::size_t currentCycle)
 {
   if (currentCycle % writeEvery != 0uz) return;
 
   std::filesystem::create_directory("vacf");
 
-  for (size_t i = 0; i < components.size(); ++i)
+  for (std::size_t i = 0; i < components.size(); ++i)
   {
     std::ofstream stream_vacf_self_output(std::format("vacf/vacf_self_{}.s{}.txt", components[i].name, systemId));
 
@@ -177,7 +162,7 @@ void PropertyVelocityAutoCorrelationFunction::writeOutput(size_t systemId, const
 
     double fac = 1.0 / static_cast<double>(numberOfMoleculesPerComponent[i] * countAccumulatedVACF);
 
-    for (size_t k = 0; k < bufferLengthVACF; ++k)
+    for (std::size_t k = 0; k < bufferLengthVACF; ++k)
     {
       stream_vacf_self_output << std::format(
           "{} {} {} {} {} (count: {})\n", static_cast<double>(k * sampleEvery) * deltaT,
@@ -186,10 +171,10 @@ void PropertyVelocityAutoCorrelationFunction::writeOutput(size_t systemId, const
     }
   }
 
-  for (size_t i = 0; i < components.size(); ++i)
+  for (std::size_t i = 0; i < components.size(); ++i)
   {
     double fac = 1.0 / static_cast<double>(numberOfMoleculesPerComponent[i] * countAccumulatedVACF);
-    for (size_t j = 0; j < components.size(); ++j)
+    for (std::size_t j = 0; j < components.size(); ++j)
     {
       std::ofstream stream_vacf_onsager_output(
           std::format("vacf/vacf_onsager_{}_{}.s{}.txt", components[i].name, components[j].name, systemId));
@@ -201,7 +186,7 @@ void PropertyVelocityAutoCorrelationFunction::writeOutput(size_t systemId, const
       stream_vacf_onsager_output << "# column 4: vacf y [A^2]\n";
       stream_vacf_onsager_output << "# column 5: vacf z [A^2]\n";
       stream_vacf_onsager_output << "# column 6: number of samples [-]\n";
-      for (size_t k = 0; k < bufferLengthVACF; ++k)
+      for (std::size_t k = 0; k < bufferLengthVACF; ++k)
       {
         stream_vacf_onsager_output << std::format(
             "{} {} {} {} {} (count: {})\n", static_cast<double>(k * sampleEvery) * deltaT,
@@ -238,7 +223,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Proper
   archive << vacf.sumVel;
 
 #if DEBUG_ARCHIVE
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
 
   return archive;
@@ -246,7 +231,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Proper
 
 Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PropertyVelocityAutoCorrelationFunction &vacf)
 {
-  uint64_t versionNumber;
+  std::uint64_t versionNumber;
   archive >> versionNumber;
   if (versionNumber > vacf.versionNumber)
   {
@@ -277,9 +262,9 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PropertyVelo
   archive >> vacf.sumVel;
 
 #if DEBUG_ARCHIVE
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
     throw std::runtime_error(std::format("PropertyVelocityAutoCorrelationFunction: Error in binary restart\n"));
   }

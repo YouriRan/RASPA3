@@ -1,23 +1,32 @@
 # CMakeLists.txt
-cmake_minimum_required(VERSION 3.29)
+cmake_minimum_required(VERSION 4.0.3)
+
+# cmake_minimum_required(VERSION 3.29)
+set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD d0edc3af-4c50-42ea-a356-e2862fe7a444)
+set(CMAKE_CXX_MODULE_STD 1)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Set the version of C++ for the project
+if(WIN32)
+  set(CMAKE_CXX_STANDARD 23)
+else()
+  set(CMAKE_CXX_STANDARD 26)
+endif()
+
+# Turning off extensions avoids an issue with the clang 16 compiler
+# clang 17 and greater can avoid this setting
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 project(raspa3
-  VERSION 3.0.6
+  VERSION 3.0.8
   DESCRIPTION ""
   HOMEPAGE_URL "https://github.com/iraspa/raspa3"
   LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-
-# Set the version of C++ for the project
-set(CMAKE_CXX_STANDARD 26)
-
-# Turning off extensions avoids an issue with the clang 16 compiler
-# clang 17 and greater can avoid this setting
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-add_definitions( -DUSE_LEGACY_HEADERS -DVERSION=${PROJECT_VERSION})
+# add_definitions( -DUSE_LEGACY_HEADERS -DVERSION=${PROJECT_VERSION})
+add_definitions(-DVERSION=${PROJECT_VERSION})
 
 find_package(ZLIB)
 find_package(BLAS)

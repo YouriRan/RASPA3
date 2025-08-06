@@ -10,10 +10,7 @@ module;
 export module mc_moves_insertion;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <tuple>;
+import std;
 #endif
 
 import double3;
@@ -38,5 +35,5 @@ export namespace MC_Moves
  *         - The double3 vector contains acceptance statistics.
  */
 std::pair<std::optional<RunningEnergy>, double3> insertionMove(RandomNumber& random, System& system,
-                                                               size_t selectedComponent);
+                                                               std::size_t selectedComponent);
 }  // namespace MC_Moves

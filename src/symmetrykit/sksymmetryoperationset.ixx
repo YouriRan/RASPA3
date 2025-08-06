@@ -8,7 +8,7 @@ module;
 export module sksymmetryoperationset;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
+import std;
 #endif
 
 import skdefinitions;
@@ -25,7 +25,7 @@ export struct SKSymmetryOperationSet
   SKSymmetryOperationSet();
   SKSymmetryOperationSet(std::vector<SKSeitzMatrix> operations);
 
-  inline size_t size() { return this->operations.size(); }
+  inline std::size_t size() { return this->operations.size(); }
 
   SKSymmetryOperationSet fullSeitzMatrices();
   const std::vector<SKRotationMatrix> rotations() const;

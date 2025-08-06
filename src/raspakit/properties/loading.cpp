@@ -21,30 +21,19 @@ module;
 module property_loading;
 
 #ifndef USE_LEGACY_HEADERS
-import <string>;
-import <iostream>;
-import <sstream>;
-import <fstream>;
-import <optional>;
-import <vector>;
-import <array>;
-import <map>;
-import <algorithm>;
-import <format>;
-import <exception>;
-import <source_location>;
-import <complex>;
-import <print>;
+import std;
 #endif
 
 import archive;
+import int3;
 import stringutils;
 import units;
 import loadings;
 import component;
 
 std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> components,
-                                                     std::optional<double> frameworkMass) const
+                                                     std::optional<double> frameworkMass,
+                                                     std::optional<int3> numberOfUnitCells) const
 {
   std::ostringstream stream;
 
@@ -54,16 +43,20 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
 
     std::pair<Loadings, Loadings> loadingAverage = averageLoading();
 
+    int3 number_of_unit_cells = numberOfUnitCells.value_or(int3{1, 1, 1});
+    double to_molecules_per_unit_cell =
+        1.0 / (static_cast<double>(number_of_unit_cells.x * number_of_unit_cells.y * number_of_unit_cells.z));
+
     std::print(stream, "Loadings\n");
     std::print(stream, "===============================================================================\n\n");
 
-    for (size_t i = 0; i < components.size(); ++i)
+    for (std::size_t i = 0; i < components.size(); ++i)
     {
       const double toMgPerG = 1000.0 * components[i].totalMass / frameworkMass.value();
 
       std::print(stream, "Component {} ({})\n", components[i].componentId, components[i].name);
 
-      for (size_t j = 0; j < bookKeepingLoadings.size(); ++j)
+      for (std::size_t j = 0; j < bookKeepingLoadings.size(); ++j)
       {
         Loadings blockAverage = averagedLoading(j);
         std::print(stream, "    Block[ {:2d}] {: .6e}\n", j, blockAverage.numberOfMolecules[i]);
@@ -75,6 +68,9 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
         case Units::System::RASPA:
           std::print(stream, "    Abs. loading average  {: .6e} +/- {: .6e} [molecules/cell]\n",
                      loadingAverage.first.numberOfMolecules[i], loadingAverage.second.numberOfMolecules[i]);
+          std::print(stream, "    Abs. loading average  {: .6e} +/- {: .6e} [molecules/uc]\n",
+                     to_molecules_per_unit_cell * loadingAverage.first.numberOfMolecules[i],
+                     to_molecules_per_unit_cell * loadingAverage.second.numberOfMolecules[i]);
           std::print(stream, "    Abs. loading average  {: .6e} +/- {: .6e} [mol/kg-framework]\n",
                      toMolePerKg * loadingAverage.first.numberOfMolecules[i],
                      toMolePerKg * loadingAverage.second.numberOfMolecules[i]);
@@ -90,7 +86,7 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
 
       std::print(stream, "\n");
 
-      for (size_t j = 0; j < bookKeepingLoadings.size(); ++j)
+      for (std::size_t j = 0; j < bookKeepingLoadings.size(); ++j)
       {
         Loadings blockAverage = averagedLoading(j);
         std::print(stream, "    Block[ {:2d}] {: .6e}\n", j,
@@ -104,6 +100,10 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
           std::print(stream, "    Excess loading average  {: .6e} +/- {: .6e} [molecules/cell]\n",
                      loadingAverage.first.numberOfMolecules[i] - components[i].amountOfExcessMolecules,
                      loadingAverage.second.numberOfMolecules[i]);
+          std::print(stream, "    Excess loading average  {: .6e} +/- {: .6e} [molecules/uc]\n",
+                     to_molecules_per_unit_cell *
+                         (loadingAverage.first.numberOfMolecules[i] - components[i].amountOfExcessMolecules),
+                     to_molecules_per_unit_cell * loadingAverage.second.numberOfMolecules[i]);
           std::print(stream, "    Excess loading average  {: .6e} +/- {: .6e} [mol/kg-framework]\n",
                      toMolePerKg * (loadingAverage.first.numberOfMolecules[i] - components[i].amountOfExcessMolecules),
                      toMolePerKg * loadingAverage.second.numberOfMolecules[i]);
@@ -131,11 +131,11 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
     std::print(stream, "Densities\n");
     std::print(stream, "===============================================================================\n\n");
 
-    for (size_t i = 0; i < components.size(); ++i)
+    for (std::size_t i = 0; i < components.size(); ++i)
     {
       std::print(stream, "Component {} ({})\n", components[i].componentId, components[i].name);
 
-      for (size_t j = 0; j < bookKeepingLoadings.size(); ++j)
+      for (std::size_t j = 0; j < bookKeepingLoadings.size(); ++j)
       {
         Loadings blockAverage = averagedLoading(j);
         std::print(stream, "    Block[ {:2d}] {}\n", j, blockAverage.numberOfMolecules[i]);
@@ -169,7 +169,7 @@ std::string PropertyLoading::writeAveragesStatistics(std::vector<Component> comp
   return stream.str();
 }
 
-std::pair<double, double> PropertyLoading::averageLoadingNumberOfMolecules(size_t comp) const
+std::pair<double, double> PropertyLoading::averageLoadingNumberOfMolecules(std::size_t comp) const
 {
   std::pair<Loadings, Loadings> loadingAverage = averageLoading();
   return {loadingAverage.first.numberOfMolecules[comp], loadingAverage.second.numberOfMolecules[comp]};
@@ -186,7 +186,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Proper
   archive << l.bookKeepingLoadings;
 
 #if DEBUG_ARCHIVE
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
 
   return archive;
@@ -194,7 +194,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Proper
 
 Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PropertyLoading &l)
 {
-  uint64_t versionNumber;
+  std::uint64_t versionNumber;
   archive >> versionNumber;
   if (versionNumber > l.versionNumber)
   {
@@ -208,9 +208,9 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PropertyLoad
   archive >> l.bookKeepingLoadings;
 
 #if DEBUG_ARCHIVE
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
     throw std::runtime_error(std::format("PropertyLoading: Error in binary restart\n"));
   }

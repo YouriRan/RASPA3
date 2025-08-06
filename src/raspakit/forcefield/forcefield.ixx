@@ -4,29 +4,25 @@ module;
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <optional>
 #include <ostream>
-#include <string>
-#include <cstring>
-#include <vector>
 #include <set>
+#include <string>
+#include <vector>
+#endif
+
+#ifndef USE_LEGACY_HEADERS
+#include <string>
 #endif
 
 export module forcefield;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstdint>;
-import <vector>;
-import <string>;
-import <algorithm>;
-import <iostream>;
-import <ostream>;
-import <fstream>;
-import <optional>;
-import <limits>;
+import std;
 #endif
 
 import archive;
@@ -66,7 +62,7 @@ export struct ForceField
     Jorgensen = 1
   };
 
-  enum class PotentialEnergySurfaceType : size_t
+  enum class PotentialEnergySurfaceType : std::size_t
   {
     None = 0,
     SecondOrderPolynomialTestFunction = 1,
@@ -80,7 +76,7 @@ export struct ForceField
     GonzalezSchlegel = 9  // https://sci-hub.se/https://doi.org/10.1063/1.465995
   };
 
-  enum class InterpolationGridType : size_t
+  enum class InterpolationGridType : std::size_t
   {
     LennardJones = 0,
     LennardJonesRepulsion = 1,
@@ -88,14 +84,14 @@ export struct ForceField
     EwaldReal = 3
   };
 
-  enum class InterpolationScheme : size_t
+  enum class InterpolationScheme : std::size_t
   {
     Polynomial = 1,
     Tricubic = 8,
     Triquintic = 27
   };
 
-  uint64_t versionNumber{1};  ///< Version number of the force field format.
+  std::uint64_t versionNumber{1};  ///< Version number of the force field format.
 
   std::vector<VDWParameters>
       data{};  ///< Interaction parameters between pseudo-atoms; size is numberOfPseudoAtoms squared.
@@ -105,12 +101,12 @@ export struct ForceField
   bool cutOffFrameworkVDWAutomatic{false};
   double cutOffFrameworkVDW{12.0};  ///< Cut-off distance for VDW interactions between framework and molecules.
   bool cutOffMoleculeVDWAutomatic{false};
-  double cutOffMoleculeVDW{12.0};   ///< Cut-off distance for VDW interactions between molecules.
+  double cutOffMoleculeVDW{12.0};  ///< Cut-off distance for VDW interactions between molecules.
   bool cutOffCoulombAutomatic{true};
-  double cutOffCoulomb{12.0};       ///< Cut-off distance for Coulomb interactions.
-  double dualCutOff{6.0};           ///< Inner cut-off distance when using dual cut-off scheme.
+  double cutOffCoulomb{12.0};  ///< Cut-off distance for Coulomb interactions.
+  double dualCutOff{6.0};      ///< Inner cut-off distance when using dual cut-off scheme.
 
-  size_t numberOfPseudoAtoms{0};          ///< Number of pseudo-atoms defined in the force field.
+  std::size_t numberOfPseudoAtoms{0};     ///< Number of pseudo-atoms defined in the force field.
   std::vector<PseudoAtom> pseudoAtoms{};  ///< List of pseudo-atoms in the force field.
 
   ChargeMethod chargeMethod{ChargeMethod::Ewald};  ///< Method used for calculating electrostatic interactions.
@@ -120,8 +116,8 @@ export struct ForceField
   double EwaldPrecision{1e-6};        ///< Desired precision for Ewald summation.
   double EwaldAlpha{0.265058};        ///< Ewald convergence parameter alpha.
   int3 numberOfWaveVectors{8, 8, 8};  ///< Number of wave vectors in each direction for Ewald summation.
-  size_t reciprocalIntegerCutOffSquared{
-      std::numeric_limits<size_t>::max()};  ///< Squared integer cut-off in reciprocal space.
+  std::size_t reciprocalIntegerCutOffSquared{
+      std::numeric_limits<std::size_t>::max()};  ///< Squared integer cut-off in reciprocal space.
   double reciprocalCutOffSquared{
       std::numeric_limits<double>::max()};  ///< Squared cut-off distance in reciprocal space.
   bool automaticEwald{true};                ///< Indicates if Ewald parameters are computed automatically.
@@ -142,13 +138,13 @@ export struct ForceField
   PotentialEnergySurfaceType potentialEnergySurfaceType{PotentialEnergySurfaceType::SecondOrderPolynomialTestFunction};
   double3 potentialEnergySurfaceOrigin{0.0, 0.0, 0.0};
 
-  std::vector<size_t> gridPseudoAtomIndices;
-  double spacingVDWGrid{ 0.15 };
-  double spacingCoulombGrid{ 0.15 };
+  std::vector<std::size_t> gridPseudoAtomIndices;
+  double spacingVDWGrid{0.15};
+  double spacingCoulombGrid{0.15};
   std::optional<int3> numberOfVDWGridPoints{};
   std::optional<int3> numberOfCoulombGridPoints{};
-  size_t numberOfGridTestPoints{ 100000 };
-  bool interpolationSchemeAuto{ true };
+  std::size_t numberOfGridTestPoints{100000};
+  bool interpolationSchemeAuto{true};
   InterpolationScheme interpolationScheme{InterpolationScheme::Polynomial};
 
   /**
@@ -185,9 +181,12 @@ export struct ForceField
    */
   ForceField(std::string filePath) noexcept(false);
 
-  VDWParameters &operator()(size_t row, size_t col) { return data[row * numberOfPseudoAtoms + col]; }
-  const VDWParameters &operator[](size_t row) const { return data[row * numberOfPseudoAtoms + row]; }
-  const VDWParameters &operator()(size_t row, size_t col) const { return data[row * numberOfPseudoAtoms + col]; }
+  VDWParameters &operator()(std::size_t row, std::size_t col) { return data[row * numberOfPseudoAtoms + col]; }
+  const VDWParameters &operator[](std::size_t row) const { return data[row * numberOfPseudoAtoms + row]; }
+  const VDWParameters &operator()(std::size_t row, std::size_t col) const
+  {
+    return data[row * numberOfPseudoAtoms + col];
+  }
   bool operator==(const ForceField &other) const;
 
   /**
@@ -205,7 +204,7 @@ export struct ForceField
    * \param j Index of the second pseudo-atom.
    * \return The cut-off distance for VDW interactions.
    */
-  double cutOffVDW(size_t i, size_t j) const;
+  double cutOffVDW(std::size_t i, std::size_t j) const;
 
   /**
    * \brief Pre-computes the potential shift for interactions.
@@ -241,7 +240,6 @@ export struct ForceField
    * \return A string representing the pseudo-atom status.
    */
   std::string printPseudoAtomStatus() const;
-
 
   std::string printCutOffAutoStatus() const;
 
@@ -280,7 +278,7 @@ export struct ForceField
    * \param name Name of the pseudo-atom.
    * \return Optional index of the pseudo-atom.
    */
-  std::optional<size_t> findPseudoAtom(const std::string &name) const;
+  std::optional<std::size_t> findPseudoAtom(const std::string &name) const;
 
   /**
    * \brief Finds the index of a pseudo-atom by name in a given list.
@@ -291,7 +289,7 @@ export struct ForceField
    * \param name Name of the pseudo-atom.
    * \return Optional index of the pseudo-atom.
    */
-  static std::optional<size_t> findPseudoAtom(const std::vector<PseudoAtom> pseudoAtoms, const std::string &name);
+  static std::optional<std::size_t> findPseudoAtom(const std::vector<PseudoAtom> pseudoAtoms, const std::string &name);
 
   /**
    * \brief Initializes the Ewald parameters based on the simulation box.
@@ -316,7 +314,7 @@ export struct ForceField
    */
   std::string repr() const { return printPseudoAtomStatus() + "\n" + printForceFieldStatus(); }
 
-    /**
+  /**
    * \struct InsensitiveCompare
    * \brief Comparator for case-insensitive string comparison.
    *
@@ -345,7 +343,7 @@ export struct ForceField
     }
   };
 
-  void validateInput(const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data);
+  void validateInput(const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data);
 
   // Static Member Variables
 

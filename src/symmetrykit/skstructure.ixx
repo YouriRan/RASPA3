@@ -13,12 +13,7 @@ module;
 export module skstructure;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstdlib>;
-import <vector>;
-import <optional>;
-import <string>;
-import <set>;
-import <memory>;
+import std;
 #endif
 
 import int3;
@@ -45,7 +40,7 @@ export class SKStructure
 
   SKStructure() : cell(std::make_shared<SKCell>()) {};
 
-  enum class Kind : int64_t
+  enum class Kind : std::int64_t
   {
     none = -1,
     object = 0,

@@ -11,18 +11,8 @@ module;
 
 export module double3;
 
-// #if defined(WIN32)
-// import <intrin.h>;
-// #elif defined(__AVX__)
-// import <immintrin.h>;
-// #endif
-
 #ifndef USE_LEGACY_HEADERS
-import <cmath>;
-import <algorithm>;
-import <ostream>;
-import <fstream>;
-import <string>;
+import std;
 #endif
 
 import int3;
@@ -54,10 +44,10 @@ export union double3
 
   bool operator==(double3 const& rhs) const { return (x == rhs.x) && (y == rhs.y) && (z == rhs.z); }
 
-  inline double& operator[](size_t i) { return v[i]; }
-  inline const double& operator[](size_t i) const { return v[i]; }
+  inline double& operator[](std::size_t i) { return v[i]; }
+  inline const double& operator[](std::size_t i) const { return v[i]; }
 
-  double3 normalise();
+  double3 normalized();
   double3 fract() const;
 
   inline double length() { return std::sqrt(x * x + y * y + z * z); }
@@ -67,7 +57,7 @@ export union double3
   inline static double3 rint(double3 const& v) { return double3(std::rint(v.x), std::rint(v.y), std::rint(v.z)); }
   inline static double3 fract(double3 const& v)
   {
-    return double3(v.x - floor(v.x), v.y - floor(v.y), v.z - floor(v.z));
+    return double3(v.x - std::floor(v.x), v.y - std::floor(v.y), v.z - std::floor(v.z));
   }
   inline static double dot(const double3& v1, const double3& v2)
   {
@@ -93,7 +83,9 @@ export union double3
   }
   inline static double3 cross(const double3& v1, const double3& v2)
   {
-    return double3(v1.y * v2.z - v2.y * v1.z, v1.z * v2.x - v2.z * v1.x, v1.x * v2.y - v2.x * v1.y);
+    return double3(v1.y * v2.z - v1.z * v2.y, 
+                   v1.z * v2.x - v1.x * v2.z, 
+                   v1.x * v2.y - v1.y * v2.x);
   }
   inline static double3 normalize(const double3& v)
   {
@@ -117,6 +109,55 @@ export union double3
     z = std::clamp(z, low, high);
   }
 
+  inline static double3 perpendicular(double3 u, double3 v)
+  {
+    double3 w;
+ 
+    std::array<double, 3> denominator = { std::fabs(u.z * v.y - u.y * v.z),
+                                          std::fabs(u.z * v.x - u.x * v.z),
+                                          std::fabs(u.y * v.x - u.x * v.y) };
+
+    std::array<double, 3>::iterator maximum = std::max_element(denominator.begin(), denominator.end());
+
+    if(*maximum < 1e-10)
+    {
+      // u and v are parallel
+      // https://math.stackexchange.com/questions/137362/how-to-find-perpendicular-vector-to-another-vector
+      w = double3(std::copysign(u[2], u[0]),
+                  std::copysign(u[2], u[1]),
+                 -std::copysign(u[0], u[2]) - std::copysign(u[1], u[2]));
+      return w.normalized();
+    }
+
+    std::size_t choise = std::distance(denominator.begin(), maximum);
+  
+    switch(choise)
+    {
+      case 0:
+        // u * z == 0 && v * z == 0, solving for y and z (and x can be chosen freely)
+        w.x = 1.0;
+        w.y = (u.x * v.z - u.z * v.x) / denominator[0];
+        w.z = (u.x * v.y - u.y * v.x) / denominator[0];
+        break;
+      case 1:
+        // u * z == 0 && v * z == 0, solving for x and z (and y can be chosen freely)
+        w.x = (u.y * v.z - u.z * v.y) / denominator[1];
+        w.y = 1.0;
+        w.z = (u.x * v.y - u.y * v.x) / denominator[1];
+        break;
+      case 2:
+        // u * z == 0 && v * z == 0, solving for x and y (and z can be chosen freely)
+        w.x = (u.z * v.y - u.y * v.z) / denominator[2];
+        w.y = (u.x * v.z - u.z * v.x) / denominator[2];
+        w.z = 1.0;
+        break;
+      default:
+        std::unreachable();
+    }
+  
+    return w.normalized();
+  }
+
   double3 operator-() const { return double3(-this->x, -this->y, -this->z); }
   double3& operator+=(const double3& b)
   {
@@ -128,16 +169,26 @@ export union double3
     this->x -= b.x, this->y -= b.y, this->z -= b.z;
     return *this;
   }
+  double3& operator*=(const double& b)
+  {
+    this->x *= b, this->y *= b, this->z *= b;
+    return *this;
+  }
+  double3& operator/=(const double& b)
+  {
+    this->x /= b, this->y /= b, this->z /= b;
+    return *this;
+  }
 
   friend std::ostream& operator<<(std::ostream& out, const double3& vec);
 
   struct KeyHash
   {
-    size_t operator()(const double3& k) const
+    std::size_t operator()(const double3& k) const
     {
-      size_t h1 = std::hash<double>()(k.x);
-      size_t h2 = std::hash<double>()(k.y);
-      size_t h3 = std::hash<double>()(k.z);
+      std::size_t h1 = std::hash<double>()(k.x);
+      std::size_t h2 = std::hash<double>()(k.y);
+      std::size_t h3 = std::hash<double>()(k.z);
       return (h1 ^ (h2 << 1)) ^ h3;
     }
   };

@@ -10,10 +10,7 @@ module;
 export module mc_moves_widom;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <tuple>;
+import std;
 #endif
 
 import double3;
@@ -36,5 +33,5 @@ export namespace MC_Moves
  * \param selectedComponent Index of the component to perform the Widom move on.
  * \return The Widom insertion weight if successful, or std::nullopt if the move was rejected.
  */
-std::pair<double, double> WidomMove(RandomNumber& random, System& system, size_t selectedComponent);
+std::pair<double, double> WidomMove(RandomNumber& random, System& system, std::size_t selectedComponent);
 }  // namespace MC_Moves

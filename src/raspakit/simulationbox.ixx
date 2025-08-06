@@ -19,18 +19,7 @@ module;
 export module simulationbox;
 
 #ifndef USE_LEGACY_HEADERS
-import <numbers>;
-import <string>;
-import <iostream>;
-import <cmath>;
-import <algorithm>;
-import <istream>;
-import <ostream>;
-import <sstream>;
-import <fstream>;
-import <type_traits>;
-import <map>;
-import <functional>;
+import std;
 #endif
 
 import archive;
@@ -220,7 +209,7 @@ export struct SimulationBox
    *
    * \return A double3 containing the lengths (lengthA, lengthB, lengthC).
    */
-  double3 lengths();
+  double3 lengths() const;
   /**
    * \brief Retrieves the angles of the simulation box.
    *
@@ -228,7 +217,7 @@ export struct SimulationBox
    *
    * \return A double3 containing the angles (angleAlpha, angleBeta, angleGamma) in radians.
    */
-  double3 angles();
+  double3 angles() const;
   /**
    * \brief Generates a random position within the simulation box.
    *
@@ -278,7 +267,7 @@ export struct SimulationBox
    */
   nlohmann::json jsonStatus() const;
 
-  uint64_t versionNumber{1};
+  std::uint64_t versionNumber{1};
   double lengthA;
   double lengthB;
   double lengthC;
@@ -318,11 +307,11 @@ export struct SimulationBox
     lengthB *= scale;
     lengthC *= scale;
 
-    double temp = (cos(angleAlpha) - cos(angleGamma) * cos(angleBeta)) / sin(angleGamma);
+    double temp = (std::cos(angleAlpha) - std::cos(angleGamma) * std::cos(angleBeta)) / std::sin(angleGamma);
     double3 v1 = double3(lengthA, 0.0, 0.0);
-    double3 v2 = double3(lengthB * cos(angleGamma), lengthB * sin(angleGamma), 0.0);
-    double3 v3 = double3(lengthC * cos(angleBeta), lengthC * temp,
-                         lengthC * sqrt(1.0 - cos(angleBeta) * cos(angleBeta) - temp * temp));
+    double3 v2 = double3(lengthB * std::cos(angleGamma), lengthB * std::sin(angleGamma), 0.0);
+    double3 v3 = double3(lengthC * std::cos(angleBeta), lengthC * temp,
+                         lengthC * std::sqrt(1.0 - std::cos(angleBeta) * std::cos(angleBeta) - temp * temp));
     cell = double3x3(v1, v2, v3);
     inverseCell = cell.inverse();
     volume = cell.determinant();
@@ -342,11 +331,11 @@ export struct SimulationBox
     lengthB *= static_cast<double>(scale.y);
     lengthC *= static_cast<double>(scale.z);
 
-    double temp = (cos(angleAlpha) - cos(angleGamma) * cos(angleBeta)) / sin(angleGamma);
+    double temp = (std::cos(angleAlpha) - std::cos(angleGamma) * std::cos(angleBeta)) / std::sin(angleGamma);
     double3 v1 = double3(lengthA, 0.0, 0.0);
-    double3 v2 = double3(lengthB * cos(angleGamma), lengthB * sin(angleGamma), 0.0);
-    double3 v3 = double3(lengthC * cos(angleBeta), lengthC * temp,
-                         lengthC * sqrt(1.0 - cos(angleBeta) * cos(angleBeta) - temp * temp));
+    double3 v2 = double3(lengthB * std::cos(angleGamma), lengthB * std::sin(angleGamma), 0.0);
+    double3 v3 = double3(lengthC * std::cos(angleBeta), lengthC * temp,
+                         lengthC * std::sqrt(1.0 - std::cos(angleBeta) * std::cos(angleBeta) - temp * temp));
     cell = double3x3(v1, v2, v3);
     inverseCell = cell.inverse();
     volume = cell.determinant();
@@ -372,11 +361,11 @@ export struct SimulationBox
     v.angleBeta = angleBeta;
     v.angleGamma = angleGamma;
 
-    double temp = (cos(v.angleAlpha) - cos(v.angleGamma) * cos(v.angleBeta)) / sin(v.angleGamma);
+    double temp = (std::cos(v.angleAlpha) - std::cos(v.angleGamma) * std::cos(v.angleBeta)) / std::sin(v.angleGamma);
     double3 v1 = double3(v.lengthA, 0.0, 0.0);
-    double3 v2 = double3(v.lengthB * cos(v.angleGamma), v.lengthB * sin(v.angleGamma), 0.0);
-    double3 v3 = double3(v.lengthC * cos(v.angleBeta), v.lengthC * temp,
-                         v.lengthC * sqrt(1.0 - cos(v.angleBeta) * cos(v.angleBeta) - temp * temp));
+    double3 v2 = double3(v.lengthB * std::cos(v.angleGamma), v.lengthB * std::sin(v.angleGamma), 0.0);
+    double3 v3 = double3(v.lengthC * std::cos(v.angleBeta), v.lengthC * temp,
+                         v.lengthC * std::sqrt(1.0 - std::cos(v.angleBeta) * std::cos(v.angleBeta) - temp * temp));
     v.cell = double3x3(v1, v2, v3);
     v.inverseCell = v.cell.inverse();
     v.volume = v.cell.determinant();
@@ -405,11 +394,11 @@ export struct SimulationBox
     v.angleBeta = angleBeta;
     v.angleGamma = angleGamma;
 
-    double temp = (cos(v.angleAlpha) - cos(v.angleGamma) * cos(v.angleBeta)) / sin(v.angleGamma);
+    double temp = (std::cos(v.angleAlpha) - std::cos(v.angleGamma) * std::cos(v.angleBeta)) / std::sin(v.angleGamma);
     double3 v1 = double3(v.lengthA, 0.0, 0.0);
-    double3 v2 = double3(v.lengthB * cos(v.angleGamma), v.lengthB * sin(v.angleGamma), 0.0);
-    double3 v3 = double3(v.lengthC * cos(v.angleBeta), v.lengthC * temp,
-                         v.lengthC * sqrt(1.0 - cos(v.angleBeta) * cos(v.angleBeta) - temp * temp));
+    double3 v2 = double3(v.lengthB * std::cos(v.angleGamma), v.lengthB * std::sin(v.angleGamma), 0.0);
+    double3 v3 = double3(v.lengthC * std::cos(v.angleBeta), v.lengthC * temp,
+                         v.lengthC * std::sqrt(1.0 - std::cos(v.angleBeta) * std::cos(v.angleBeta) - temp * temp));
     v.cell = double3x3(v1, v2, v3);
     v.inverseCell = v.cell.inverse();
     v.volume = v.cell.determinant();
@@ -573,7 +562,7 @@ export void from_json(const nlohmann::json& j, SimulationBox& b)
   b.angleBeta *= std::numbers::pi * 90.0 / 180.0;
   b.angleGamma *= std::numbers::pi * 90.0 / 180.0;
 
-  double temp = (cos(b.angleAlpha) - std::cos(b.angleGamma) * std::cos(b.angleBeta)) / std::sin(b.angleGamma);
+  double temp = (std::cos(b.angleAlpha) - std::cos(b.angleGamma) * std::cos(b.angleBeta)) / std::sin(b.angleGamma);
 
   double3 v1 = double3(b.lengthA, 0.0, 0.0);
   double3 v2 = double3(b.lengthB * std::cos(b.angleGamma), b.lengthB * std::sin(b.angleGamma), 0.0);

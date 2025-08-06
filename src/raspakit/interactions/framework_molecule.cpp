@@ -21,20 +21,7 @@ module;
 module interactions_framework_molecule;
 
 #ifndef USE_LEGACY_HEADERS
-import <numbers>;
-import <optional>;
-import <iostream>;
-import <algorithm>;
-import <vector>;
-import <span>;
-import <cmath>;
-import <thread>;
-import <future>;
-import <deque>;
-import <semaphore>;
-import <atomic>;
-import <utility>;
-import <limits>;
+import std;
 #endif
 
 import double3;
@@ -91,13 +78,14 @@ RunningEnergy Interactions::computeFrameworkMoleculeEnergy(
   for (std::span<const Atom>::iterator it2 = moleculeAtoms.begin(); it2 != moleculeAtoms.end(); ++it2)
   {
     posB = it2->position;
-    size_t typeB = static_cast<size_t>(it2->type);
+    std::size_t typeB = static_cast<std::size_t>(it2->type);
     bool groupIdB = static_cast<bool>(it2->groupId);
+    bool isFractional = static_cast<bool>(it2->isFractional);
     double scalingVDWB = it2->scalingVDW;
     double scaleCoulombB = it2->scalingCoulomb;
     double chargeB = it2->charge;
 
-    if (interpolationGrids[typeB].has_value() && (groupIdB == 0))
+    if (interpolationGrids[typeB].has_value() && !isFractional)
     {
       energySum.frameworkMoleculeVDW += interpolationGrids[typeB]->interpolate(posB);
       if (useCharge)
@@ -110,7 +98,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeEnergy(
       for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
       {
         posA = it1->position;
-        size_t typeA = static_cast<size_t>(it1->type);
+        std::size_t typeA = static_cast<std::size_t>(it1->type);
         bool groupIdA = static_cast<bool>(it1->groupId);
         double scalingVDWA = it1->scalingVDW;
         double scaleCoulombA = it1->scalingCoulomb;
@@ -153,13 +141,13 @@ RunningEnergy Interactions::computeFrameworkMoleculeTailEnergy(const ForceField 
   double preFactor = 2.0 * std::numbers::pi / simulationBox.volume;
   for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
   {
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
 
     for (std::span<const Atom>::iterator it2 = moleculeAtoms.begin(); it2 != moleculeAtoms.end(); ++it2)
     {
-      size_t typeB = static_cast<size_t>(it2->type);
+      std::size_t typeB = static_cast<std::size_t>(it2->type);
       bool groupIdB = static_cast<bool>(it2->groupId);
       double scalingVDWB = it2->scalingVDW;
 
@@ -193,161 +181,17 @@ RunningEnergy Interactions::computeFrameworkMoleculeTailEnergy(const ForceField 
   const double cutOffFrameworkVDWSquared = forceField.cutOffFrameworkVDW * forceField.cutOffFrameworkVDW;
   const double cutOffChargeSquared = forceField.cutOffCoulomb * forceField.cutOffCoulomb;
 
-  std::vector<uint8_t> forceExplicit(std::max(newatoms.size(), oldatoms.size()));
-  for (std::size_t i = 0; i < newatoms.size(); ++i)
-  {
-    forceExplicit[i] = newatoms[i].groupId;
-  }
-  for (std::size_t i = 0; i < oldatoms.size(); ++i)
-  {
-    forceExplicit[i] = forceExplicit[i] || oldatoms[i].groupId;
-  }
-
-  for (size_t i = 0; i < newatoms.size(); ++i)
-  {
-    const Atom &atom = newatoms[i];
-    double3 posB = atom.position;
-    size_t typeB = static_cast<size_t>(atom.type);
-    bool groupIdB = static_cast<bool>(atom.groupId);
-    double scalingVDWB = atom.scalingVDW;
-    double scalingCoulombB = atom.scalingCoulomb;
-    double chargeB = atom.charge;
-
-    if (interpolationGrids[typeB].has_value() && !forceExplicit[i])
-    {
-      double energy = interpolationGrids[typeB]->interpolate(posB);
-      if (energy > overlapCriteria)
-      {
-        return std::nullopt;
-      }
-      energySum.frameworkMoleculeVDW += energy;
-      if (useCharge)
-      {
-        energySum.frameworkMoleculeCharge += chargeB * interpolationGrids.back()->interpolate(posB);
-      }
-    }
-    else
-    {
-      for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
-      {
-        double3 posA = it1->position;
-        size_t typeA = static_cast<size_t>(it1->type);
-        bool groupIdA = static_cast<bool>(it1->groupId);
-        double scalingVDWA = it1->scalingVDW;
-        double scalingCoulombA = it1->scalingCoulomb;
-        double chargeA = it1->charge;
-
-        dr = posA - posB;
-        dr = simulationBox.applyPeriodicBoundaryConditions(dr);
-        rr = double3::dot(dr, dr);
-
-        if (rr < cutOffFrameworkVDWSquared)
-        {
-          Potentials::EnergyFactor energyFactor = Potentials::potentialVDWEnergy(
-              forceField, groupIdA, groupIdB, scalingVDWA, scalingVDWB, rr, typeA, typeB);
-          if (energyFactor.energy > overlapCriteria) return std::nullopt;
-
-          energySum.frameworkMoleculeVDW += energyFactor.energy;
-          energySum.dudlambdaVDW += energyFactor.dUdlambda;
-        }
-        if (useCharge && rr < cutOffChargeSquared)
-        {
-          double r = std::sqrt(rr);
-          Potentials::EnergyFactor energyFactor = Potentials::potentialCoulombEnergy(
-              forceField, groupIdA, groupIdB, scalingCoulombA, scalingCoulombB, r, chargeA, chargeB);
-
-          energySum.frameworkMoleculeCharge += energyFactor.energy;
-          energySum.dudlambdaCharge += energyFactor.dUdlambda;
-        }
-      }
-    }
-  }
-
-  for (size_t i = 0; i < oldatoms.size(); ++i)
-  {
-    const Atom &atom = oldatoms[i];
-    double3 posB = atom.position;
-    size_t typeB = static_cast<size_t>(atom.type);
-    bool groupIdB = static_cast<bool>(atom.groupId);
-    double scalingVDWB = atom.scalingVDW;
-    double scalingCoulombB = atom.scalingCoulomb;
-    double chargeB = atom.charge;
-
-    if (interpolationGrids[typeB].has_value() && !forceExplicit[i])
-    {
-      energySum.frameworkMoleculeVDW -= interpolationGrids[typeB]->interpolate(posB);
-      if (useCharge)
-      {
-        energySum.frameworkMoleculeCharge -= chargeB * interpolationGrids.back()->interpolate(posB);
-      }
-    }
-    else
-    {
-      for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
-      {
-        double3 posA = it1->position;
-        size_t typeA = static_cast<size_t>(it1->type);
-        bool groupIdA = static_cast<bool>(it1->groupId);
-        double scalingVDWA = it1->scalingVDW;
-        double scalingCoulombA = it1->scalingCoulomb;
-        double chargeA = it1->charge;
-
-        dr = posA - posB;
-        dr = simulationBox.applyPeriodicBoundaryConditions(dr);
-        rr = double3::dot(dr, dr);
-
-        if (rr < cutOffFrameworkVDWSquared)
-        {
-          Potentials::EnergyFactor energyFactor = Potentials::potentialVDWEnergy(
-              forceField, groupIdA, groupIdB, scalingVDWA, scalingVDWB, rr, typeA, typeB);
-
-          energySum.frameworkMoleculeVDW -= energyFactor.energy;
-          energySum.dudlambdaVDW -= energyFactor.dUdlambda;
-        }
-        if (useCharge && rr < cutOffChargeSquared)
-        {
-          double r = std::sqrt(rr);
-          Potentials::EnergyFactor energyFactor = Potentials::potentialCoulombEnergy(
-              forceField, groupIdA, groupIdB, scalingCoulombA, scalingCoulombB, r, chargeA, chargeB);
-
-          energySum.frameworkMoleculeCharge -= energyFactor.energy;
-          energySum.dudlambdaCharge -= energyFactor.dUdlambda;
-        }
-      }
-    }
-  }
-
-  return std::optional{energySum};
-}
-
-[[nodiscard]] std::optional<RunningEnergy> Interactions::computeFrameworkMoleculeEnergyDifferenceOriginal(
-    const ForceField &forceField, const SimulationBox &simulationBox,
-    const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
-    const std::optional<Framework> framework, std::span<const Atom> frameworkAtoms, std::span<const Atom> newatoms,
-    std::span<const Atom> oldatoms) noexcept
-{
-  double3 dr, s, t;
-  double rr;
-
-  RunningEnergy energySum{};
-
-  if (!framework.has_value()) return energySum;
-
-  bool useCharge = forceField.useCharge;
-  const double overlapCriteria = forceField.overlapCriteria;
-  const double cutOffFrameworkVDWSquared = forceField.cutOffFrameworkVDW * forceField.cutOffFrameworkVDW;
-  const double cutOffChargeSquared = forceField.cutOffCoulomb * forceField.cutOffCoulomb;
-
   for (auto &atom : newatoms)
   {
     double3 posB = atom.position;
-    size_t typeB = static_cast<size_t>(atom.type);
+    std::size_t typeB = static_cast<std::size_t>(atom.type);
     bool groupIdB = static_cast<bool>(atom.groupId);
+    bool isFractional = static_cast<bool>(atom.isFractional);
     double scalingVDWB = atom.scalingVDW;
     double scalingCoulombB = atom.scalingCoulomb;
     double chargeB = atom.charge;
 
-    if (interpolationGrids[typeB].has_value() && !groupIdB)
+    if (interpolationGrids[typeB].has_value() && !isFractional)
     {
       double energy = interpolationGrids[typeB]->interpolate(posB);
       if (energy > overlapCriteria)
@@ -365,7 +209,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeTailEnergy(const ForceField 
       for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
       {
         double3 posA = it1->position;
-        size_t typeA = static_cast<size_t>(it1->type);
+        std::size_t typeA = static_cast<std::size_t>(it1->type);
         bool groupIdA = static_cast<bool>(it1->groupId);
         double scalingVDWA = it1->scalingVDW;
         double scalingCoulombA = it1->scalingCoulomb;
@@ -400,13 +244,14 @@ RunningEnergy Interactions::computeFrameworkMoleculeTailEnergy(const ForceField 
   for (auto &atom : oldatoms)
   {
     double3 posB = atom.position;
-    size_t typeB = static_cast<size_t>(atom.type);
+    std::size_t typeB = static_cast<std::size_t>(atom.type);
     bool groupIdB = static_cast<bool>(atom.groupId);
+    bool isFractional = static_cast<bool>(atom.isFractional);
     double scalingVDWB = atom.scalingVDW;
     double scalingCoulombB = atom.scalingCoulomb;
     double chargeB = atom.charge;
 
-    if (interpolationGrids[typeB].has_value() && !groupIdB)
+    if (interpolationGrids[typeB].has_value() && !isFractional)
     {
       energySum.frameworkMoleculeVDW -= interpolationGrids[typeB]->interpolate(posB);
       if (useCharge)
@@ -419,7 +264,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeTailEnergy(const ForceField 
       for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
       {
         double3 posA = it1->position;
-        size_t typeA = static_cast<size_t>(it1->type);
+        std::size_t typeA = static_cast<std::size_t>(it1->type);
         bool groupIdA = static_cast<bool>(it1->groupId);
         double scalingVDWA = it1->scalingVDW;
         double scalingCoulombA = it1->scalingCoulomb;
@@ -453,74 +298,173 @@ RunningEnergy Interactions::computeFrameworkMoleculeTailEnergy(const ForceField 
   return std::optional{energySum};
 }
 
-[[nodiscard]] std::optional<RunningEnergy> Interactions::computeFrameworkMoleculeEnergyDifferenceInterpolationExplicit(
+std::optional<RunningEnergy> Interactions::computeFrameworkMoleculeEnergyDifference(
     const ForceField &forceField, const SimulationBox &simulationBox,
-    const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
-    const std::optional<Framework> framework, std::span<const Atom> frameworkAtoms,
-    std::span<const Atom> atoms) noexcept
+    [[maybe_unused]] const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
+    [[maybe_unused]] const std::optional<Framework> framework, std::span<const Atom> frameworkAtoms,
+    std::span<double3> electricFieldMoleculeNew, std::span<double3> electricFieldMoleculeOld,
+    std::span<const Atom> newatoms, std::span<const Atom> oldatoms) noexcept
 {
-  double3 dr, posA, posB, f;
+  double3 dr, s, t;
   double rr;
+
   RunningEnergy energySum{};
 
   bool useCharge = forceField.useCharge;
+  const double overlapCriteria = forceField.overlapCriteria;
   const double cutOffFrameworkVDWSquared = forceField.cutOffFrameworkVDW * forceField.cutOffFrameworkVDW;
   const double cutOffChargeSquared = forceField.cutOffCoulomb * forceField.cutOffCoulomb;
 
-  if (!framework.has_value()) return energySum;
-  if (atoms.empty()) return energySum;
-
-  for (std::span<const Atom>::iterator it2 = atoms.begin(); it2 != atoms.end(); ++it2)
+  for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
   {
-    posB = it2->position;
-    size_t typeB = static_cast<size_t>(it2->type);
-    bool groupIdB = static_cast<bool>(it2->groupId);
-    double scalingVDWB = it2->scalingVDW;
-    double scaleCoulombB = it2->scalingCoulomb;
-    double chargeB = it2->charge;
+    double3 posA = it1->position;
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
+    bool groupIdA = static_cast<bool>(it1->groupId);
+    double scalingVDWA = it1->scalingVDW;
+    double scalingCoulombA = it1->scalingCoulomb;
+    double chargeA = it1->charge;
 
-    if (interpolationGrids[typeB].has_value() && !groupIdB)
+    for (std::span<const Atom>::iterator it2 = newatoms.begin(); it2 != newatoms.end(); ++it2)
     {
-      energySum.frameworkMoleculeVDW -= interpolationGrids[typeB]->interpolate(posB);
-      if (useCharge)
+      std::size_t indexB = static_cast<std::size_t>(std::distance(newatoms.begin(), it2));
+      double3 posB = it2->position;
+      std::size_t typeB = static_cast<std::size_t>(it2->type);
+      bool groupIdB = static_cast<bool>(it2->groupId);
+      double scalingVDWB = it2->scalingVDW;
+      double scalingCoulombB = it2->scalingCoulomb;
+      double chargeB = it2->charge;
+
+      dr = posA - posB;
+      dr = simulationBox.applyPeriodicBoundaryConditions(dr);
+      rr = double3::dot(dr, dr);
+      if (rr < cutOffFrameworkVDWSquared)
       {
-        energySum.frameworkMoleculeCharge -= chargeB * interpolationGrids.back()->interpolate(posB);
+        Potentials::EnergyFactor energyFactor =
+            Potentials::potentialVDWEnergy(forceField, groupIdA, groupIdB, scalingVDWA, scalingVDWB, rr, typeA, typeB);
+        if (energyFactor.energy > overlapCriteria) return std::nullopt;
+
+        energySum.frameworkMoleculeVDW += energyFactor.energy;
+        energySum.dudlambdaVDW += energyFactor.dUdlambda;
       }
-
-      for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
+      if (useCharge && rr < cutOffChargeSquared)
       {
-        posA = it1->position;
-        size_t typeA = static_cast<size_t>(it1->type);
-        bool groupIdA = static_cast<bool>(it1->groupId);
-        double scalingVDWA = it1->scalingVDW;
-        double scaleCoulombA = it1->scalingCoulomb;
-        double chargeA = it1->charge;
+        double r = std::sqrt(rr);
+        Potentials::EnergyFactor energyFactor = Potentials::potentialCoulombEnergy(
+            forceField, groupIdA, groupIdB, scalingCoulombA, scalingCoulombB, r, chargeA, chargeB);
 
-        dr = posA - posB;
-        dr = simulationBox.applyPeriodicBoundaryConditions(dr);
-        rr = double3::dot(dr, dr);
+        energySum.frameworkMoleculeCharge += energyFactor.energy;
+        energySum.dudlambdaCharge += energyFactor.dUdlambda;
 
-        if (rr < cutOffFrameworkVDWSquared)
-        {
-          Potentials::EnergyFactor energyFactor = Potentials::potentialVDWEnergy(
-              forceField, groupIdA, groupIdB, scalingVDWA, scalingVDWB, rr, typeA, typeB);
+        Potentials::GradientFactor gradientFactor =
+            scalingCoulombA * chargeA *
+            Potentials::potentialCoulombGradient(forceField, groupIdA, groupIdB, 1.0, 1.0, r, 1.0, 1.0);
+        electricFieldMoleculeNew[indexB] += gradientFactor.gradientFactor * dr;
+      }
+    }
 
-          energySum.frameworkMoleculeVDW += energyFactor.energy;
-          energySum.dudlambdaVDW += energyFactor.dUdlambda;
-        }
-        if (useCharge && rr < cutOffChargeSquared)
-        {
-          double r = std::sqrt(rr);
-          Potentials::EnergyFactor energyFactor = Potentials::potentialCoulombEnergy(
-              forceField, groupIdA, groupIdB, scaleCoulombA, scaleCoulombB, r, chargeA, chargeB);
+    for (std::span<const Atom>::iterator it2 = oldatoms.begin(); it2 != oldatoms.end(); ++it2)
+    {
+      std::size_t indexB = static_cast<std::size_t>(std::distance(oldatoms.begin(), it2));
+      double3 posB = it2->position;
+      std::size_t typeB = static_cast<std::size_t>(it2->type);
+      bool groupIdB = static_cast<bool>(it2->groupId);
+      double scalingVDWB = it2->scalingVDW;
+      double scalingCoulombB = it2->scalingCoulomb;
+      double chargeB = it2->charge;
 
-          energySum.frameworkMoleculeCharge += energyFactor.energy;
-          energySum.dudlambdaCharge += energyFactor.dUdlambda;
-        }
+      dr = posA - posB;
+      dr = simulationBox.applyPeriodicBoundaryConditions(dr);
+      rr = double3::dot(dr, dr);
+
+      if (rr < cutOffFrameworkVDWSquared)
+      {
+        Potentials::EnergyFactor energyFactor =
+            Potentials::potentialVDWEnergy(forceField, groupIdA, groupIdB, scalingVDWA, scalingVDWB, rr, typeA, typeB);
+
+        energySum.frameworkMoleculeVDW -= energyFactor.energy;
+        energySum.dudlambdaVDW -= energyFactor.dUdlambda;
+      }
+      if (useCharge && rr < cutOffChargeSquared)
+      {
+        double r = std::sqrt(rr);
+        Potentials::EnergyFactor energyFactor = Potentials::potentialCoulombEnergy(
+            forceField, groupIdA, groupIdB, scalingCoulombA, scalingCoulombB, r, chargeA, chargeB);
+
+        energySum.frameworkMoleculeCharge -= energyFactor.energy;
+        energySum.dudlambdaCharge -= energyFactor.dUdlambda;
+
+        Potentials::GradientFactor gradientFactor =
+            scalingCoulombA * chargeA *
+            Potentials::potentialCoulombGradient(forceField, groupIdA, groupIdB, 1.0, 1.0, r, 1.0, 1.0);
+        electricFieldMoleculeOld[indexB] -= gradientFactor.gradientFactor * dr;
       }
     }
   }
-  return energySum;
+
+  return std::optional{energySum};
+}
+
+void Interactions::computeFrameworkMoleculeElectricFieldDifference(
+    const ForceField &forceField, const SimulationBox &simulationBox, std::span<const Atom> frameworkAtoms,
+    std::span<double3> electricFieldMoleculeNew, std::span<double3> electricFieldMoleculeOld,
+    std::span<const Atom> newatoms, std::span<const Atom> oldatoms) noexcept
+{
+  double3 dr, s, t;
+  double rr;
+
+  RunningEnergy energySum{};
+
+  bool useCharge = forceField.useCharge;
+  const double cutOffChargeSquared = forceField.cutOffCoulomb * forceField.cutOffCoulomb;
+
+  for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
+  {
+    double3 posA = it1->position;
+    bool groupIdA = static_cast<bool>(it1->groupId);
+    double scalingCoulombA = it1->scalingCoulomb;
+    double chargeA = it1->charge;
+
+    for (std::span<const Atom>::iterator it2 = newatoms.begin(); it2 != newatoms.end(); ++it2)
+    {
+      std::size_t indexB = static_cast<std::size_t>(std::distance(newatoms.begin(), it2));
+      double3 posB = it2->position;
+      bool groupIdB = static_cast<bool>(it2->groupId);
+
+      dr = posA - posB;
+      dr = simulationBox.applyPeriodicBoundaryConditions(dr);
+      rr = double3::dot(dr, dr);
+      if (useCharge && rr < cutOffChargeSquared)
+      {
+        double r = std::sqrt(rr);
+
+        Potentials::GradientFactor gradientFactor =
+            scalingCoulombA * chargeA *
+            Potentials::potentialCoulombGradient(forceField, groupIdA, groupIdB, 1.0, 1.0, r, 1.0, 1.0);
+        electricFieldMoleculeNew[indexB] += gradientFactor.gradientFactor * dr;
+      }
+    }
+
+    for (std::span<const Atom>::iterator it2 = oldatoms.begin(); it2 != oldatoms.end(); ++it2)
+    {
+      std::size_t indexB = static_cast<std::size_t>(std::distance(oldatoms.begin(), it2));
+      double3 posB = it2->position;
+      bool groupIdB = static_cast<bool>(it2->groupId);
+
+      dr = posA - posB;
+      dr = simulationBox.applyPeriodicBoundaryConditions(dr);
+      rr = double3::dot(dr, dr);
+
+      if (useCharge && rr < cutOffChargeSquared)
+      {
+        double r = std::sqrt(rr);
+
+        Potentials::GradientFactor gradientFactor =
+            scalingCoulombA * chargeA *
+            Potentials::potentialCoulombGradient(forceField, groupIdA, groupIdB, 1.0, 1.0, r, 1.0, 1.0);
+        electricFieldMoleculeOld[indexB] -= gradientFactor.gradientFactor * dr;
+      }
+    }
+  }
 }
 
 [[nodiscard]] RunningEnergy Interactions::computeFrameworkMoleculeTailEnergyDifference(
@@ -533,13 +477,13 @@ RunningEnergy Interactions::computeFrameworkMoleculeTailEnergy(const ForceField 
 
   for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
   {
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
 
     for (const Atom &atom : newatoms)
     {
-      size_t typeB = static_cast<size_t>(atom.type);
+      std::size_t typeB = static_cast<std::size_t>(atom.type);
       bool groupIdB = static_cast<bool>(atom.groupId);
       double scalingVDWB = atom.scalingVDW;
 
@@ -550,7 +494,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeTailEnergy(const ForceField 
 
     for (const Atom &atom : oldatoms)
     {
-      size_t typeB = static_cast<size_t>(atom.type);
+      std::size_t typeB = static_cast<std::size_t>(atom.type);
       bool groupIdB = static_cast<bool>(atom.groupId);
       double scalingVDWB = atom.scalingVDW;
 
@@ -582,13 +526,14 @@ RunningEnergy Interactions::computeFrameworkMoleculeGradient(
   for (std::span<Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end(); ++it1)
   {
     posA = it1->position;
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
+    bool isFractional = static_cast<bool>(it1->isFractional);
     double scalingVDWA = it1->scalingVDW;
     double scalingCoulombA = it1->scalingCoulomb;
     double chargeA = it1->charge;
 
-    if (interpolationGrids[typeA].has_value() && (groupIdA == 0))
+    if (interpolationGrids[typeA].has_value() && !isFractional)
     {
       auto [energy_vdw, gradient_vdw] = interpolationGrids[typeA]->interpolateGradient(posA);
       energySum.frameworkMoleculeVDW += energy_vdw;
@@ -605,7 +550,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeGradient(
       for (std::span<Atom>::iterator it2 = frameworkAtoms.begin(); it2 != frameworkAtoms.end(); ++it2)
       {
         posB = it2->position;
-        size_t typeB = static_cast<size_t>(it2->type);
+        std::size_t typeB = static_cast<std::size_t>(it2->type);
         bool groupIdB = static_cast<bool>(it2->groupId);
         double scalingVDWB = it2->scalingVDW;
         double scalingCoulombB = it2->scalingCoulomb;
@@ -670,17 +615,18 @@ RunningEnergy Interactions::computeFrameworkMoleculeGradient(
   for (std::span<Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end(); ++it1)
   {
     posA = it1->position;
-    size_t compA = static_cast<size_t>(it1->componentId);
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t compA = static_cast<std::size_t>(it1->componentId);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
+    bool isFractional = static_cast<bool>(it1->isFractional);
     double scalingVDWA = it1->scalingVDW;
     double scalingCoulombA = it1->scalingCoulomb;
     double chargeA = it1->charge;
 
-    if (interpolationGrids[typeA].has_value() && (groupIdA == 0))
+    if (interpolationGrids[typeA].has_value() && !isFractional)
     {
       auto [energy_vdw, gradient_vdw] = interpolationGrids[typeA]->interpolateGradient(posA);
-      energy.frameworkComponentEnergy(compA, 0).VanDerWaals += Potentials::EnergyFactor(energy_vdw, 0.0);
+      energy.frameworkComponentEnergy(0, compA).VanDerWaals += Potentials::EnergyFactor(energy_vdw, 0.0);
       const double3 f = gradient_vdw;
 
       it1->gradient += f;
@@ -700,7 +646,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeGradient(
       if (useCharge)
       {
         auto [energy_real_ewald, gradient_real_ewald] = interpolationGrids.back()->interpolateGradient(posA);
-        energy.frameworkComponentEnergy(compA, 0).CoulombicReal +=
+        energy.frameworkComponentEnergy(0, compA).CoulombicReal +=
             Potentials::EnergyFactor(chargeA * energy_real_ewald, 0.0);
         const double3 g = chargeA * gradient_real_ewald;
 
@@ -724,8 +670,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeGradient(
       for (std::span<Atom>::iterator it2 = frameworkAtoms.begin(); it2 != frameworkAtoms.end(); ++it2)
       {
         posB = it2->position;
-        size_t compB = static_cast<size_t>(it2->componentId);
-        size_t typeB = static_cast<size_t>(it2->type);
+        std::size_t typeB = static_cast<std::size_t>(it2->type);
         bool groupIdB = static_cast<bool>(it2->groupId);
         double scalingVDWB = it2->scalingVDW;
         double scalingCoulombB = it2->scalingCoulomb;
@@ -737,15 +682,14 @@ RunningEnergy Interactions::computeFrameworkMoleculeGradient(
 
         Potentials::EnergyFactor temp(
             preFactor * scalingVDWA * scalingVDWB * forceField(typeB, typeA).tailCorrectionEnergy, 0.0);
-        energy.frameworkComponentEnergy(compB, compA).VanDerWaalsTailCorrection += 2.0 * temp;
+        energy.frameworkComponentEnergy(0, compA).VanDerWaalsTailCorrection += 2.0 * temp;
 
         if (rr < cutOffFrameworkVDWSquared)
         {
           Potentials::GradientFactor gradientFactor = Potentials::potentialVDWGradient(
               forceField, groupIdA, groupIdB, scalingVDWA, scalingVDWB, rr, typeA, typeB);
 
-          energy.frameworkComponentEnergy(compB, compA).VanDerWaals +=
-              Potentials::EnergyFactor(gradientFactor.energy, 0.0);
+          energy.frameworkComponentEnergy(0, compA).VanDerWaals += Potentials::EnergyFactor(gradientFactor.energy, 0.0);
 
           const double3 f = gradientFactor.gradientFactor * dr;
 
@@ -771,7 +715,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeGradient(
           Potentials::GradientFactor gradientFactor = Potentials::potentialCoulombGradient(
               forceField, groupIdA, groupIdB, scalingCoulombA, scalingCoulombB, r, chargeA, chargeB);
 
-          energy.frameworkComponentEnergy(compB, compA).CoulombicReal +=
+          energy.frameworkComponentEnergy(0, compA).CoulombicReal +=
               Potentials::EnergyFactor(gradientFactor.energy, 0.0);
 
           const double3 g = gradientFactor.gradientFactor * dr;
@@ -798,11 +742,11 @@ RunningEnergy Interactions::computeFrameworkMoleculeGradient(
   return std::make_pair(energy, strainDerivativeTensor);
 }
 
-void Interactions::computeFrameworkMoleculeElectricPotential(const ForceField &forceField,
-                                                             const SimulationBox &simulationBox,
-                                                             std::span<double> electricPotentialMolecules,
-                                                             std::span<const Atom> frameworkAtoms,
-                                                             std::span<const Atom> moleculeAtoms) noexcept
+void Interactions::computeFrameworkMoleculeElectrostaticPotential(const ForceField &forceField,
+                                                                  const SimulationBox &simulationBox,
+                                                                  std::span<double> electricPotentialMolecules,
+                                                                  std::span<const Atom> frameworkAtoms,
+                                                                  std::span<const Atom> moleculeAtoms) noexcept
 {
   double3 dr, posA, posB, f;
   double rr;
@@ -831,9 +775,10 @@ void Interactions::computeFrameworkMoleculeElectricPotential(const ForceField &f
       {
         double r = std::sqrt(rr);
 
-        size_t index = static_cast<size_t>(std::distance(moleculeAtoms.begin(), it2));
-        electricPotentialMolecules[index] +=
-            2.0 * Potentials::potentialElectrostatics(forceField, scalingCoulombA, r, chargeA);
+        double potential = Potentials::potentialElectrostatics(forceField, 1.0, r, 1.0);
+
+        std::size_t indexB = static_cast<std::size_t>(std::distance(moleculeAtoms.begin(), it2));
+        electricPotentialMolecules[indexB] += scalingCoulombA * chargeA * potential;
       }
     }
   }
@@ -860,7 +805,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeElectricField(const ForceFie
   for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
   {
     posA = it1->position;
-    size_t typeA = static_cast<size_t>(it1->type);
+    std::size_t typeA = static_cast<std::size_t>(it1->type);
     bool groupIdA = static_cast<bool>(it1->groupId);
     double scalingVDWA = it1->scalingVDW;
     double scalingCoulombA = it1->scalingCoulomb;
@@ -869,7 +814,7 @@ RunningEnergy Interactions::computeFrameworkMoleculeElectricField(const ForceFie
     for (std::span<const Atom>::iterator it2 = moleculeAtoms.begin(); it2 != moleculeAtoms.end(); ++it2)
     {
       posB = it2->position;
-      size_t typeB = static_cast<size_t>(it2->type);
+      std::size_t typeB = static_cast<std::size_t>(it2->type);
       bool groupIdB = static_cast<bool>(it2->groupId);
       double scalingVDWB = it2->scalingVDW;
       double scalingCoulombB = it2->scalingCoulomb;
@@ -899,8 +844,8 @@ RunningEnergy Interactions::computeFrameworkMoleculeElectricField(const ForceFie
         Potentials::GradientFactor gradientFactor =
             scalingCoulombA * chargeA *
             Potentials::potentialCoulombGradient(forceField, groupIdA, groupIdB, 1.0, 1.0, r, 1.0, 1.0);
-        size_t index = static_cast<size_t>(std::distance(moleculeAtoms.begin(), it2));
-        electricFieldMolecules[index] += 2.0 * gradientFactor.gradientFactor * dr;
+        std::size_t index = static_cast<std::size_t>(std::distance(moleculeAtoms.begin(), it2));
+        electricFieldMolecules[index] += gradientFactor.gradientFactor * dr;
       }
     }
   }
@@ -908,113 +853,9 @@ RunningEnergy Interactions::computeFrameworkMoleculeElectricField(const ForceFie
   return energySum;
 }
 
-std::optional<RunningEnergy> Interactions::computeFrameworkMoleculeElectricFieldDifference(
-    const ForceField &forceField, const SimulationBox &simulationBox, std::span<const Atom> frameworkAtoms,
-    std::span<double3> electricFieldMolecule, std::span<const Atom> newatoms, std::span<const Atom> oldatoms) noexcept
-{
-  double3 dr, s, t;
-  double rr;
-
-  RunningEnergy energySum{};
-
-  bool useCharge = forceField.useCharge;
-  const double overlapCriteria = forceField.overlapCriteria;
-  const double cutOffFrameworkVDWSquared = forceField.cutOffFrameworkVDW * forceField.cutOffFrameworkVDW;
-  const double cutOffChargeSquared = forceField.cutOffCoulomb * forceField.cutOffCoulomb;
-
-  for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
-  {
-    double3 posA = it1->position;
-    size_t typeA = static_cast<size_t>(it1->type);
-    bool groupIdA = static_cast<bool>(it1->groupId);
-    double scalingVDWA = it1->scalingVDW;
-    double scalingCoulombA = it1->scalingCoulomb;
-    double chargeA = it1->charge;
-
-    for (std::span<const Atom>::iterator it2 = newatoms.begin(); it2 != newatoms.end(); ++it2)
-    {
-      size_t indexB = static_cast<size_t>(std::distance(newatoms.begin(), it2));
-      double3 posB = it2->position;
-      size_t typeB = static_cast<size_t>(it2->type);
-      bool groupIdB = static_cast<bool>(it2->groupId);
-      double scalingVDWB = it2->scalingVDW;
-      double scalingCoulombB = it2->scalingCoulomb;
-      double chargeB = it2->charge;
-
-      dr = posA - posB;
-      dr = simulationBox.applyPeriodicBoundaryConditions(dr);
-      rr = double3::dot(dr, dr);
-
-      if (rr < cutOffFrameworkVDWSquared)
-      {
-        Potentials::EnergyFactor energyFactor =
-            Potentials::potentialVDWEnergy(forceField, groupIdA, groupIdB, scalingVDWA, scalingVDWB, rr, typeA, typeB);
-        if (energyFactor.energy > overlapCriteria) return std::nullopt;
-
-        energySum.frameworkMoleculeVDW += energyFactor.energy;
-        energySum.dudlambdaVDW += energyFactor.dUdlambda;
-      }
-      if (useCharge && rr < cutOffChargeSquared)
-      {
-        double r = std::sqrt(rr);
-        Potentials::EnergyFactor energyFactor = Potentials::potentialCoulombEnergy(
-            forceField, groupIdA, groupIdB, scalingCoulombA, scalingCoulombB, r, chargeA, chargeB);
-
-        energySum.frameworkMoleculeCharge += energyFactor.energy;
-        energySum.dudlambdaCharge += energyFactor.dUdlambda;
-
-        Potentials::GradientFactor gradientFactor =
-            scalingCoulombA * chargeA *
-            Potentials::potentialCoulombGradient(forceField, groupIdA, groupIdB, 1.0, 1.0, r, 1.0, 1.0);
-        electricFieldMolecule[indexB] += 2.0 * gradientFactor.gradientFactor * dr;
-      }
-    }
-
-    for (std::span<const Atom>::iterator it2 = oldatoms.begin(); it2 != oldatoms.end(); ++it2)
-    {
-      size_t indexB = static_cast<size_t>(std::distance(oldatoms.begin(), it2));
-      double3 posB = it2->position;
-      size_t typeB = static_cast<size_t>(it2->type);
-      bool groupIdB = static_cast<bool>(it2->groupId);
-      double scalingVDWB = it2->scalingVDW;
-      double scalingCoulombB = it2->scalingCoulomb;
-      double chargeB = it2->charge;
-
-      dr = posA - posB;
-      dr = simulationBox.applyPeriodicBoundaryConditions(dr);
-      rr = double3::dot(dr, dr);
-
-      if (rr < cutOffFrameworkVDWSquared)
-      {
-        Potentials::EnergyFactor energyFactor =
-            Potentials::potentialVDWEnergy(forceField, groupIdA, groupIdB, scalingVDWA, scalingVDWB, rr, typeA, typeB);
-
-        energySum.frameworkMoleculeVDW -= energyFactor.energy;
-        energySum.dudlambdaVDW -= energyFactor.dUdlambda;
-      }
-      if (useCharge && rr < cutOffChargeSquared)
-      {
-        double r = std::sqrt(rr);
-        Potentials::EnergyFactor energyFactor = Potentials::potentialCoulombEnergy(
-            forceField, groupIdA, groupIdB, scalingCoulombA, scalingCoulombB, r, chargeA, chargeB);
-
-        energySum.frameworkMoleculeCharge -= energyFactor.energy;
-        energySum.dudlambdaCharge -= energyFactor.dUdlambda;
-
-        Potentials::GradientFactor gradientFactor =
-            scalingCoulombA * chargeA *
-            Potentials::potentialCoulombGradient(forceField, groupIdA, groupIdB, 1.0, 1.0, r, 1.0, 1.0);
-        electricFieldMolecule[indexB] -= 2.0 * gradientFactor.gradientFactor * dr;
-      }
-    }
-  }
-
-  return std::optional{energySum};
-}
-
 std::tuple<double, double3, double3x3> Interactions::calculateHessianAtPositionVDW(const ForceField &forceField,
                                                                                    const SimulationBox &simulationBox,
-                                                                                   double3 posA, size_t typeA,
+                                                                                   double3 posA, std::size_t typeA,
                                                                                    std::span<const Atom> frameworkAtoms)
 {
   const double cutOffFrameworkVDWSquared = forceField.cutOffFrameworkVDW * forceField.cutOffFrameworkVDW;
@@ -1026,7 +867,7 @@ std::tuple<double, double3, double3x3> Interactions::calculateHessianAtPositionV
   for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
   {
     double3 posB = it1->position;
-    size_t typeB = static_cast<size_t>(it1->type);
+    std::size_t typeB = static_cast<std::size_t>(it1->type);
     bool groupIdB = static_cast<bool>(it1->groupId);
     double scalingB = it1->scalingVDW;
 

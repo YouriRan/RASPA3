@@ -9,8 +9,7 @@ module;
 export module property_autocorrelation;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
-import <string>;
+import std;
 #endif
 
 import archive;
@@ -19,25 +18,25 @@ export struct PropertyAutocorrelation
 {
   PropertyAutocorrelation() {};
 
-  PropertyAutocorrelation(size_t numberOfBuffersACF, size_t bufferLengthACF, size_t sampleEvery, size_t writeEvery,
+  PropertyAutocorrelation(std::size_t numberOfBuffersACF, std::size_t bufferLengthACF, std::size_t sampleEvery, std::size_t writeEvery,
                           std::string variableName);
 
-  uint64_t versionNumber{1};
+  std::uint64_t versionNumber{1};
 
-  size_t numberOfBuffersACF;  // more buffers for better sampling
-  size_t bufferLengthACF;     // tauMax
-  size_t sampleEvery;
-  size_t writeEvery;
+  std::size_t numberOfBuffersACF;  // more buffers for better sampling
+  std::size_t bufferLengthACF;     // tauMax
+  std::size_t sampleEvery;
+  std::size_t writeEvery;
   std::string variableName;
 
   std::vector<std::vector<double>> buffer;
   std::vector<double> accumulatedAcf;
-  std::vector<int64_t> counts;  // M for every buffer
-  size_t countAccumulatedACF;
+  std::vector<std::int64_t> counts;  // M for every buffer
+  std::size_t countAccumulatedACF;
   double sumValue;
 
-  void addSample(size_t currentCycle, double value);
-  void writeOutput(size_t systemId, size_t currentCycle);
+  void addSample(std::size_t currentCycle, double value);
+  void writeOutput(std::size_t systemId, std::size_t currentCycle);
 
   friend Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const PropertyAutocorrelation &acf);
   friend Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, PropertyAutocorrelation &acf);

@@ -16,15 +16,7 @@ module;
 export module move_statistics;
 
 #ifndef USE_LEGACY_HEADERS
-import <string>;
-import <algorithm>;
-import <fstream>;
-import <format>;
-import <exception>;
-import <source_location>;
-import <map>;
-import <print>;
-import <functional>;
+import std;
 #endif
 
 import archive;
@@ -41,7 +33,7 @@ export template <typename T>
  */
 struct MoveStatistics
 {
-  uint64_t versionNumber{2};  ///< Version number for serialization purposes.
+  std::uint64_t versionNumber{2};  ///< Version number for serialization purposes.
 
   bool operator==(MoveStatistics<T> const &) const = default;
 
@@ -162,7 +154,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const MoveSt
   archive << m.optimize;
 
 #if DEBUG_ARCHIVE
-  archive << static_cast<uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
 
   return archive;
@@ -171,7 +163,7 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const MoveSt
 export template <class T>
 Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, MoveStatistics<T> &m)
 {
-  uint64_t versionNumber;
+  std::uint64_t versionNumber;
   archive >> versionNumber;
   if (versionNumber > m.versionNumber)
   {
@@ -194,9 +186,9 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, MoveStatisti
   archive >> m.optimize;
 
 #if DEBUG_ARCHIVE
-  uint64_t magicNumber;
+  std::uint64_t magicNumber;
   archive >> magicNumber;
-  if (magicNumber != static_cast<uint64_t>(0x6f6b6179))
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
   {
     throw std::runtime_error(std::format("SimulationBox: Error in binary restart\n"));
   }

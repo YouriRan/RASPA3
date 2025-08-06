@@ -13,12 +13,7 @@ module;
 module mc_moves_identity_change;
 
 #ifndef USE_LEGACY_HEADERS
-import <optional>;
-import <span>;
-import <chrono>;
-import <vector>;
-import <cmath>;
-import <tuple>;
+import std;
 #endif
 
 import randomnumbers;
@@ -42,8 +37,8 @@ import mc_moves_move_types;
 
 std::optional<RunningEnergy> MC_Moves::identityChangeMove([[maybe_unused]] RandomNumber& random,
                                                           [[maybe_unused]] System& system,
-                                                          [[maybe_unused]] size_t selectedComponent,
-                                                          [[maybe_unused]] size_t selectedMolecule,
+                                                          [[maybe_unused]] std::size_t selectedComponent,
+                                                          [[maybe_unused]] std::size_t selectedMolecule,
                                                           [[maybe_unused]] std::span<Atom> atoms)
 {
   return std::nullopt;

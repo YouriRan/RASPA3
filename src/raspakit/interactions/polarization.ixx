@@ -12,11 +12,7 @@ module;
 export module interactions_polarization;
 
 #ifndef USE_LEGACY_HEADERS
-import <span>;
-import <optional>;
-import <tuple>;
-import <complex>;
-import <vector>;
+import std;
 #endif
 
 import double3;
@@ -35,4 +31,9 @@ export namespace Interactions
 RunningEnergy computePolarizationEnergyDifference(const ForceField &forceField, std::span<double3> electricField,
                                                   std::span<double3> electricFieldNew,
                                                   std::span<Atom> moleculeAtomPositions);
-}
+
+RunningEnergy computePolarizationEnergyDifference(const ForceField &forceField, std::span<double3> electricField,
+                                                  std::span<double3> electricFieldNew,
+                                                  std::span<Atom> moleculeAtomPositionsNew,
+                                                  std::span<Atom> moleculeAtomPositionsOld);
+}  // namespace Interactions

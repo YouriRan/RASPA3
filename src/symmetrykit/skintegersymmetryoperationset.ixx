@@ -12,11 +12,7 @@ module;
 export module skintegersymmetryoperationset;
 
 #ifndef USE_LEGACY_HEADERS
-import <set>;
-import <unordered_set>;
-import <vector>;
-import <tuple>;
-import <type_traits>;
+import std;
 #endif
 
 import int3;
@@ -35,13 +31,12 @@ export struct SKIntegerSymmetryOperationSet
   // SKIntegerSymmetryOperationSet(std::unordered_set<SKSeitzIntegerMatrix> &operations);
   SKIntegerSymmetryOperationSet(std::vector<SKSeitzIntegerMatrix> operations);
 
-  inline size_t size() { return operations.size(); }
+  inline std::size_t size() { return operations.size(); }
   SKIntegerSymmetryOperationSet fullSeitzMatrices();
 
-  std::vector<std::tuple<double3, size_t, double>> symmetrize(double3x3 lattice,
-                                                              std::vector<std::tuple<double3, size_t, double>> atoms,
-                                                              double symmetryPrecision);
-  std::vector<std::tuple<double3, size_t, double>> asymmetricAtoms(
-      size_t HallNumber, std::vector<std::tuple<double3, size_t, double>>& atoms, double3x3 lattice,
+  std::vector<std::tuple<double3, std::size_t, double>> symmetrize(
+      double3x3 lattice, std::vector<std::tuple<double3, std::size_t, double>> atoms, double symmetryPrecision);
+  std::vector<std::tuple<double3, std::size_t, double>> asymmetricAtoms(
+      std::size_t HallNumber, std::vector<std::tuple<double3, std::size_t, double>>& atoms, double3x3 lattice,
       bool allowPartialOccupancies, double symmetryPrecision);
 };

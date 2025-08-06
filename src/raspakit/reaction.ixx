@@ -12,11 +12,7 @@ module;
 export module reaction;
 
 #ifndef USE_LEGACY_HEADERS
-import <vector>;
-import <numbers>;
-import <string>;
-import <sstream>;
-import <fstream>;
+import std;
 #endif
 
 import archive;
@@ -48,18 +44,19 @@ export struct Reaction
    * \param reactantStoichiometry A vector containing the stoichiometry of reactants.
    * \param productStoichiometry A vector containing the stoichiometry of products.
    */
-  Reaction(size_t id, std::vector<size_t> reactantStoichiometry, std::vector<size_t> productStoichiometry)
+  Reaction(std::size_t id, std::vector<std::size_t> reactantStoichiometry,
+           std::vector<std::size_t> productStoichiometry)
       : id(id), reactantStoichiometry(reactantStoichiometry), productStoichiometry(productStoichiometry), lambda(5, 21)
   {
   }
 
   bool operator==(Reaction const &) const = default;
 
-  uint64_t versionNumber{1};  ///< Version number of the Reaction struct.
+  std::uint64_t versionNumber{1};  ///< Version number of the Reaction struct.
 
-  size_t id;                                  ///< Unique identifier for the reaction.
-  std::vector<size_t> reactantStoichiometry;  ///< Stoichiometry of reactants.
-  std::vector<size_t> productStoichiometry;   ///< Stoichiometry of products.
+  std::size_t id;                                  ///< Unique identifier for the reaction.
+  std::vector<std::size_t> reactantStoichiometry;  ///< Stoichiometry of reactants.
+  std::vector<std::size_t> productStoichiometry;   ///< Stoichiometry of products.
 
   PropertyLambdaProbabilityHistogram lambda;  ///< Histogram for lambda probabilities.
 

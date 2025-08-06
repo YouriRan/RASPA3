@@ -49,6 +49,7 @@
         "OpenMP_C_LIB_NAMES": "libomp",
         "OpenMP_CXX_LIB_NAMES": "libomp",
         "OpenMP_libomp_LIBRARY": "$env{PREFIX}/Library/lib/libomp.lib",
+        "HDF5_USE_STATIC_LIBRARIES": false,
         "BUILD_MAC_PACKAGE": false,
         "SKIP_EXECUTABLE": false,
         "BUILD_TESTING": true,
@@ -72,6 +73,7 @@
       ],
       "cacheVariables": {
         "CONDA": true,
+        "CMAKE_PREFIX_PATH": "$env{CONDA_PREFIX}",
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_COMPILER": "$env{CONDA_PREFIX}/bin/clang",
         "CMAKE_CXX_COMPILER": "$env{CONDA_PREFIX}/bin/clang++",
@@ -122,6 +124,7 @@
         "PACKAGE_INSTALL_PREFIX": "$env{PREFIX}",
         "CMAKE_CXX_FLAGS_RELEASE": "-I$env{PREFIX}/include -D_LIBCPP_DISABLE_AVAILABILITY -DNDEBUG -stdlib=libc++ -fvisibility=hidden -fexperimental-library -Xclang -fopenmp -g -O3 -fomit-frame-pointer -ffast-math",
         "CMAKE_INTERPROCEDURAL_OPTIMIZATION": true,
+        "HDF5_USE_STATIC_LIBRARIES": false,
         "BUILD_MAC_PACKAGE": false,
         "SKIP_EXECUTABLE": false,
         "BUILD_TESTING": true,
@@ -145,6 +148,7 @@
       ],
       "cacheVariables": {
         "CONDA": true,
+        "CMAKE_PREFIX_PATH": "$env{CONDA_PREFIX}",
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_COMPILER": "$env{CONDA_PREFIX}/bin/clang",
         "CMAKE_CXX_COMPILER": "$env{CONDA_PREFIX}/bin/clang++",
@@ -214,6 +218,7 @@
         "OpenMP_C_LIB_NAMES": "libgomp",
         "OpenMP_CXX_LIB_NAMES": "libgomp",
         "OpenMP_libgomp_LIBRARY": "$env{PREFIX}/lib/libgomp.so",
+        "HDF5_USE_STATIC_LIBRARIES": false,
         "BLA_VENDOR": "Generic",
         "BUILD_MAC_PACKAGE": false,
         "SKIP_EXECUTABLE": false,
@@ -634,9 +639,10 @@
     {
       "name": "macos-apple-silicon",
       "description": "Sets compilers, build type",
-      "inherits": [
-        "base"
-      ],
+      "inherits": ["base"],
+      "environment": {
+        "CXXFLAGS": "-stdlib=libc++"
+      },
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_BUILD_TYPE": "Release",
@@ -763,6 +769,31 @@
             "Linux"
           ]
         }
+      }
+    },
+    {
+      "name": "carbon",
+      "description": "Sets compilers, build type",
+      "inherits": "linux-x86_64",
+      "environment": {
+        "CXXFLAGS": "-stdlib=libc++"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS_RELEASE": "-DNDEBUG -stdlib=libc++ -fvisibility=hidden -fexperimental-library -Xclang -fopenmp -g -O3 -march=core-avx2 -mfma  -fomit-frame-pointer -ffast-math",
+        "BUILD_RPM_PACKAGE": true,
+        "CPACK_RPM_PACKAGE_DEPENDS": "blas64, lapack64, libgfortran, libquadmath, libomp, glibc, libgcc, zlib, ocl-icd, fftw3",
+        "HDF5_ROOT": "$env{HOME}/software/",
+        "HDF5_USE_STATIC_LIBRARIES": true,
+        "OpenCL_INCLUDE_DIRS": "/opt/intel/oneapi/2024.0/include/sycl",
+        "OpenCL_LIBRARY": "/opt/intel/oneapi/2024.0/lib/libOpenCL.so",
+        "OpenMP_C_FLAGS": "-fopenmp",
+        "OpenMP_C_LIB_NAMES": "libomp",
+        "OpenMP_CXX_FLAGS": "-fopenmp",
+        "OpenMP_CXX_LIB_NAMES": "libomp",
+        "OpenMP_libomp_LIBRARY": "$env{HOME}/software/lib/x86_64-unknown-linux-gnu/libomp.so",
+        "BUILD_LIBTORCH": false,
+        "BUILD_PYTHON": false,
+        "BLA_SIZEOF_INTEGER": "4"
       }
     },
     {
@@ -1067,26 +1098,6 @@
         "Python3_EXECUTABLE": "/usr/bin/python3",
         "BUILD_LIBTORCH": false,
         "BUILD_PYTHON": true,
-        "BLA_SIZEOF_INTEGER": "4"
-      }
-    },
-    {
-      "name": "carbon",
-      "description": "Sets compilers, build type",
-      "inherits": "linux-x86_64",
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS_RELEASE": "-DNDEBUG -stdlib=libc++ -fvisibility=hidden -fexperimental-library -Xclang -fopenmp -g -O3 -march=core-avx2 -mfma  -fomit-frame-pointer -ffast-math",
-        "BUILD_RPM_PACKAGE": true,
-        "CPACK_RPM_PACKAGE_DEPENDS": "blas64, lapack64, libgfortran, libquadmath, libomp, glibc, libgcc, zlib, ocl-icd, fftw3",
-        "OpenCL_INCLUDE_DIRS": "/opt/intel/oneapi/2024.0/include/sycl",
-        "OpenCL_LIBRARY": "/opt/intel/oneapi/2024.0/lib/libOpenCL.so",
-        "OpenMP_C_FLAGS": "-fopenmp",
-        "OpenMP_C_LIB_NAMES": "libomp",
-        "OpenMP_CXX_FLAGS": "-fopenmp",
-        "OpenMP_CXX_LIB_NAMES": "libomp",
-        "OpenMP_libomp_LIBRARY": "/home/youriran/software/lib/x86_64-unknown-linux-gnu/libomp.so",
-        "BUILD_LIBTORCH": false,
-        "BUILD_PYTHON": false,
         "BLA_SIZEOF_INTEGER": "4"
       }
     },

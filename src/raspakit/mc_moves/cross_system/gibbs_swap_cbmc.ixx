@@ -10,10 +10,7 @@ module;
 export module mc_moves_gibbs_swap_cbmc;
 
 #ifndef USE_LEGACY_HEADERS
-import <cstddef>;
-import <optional>;
-import <span>;
-import <tuple>;
+import std;
 #endif
 
 import double3;
@@ -39,5 +36,6 @@ export namespace MC_Moves
  *         std::nullopt otherwise.
  */
 std::optional<std::pair<RunningEnergy, RunningEnergy>> GibbsSwapMove_CBMC(RandomNumber& random, System& systemA,
-                                                                          System& systemB, size_t selectedComponent);
+                                                                          System& systemB,
+                                                                          std::size_t selectedComponent);
 }  // namespace MC_Moves
