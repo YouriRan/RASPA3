@@ -69,6 +69,12 @@ MCMoveCpuTime::MCMoveCpuTime()
                      {"NonEwald", std::chrono::duration<double>::zero()},
                      {"Ewald", std::chrono::duration<double>::zero()},
                  }},
+                {MoveTypes::PartialReinsertionCBMC,
+                 {
+                     {"Total", std::chrono::duration<double>::zero()},
+                     {"NonEwald", std::chrono::duration<double>::zero()},
+                     {"Ewald", std::chrono::duration<double>::zero()},
+                 }},
                 {MoveTypes::Swap,
                  {
                      {"Total", std::chrono::duration<double>::zero()},
@@ -287,11 +293,6 @@ const std::string MCMoveCpuTime::writeMCMoveCPUTimeStatistics() const
   std::print(stream, "\n");
   std::print(stream, "Property sampling               {:14f} [s]\n", propertySampling.count());
   std::print(stream, "Energy/pressure sampling:       {:14f} [s]\n", energyPressureComputation.count());
-  std::print(stream, "Pressure sampling: (fw)         {:14f} [s]\n", pressureFrameworkTime.count());
-  std::print(stream, "Pressure sampling: (im)         {:14f} [s]\n", pressureIntermolecularTime.count());
-  std::print(stream, "Pressure sampling: (ew)         {:14f} [s]\n", pressureEwaldTime.count());
-  std::print(stream, "Pressure sampling: (tc)         {:14f} [s]\n", pressureTailTime.count());
-  std::print(stream, "Pressure sampling: (..)         {:14f} [s]\n", pressureRestTime.count());
   std::print(stream, "\n\n");
 
   return stream.str();
@@ -468,6 +469,14 @@ Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const MCMove
   archive << t.energyPressureComputation;
   archive << t.timingMap;
 
+  archive << t.propertySampling;
+  archive << t.energyPressureComputation;
+  archive << t.pressureFrameworkTime;
+  archive << t.pressureIntermolecularTime;
+  archive << t.pressureEwaldTime;
+  archive << t.pressureTailTime;
+  archive << t.pressureRestTime;
+
 #if DEBUG_ARCHIVE
   archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
 #endif
@@ -489,6 +498,14 @@ Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, MCMoveCpuTim
   archive >> t.propertySampling;
   archive >> t.energyPressureComputation;
   archive >> t.timingMap;
+
+  archive >> t.propertySampling;
+  archive >> t.energyPressureComputation;
+  archive >> t.pressureFrameworkTime;
+  archive >> t.pressureIntermolecularTime;
+  archive >> t.pressureEwaldTime;
+  archive >> t.pressureTailTime;
+  archive >> t.pressureRestTime;
 
 #if DEBUG_ARCHIVE
   std::uint64_t magicNumber;

@@ -369,6 +369,11 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
     restartFromBinary = parsed_data["RestartFromBinaryFile"].get<bool>();
   }
 
+  if (parsed_data.contains("BinaryRestartFileName") && parsed_data["BinaryRestartFileName"].is_string())
+  {
+    restartFromBinaryFileName = parsed_data["BinaryRestartFileName"].get<std::string>();
+  }
+
   if (parsed_data.contains("RandomSeed") && parsed_data["RandomSeed"].is_number_unsigned())
   {
     randomSeed = parsed_data["RandomSeed"].get<unsigned long long>();
@@ -457,6 +462,9 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
   std::vector<std::vector<std::size_t>> jsonCreateNumberOfMolecules(jsonNumberOfSystems,
                                                                     std::vector<std::size_t>(jsonNumberOfComponents));
 
+  std::vector<std::vector<std::vector<double3>>> jsonRestartFilePositions(
+      jsonNumberOfSystems, std::vector<std::vector<double3>>(jsonNumberOfComponents, std::vector<double3>()));
+
   // Parse component options
   if (parsed_data.contains("Components"))
   {
@@ -487,6 +495,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
       // Convenience notation listing the properties as a single value. These will then be taken for all systems.
       // ========================================================================================================
+      //
 
       if (item.contains("TranslationProbability") && item["TranslationProbability"].is_number_float())
       {
@@ -530,6 +539,15 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
           move_probabilities[i].setProbability(MoveTypes::ReinsertionCBMC, reinsertionCBMCProbability);
+        }
+      }
+
+      if (item.contains("PartialReinsertionProbability") && item["PartialReinsertionProbability"].is_number_float())
+      {
+        double partial_reinsertion_CBMC_probability = item["PartialReinsertionProbability"].get<double>();
+        for (std::size_t i = 0; i < move_probabilities.size(); ++i)
+        {
+          move_probabilities[i].setProbability(MoveTypes::PartialReinsertionCBMC, partial_reinsertion_CBMC_probability);
         }
       }
 
@@ -623,7 +641,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         }
       }
 
-            if (item.contains("NonEqCFCMC_Probability") && item["NonEqCFCMC_Probability"].is_number_float())
+      if (item.contains("NonEqCFCMC_Probability") && item["NonEqCFCMC_Probability"].is_number_float())
       {
         double nonEqCFCMC_Probability = item["NonEqCFCMC_Probability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
@@ -994,6 +1012,50 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         P = std::exp(value["ChemicalPotential"].get<double>() / (Units::KB * T));
       }
 
+      std::optional<SimulationBox> restart_simulation_box{};
+      if (value.contains("RestartFileName") && value["RestartFileName"].is_string())
+      {
+        std::string restartFileName = value["RestartFileName"].get<std::string>();
+
+        if (!std::filesystem::exists(restartFileName))
+        {
+          restartFileName += ".json";
+
+          if (!std::filesystem::exists(restartFileName))
+          {
+            throw std::runtime_error(std::format("[Input reader]: File '{}' not found\n", restartFileName));
+          }
+        }
+
+        std::ifstream input_restart_file(restartFileName);
+
+        nlohmann::basic_json<nlohmann::raspa_map> restart_data{};
+
+        try
+        {
+          restart_data = nlohmann::json::parse(input_restart_file);
+        }
+        catch (nlohmann::json::parse_error& ex)
+        {
+          std::cerr << "parse error at byte " << ex.byte << std::endl;
+        }
+
+        for (std::size_t i = 0; i < jsonComponents[systemId].size(); ++i)
+        {
+          std::string component_name = jsonComponents[systemId][i].name;
+          if (restart_data.contains(component_name))
+          {
+            std::vector<double3> restart_positions = restart_data[component_name].get<std::vector<double3>>();
+            jsonRestartFilePositions[systemId][i] = restart_positions;
+          }
+        }
+
+        if (restart_data.contains("SimulationBox"))
+        {
+          restart_simulation_box = restart_data["SimulationBox"].get<SimulationBox>();
+        }
+      }
+
       if (caseInSensStringCompare(typeString, "Framework"))
       {
         // Parse framework options
@@ -1026,14 +1088,14 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
                                                                    jsonNumberOfUnitCells, useChargesFrom)};
 
         // create system
-        systems[systemId] = System(systemId, forceFields[systemId].value(), std::nullopt, T, P, heliumVoidFraction,
-                                   jsonFrameworkComponents, jsonComponents[systemId],
-                                   jsonCreateNumberOfMolecules[systemId], jsonNumberOfBlocks, mc_moves_probabilities);
+        systems[systemId] =
+            System(systemId, forceFields[systemId].value(), std::nullopt, T, P, heliumVoidFraction,
+                   jsonFrameworkComponents, jsonComponents[systemId], jsonRestartFilePositions[systemId],
+                   jsonCreateNumberOfMolecules[systemId], jsonNumberOfBlocks, mc_moves_probabilities);
       }
       else if (caseInSensStringCompare(typeString, "Box"))
       {
         // Parse box options
-
         double3 boxLengths{25.0, 25.0, 25.0};
         if (value.contains("BoxLengths"))
         {
@@ -1053,9 +1115,15 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           throw std::runtime_error(std::format("[Input reader]: No forcefield specified or found'\n"));
         }
         SimulationBox simulationBox{boxLengths.x, boxLengths.y, boxLengths.z, boxAngles.x, boxAngles.y, boxAngles.z};
-        systems[systemId] =
-            System(systemId, forceFields[systemId].value(), simulationBox, T, P, 1.0, {}, jsonComponents[systemId],
-                   jsonCreateNumberOfMolecules[systemId], jsonNumberOfBlocks, mc_moves_probabilities);
+
+        if (restart_simulation_box.has_value())
+        {
+          simulationBox = restart_simulation_box.value();
+        }
+
+        systems[systemId] = System(systemId, forceFields[systemId].value(), simulationBox, T, P, 1.0, {},
+                                   jsonComponents[systemId], jsonRestartFilePositions[systemId],
+                                   jsonCreateNumberOfMolecules[systemId], jsonNumberOfBlocks, mc_moves_probabilities);
       }
       else
       {
@@ -1259,8 +1327,8 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           }
 
           systems[systemId].propertyMSD = PropertyMeanSquaredDisplacement(
-              systems[systemId].components.size(), systems[systemId].moleculePositions.size(), sampleMSDEvery,
-              writeMSDEvery, numberOfBlockElementsMSD);
+              systems[systemId].components.size(), systems[systemId].moleculeData.size(), sampleMSDEvery, writeMSDEvery,
+              numberOfBlockElementsMSD);
         }
       }
 
@@ -1293,7 +1361,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           }
 
           systems[systemId].propertyVACF = PropertyVelocityAutoCorrelationFunction(
-              systems[systemId].components.size(), systems[systemId].moleculePositions.size(), numberOfBuffersVACF,
+              systems[systemId].components.size(), systems[systemId].moleculeData.size(), numberOfBuffersVACF,
               bufferLengthVACF, sampleVACFEvery, writeVACFEvery);
         }
       }
@@ -1428,13 +1496,15 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           }
 
           std::size_t numberOfBuffersAutocorrelation{20};
-          if (value.contains("NumberOfBuffersAutocorrelation") && value["NumberOfBuffersAutocorrelation"].is_number_unsigned())
+          if (value.contains("NumberOfBuffersAutocorrelation") &&
+              value["NumberOfBuffersAutocorrelation"].is_number_unsigned())
           {
             numberOfBuffersAutocorrelation = value["NumberOfBuffersAutocorrelation"].get<std::size_t>();
           }
 
           std::size_t bufferLengthAutocorrelation{1000};
-          if (value.contains("BufferLengthAutocorrelation") && value["BufferLengthAutocorrelation"].is_number_unsigned())
+          if (value.contains("BufferLengthAutocorrelation") &&
+              value["BufferLengthAutocorrelation"].is_number_unsigned())
           {
             bufferLengthAutocorrelation = value["BufferLengthAutocorrelation"].get<std::size_t>();
           }
@@ -1449,24 +1519,25 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
                 throw std::runtime_error(std::format("Error: no autocorrelation calculation available for '{}'\n", s));
               }
 
-              systems[systemId].propertyAutocorrelation[s] = PropertyAutocorrelation(numberOfBuffersAutocorrelation, bufferLengthAutocorrelation, sampleAutocorrelationEvery, writeAutocorrelationEvery, s);
+              systems[systemId].propertyAutocorrelation[s] =
+                  PropertyAutocorrelation(numberOfBuffersAutocorrelation, bufferLengthAutocorrelation,
+                                          sampleAutocorrelationEvery, writeAutocorrelationEvery, s);
             }
-            
           }
           else if (value.contains("AutocorrelationValue") && value["AutocorrelationValue"].is_string())
           {
             std::string s = value["AutocorrelationValue"].get<std::string>();
-              
-            if (!autocorrelationOptions.contains(s))
-              {
-                throw std::runtime_error(std::format("Error: no autocorrelation calculation available for '{}'\n", s));
-              }
-            systems[systemId].propertyAutocorrelation[s] = PropertyAutocorrelation(numberOfBuffersAutocorrelation, bufferLengthAutocorrelation, sampleAutocorrelationEvery, writeAutocorrelationEvery, s);
 
+            if (!autocorrelationOptions.contains(s))
+            {
+              throw std::runtime_error(std::format("Error: no autocorrelation calculation available for '{}'\n", s));
+            }
+            systems[systemId].propertyAutocorrelation[s] =
+                PropertyAutocorrelation(numberOfBuffersAutocorrelation, bufferLengthAutocorrelation,
+                                        sampleAutocorrelationEvery, writeAutocorrelationEvery, s);
           }
         }
       }
-
 
       if (value.contains("OutputPDBMovie") && value["OutputPDBMovie"].is_boolean())
       {
@@ -1484,8 +1555,10 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
 
       if (value.contains("VolumeMaxChange") && value["VolumeMaxChange"].is_number_float())
       {
-        systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::VolumeChange, value["VolumeMaxChange"].get<double>());
-        systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::VolumeNCMC, value["VolumeMaxChange"].get<double>());
+        systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::VolumeChange,
+                                                           value["VolumeMaxChange"].get<double>());
+        systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::VolumeNCMC,
+                                                           value["VolumeMaxChange"].get<double>());
         systems[systemId].mc_moves_statistics.statsMapDouble[MoveTypes::VolumeChange].optimize = false;
         systems[systemId].mc_moves_statistics.statsMapDouble[MoveTypes::VolumeNCMC].optimize = false;
       }
@@ -1785,7 +1858,8 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::system
     "TimeStep",
     "MacroStateUseBias",
     "MacroStateMinimumNumberOfMolecules",
-    "MacroStateMaximumNumberOfMolecules"};
+    "MacroStateMaximumNumberOfMolecules",
+    "RestartFileName"};
 
 const std::set<std::string, InputReader::InsensitiveCompare> InputReader::componentOptions = {
     "Name",
@@ -1796,6 +1870,7 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::compon
     "RotationProbability",
     "RandomRotationProbability",
     "ReinsertionProbability",
+    "PartialReinsertionProbability",
     "SwapConventionalProbability",
     "SwapProbability",
     "CFCMC_SwapProbability",
@@ -1816,13 +1891,8 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::compon
     "LambdaBiasFileName",
     "BlockingPockets"};
 
-
 const std::set<std::string, InputReader::InsensitiveCompare> InputReader::autocorrelationOptions = {
-  "PotentialEnergy",
-  "Volume",
-  "NumberOfMolecules"
-};
-
+    "PotentialEnergy", "Volume", "NumberOfMolecules"};
 
 void InputReader::validateInput(const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {

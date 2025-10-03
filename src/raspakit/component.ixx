@@ -56,9 +56,12 @@ import bond_bend_potential;
 import bond_torsion_potential;
 import bend_bend_potential;
 import bend_torsion_potential;
-import internal_potentials;
+import van_der_waals_potential;
+import coulomb_potential;
+import intra_molecular_potentials;
 import connectivity_table;
 import json;
+import cbmc_move_statistics;
 
 /**
  * \brief Represents a component within the simulation system.
@@ -160,8 +163,9 @@ export struct Component
    * \throws std::runtime_error If pseudo-atoms are not recognized or data is invalid.
    */
   Component(std::size_t componentId, const ForceField &forceField, std::string componentName, double T_c, double P_c,
-            double w, std::vector<Atom> definedAtoms, std::size_t numberOfBlocks, std::size_t numberOfLambdaBins,
-            const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
+            double w, std::vector<Atom> definedAtoms, const ConnectivityTable &connectivityTable,
+            const Potentials::IntraMolecularPotentials &intraMolecularPotentials, std::size_t numberOfBlocks,
+            std::size_t numberOfLambdaBins, const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
             std::optional<double> fugacityCoefficient = std::nullopt,
             bool thermodynamicIntegration = false) noexcept(false);
 
@@ -206,17 +210,26 @@ export struct Component
   Shape shapeType;                 ///< Shape type of the molecule.
   std::vector<Atom> atoms{};       ///< List of atoms in the component.
 
+  ConnectivityTable connectivityTable{};                            ///< Connectivity table for the component.
+  Potentials::IntraMolecularPotentials intraMolecularPotentials{};  ///< List of internal potentials.
+  std::vector<Atom> grownAtoms{};
+  std::vector<std::vector<std::size_t>> partialReinsertionFixedAtoms{};
+
   std::size_t initialNumberOfMolecules{0};  ///< Initial number of molecules in the component.
 
-  PropertyLambdaProbabilityHistogram lambdaGC;     ///< Lambda probability histogram for Gibbs-Chebyshev integration.
-  PropertyLambdaProbabilityHistogram lambdaGibbs;  ///< Lambda probability histogram for Gibbs integration.
+  PropertyLambdaProbabilityHistogram lambdaGC;     ///< Lambda probability histogram for Grand-Canonical simulations.
+  PropertyLambdaProbabilityHistogram lambdaGibbs;  ///< Lambda probability histogram for Gibbs simulations.
   bool hasFractionalMolecule{false};               ///< Flag indicating if the component has fractional molecules.
 
   MCMoveProbabilities mc_moves_probabilities;  ///< Move probabilities for Monte Carlo simulations.
   MCMoveStatistics mc_moves_statistics;
   MCMoveCpuTime mc_moves_cputime;  ///< CPU time statistics for Monte Carlo moves.
 
+  std::vector<CBMCMoveStatistics> cbmc_moves_statistics;
+
   PropertyWidom averageRosenbluthWeights;  ///< Average Rosenbluth weights for Widom insertion.
+
+  double lnPartitionFunction{0};  ///< Natural logarithm of the partition function [-].
 
   MultiSiteIsotherm isotherm{};            ///< Isotherm information for the component.
   double massTransferCoefficient{0.0};     ///< Mass transfer coefficient [1/s].
@@ -226,8 +239,6 @@ export struct Component
   std::size_t columnPressure{0};  ///< Column index for pressure data.
   std::size_t columnLoading{1};   ///< Column index for loading data.
   std::size_t columnError{2};     ///< Column index for error data.
-
-  double lnPartitionFunction{0};  ///< Natural logarithm of the partition function [-].
 
   /**
    * \brief Enumeration of pressure scaling types.
@@ -239,10 +250,6 @@ export struct Component
   };
 
   PressureScale pressureScale{PressureScale::Log};  ///< Pressure scaling type.
-
-  Potentials::InternalPotentials internalPotentials{};  ///< List of internal potentials.
-
-  ConnectivityTable connectivityTable{};  ///< Connectivity table for the component.
 
   /**
    * \brief Reads component data from a file.
@@ -264,7 +271,7 @@ export struct Component
    * \param forceField The force field used for interpreting atom types.
    * \return A string detailing the component's status.
    */
-  std::string printStatus(const ForceField &forceField) const;
+  std::string printStatus(const ForceField &forceField, double inputPressure) const;
 
   /**
    * \brief Generates a string representing the breakthrough status of the component.
@@ -300,7 +307,7 @@ export struct Component
    * \param atom_list The list of atoms to compute the center of mass for.
    * \return The center of mass position as a double3 vector.
    */
-  double3 computeCenterOfMass(std::vector<Atom> atom_list) const;
+  double3 computeCenterOfMass(std::span<Atom> atom_list) const;
 
   /**
    * \brief Rotates the positions of all atoms using a given quaternion.
@@ -359,6 +366,24 @@ export struct Component
    */
   std::pair<Molecule, std::vector<Atom>> rotate(const Molecule &molecule, std::span<Atom> molecule_atoms,
                                                 simd_quatd rotation) const;
+
+  ConnectivityTable readConnectivityTable(std::size_t size,
+                                          const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data);
+
+  std::vector<BondPotential> readBondPotentials(const ForceField &forceField,
+                                                const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data);
+  std::vector<BendPotential> readBendPotentials(const ForceField &forceField,
+                                                const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data);
+  std::vector<TorsionPotential> readTorsionPotentials(const ForceField &forceField,
+                                                      const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data);
+
+  std::vector<VanDerWaalsPotential> readVanDerWaalsPotentials(
+      const ForceField &forceField, const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data);
+  std::vector<CoulombPotential> readCoulombPotentials(const ForceField &forceField,
+                                                      const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data);
+
+  std::vector<std::vector<std::size_t>> readPartialReinsertionFixedAtoms(
+      const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data);
 
   friend Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Component &c);
   friend Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Component &c);

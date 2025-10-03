@@ -9,7 +9,6 @@ file(GLOB SRC_CPP_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/cbmc/rigid_molecules/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/cbmc/flexible_molecules/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/interactions/*.cpp
-  ${PROJECT_SOURCE_DIR}/raspakit/io/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/forcefield/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/component/*.cpp
@@ -18,7 +17,7 @@ file(GLOB SRC_CPP_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/cross_system/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/ncmc/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/*.cpp
-  ${PROJECT_SOURCE_DIR}/raspakit/potentials/internal/*.cpp
+  ${PROJECT_SOURCE_DIR}/raspakit/potentials/intramolecular/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/interpolation/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/properties/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/integrators/*.cpp
@@ -39,7 +38,6 @@ file(GLOB SRC_IXX_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/cbmc/rigid_molecules/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/cbmc/flexible_molecules/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/interactions/*.ixx
-  ${PROJECT_SOURCE_DIR}/raspakit/io/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/forcefield/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/component/*.ixx
@@ -48,7 +46,7 @@ file(GLOB SRC_IXX_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/cross_system/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/mc_moves/ncmc/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/*.ixx
-  ${PROJECT_SOURCE_DIR}/raspakit/potentials/internal/*.ixx
+  ${PROJECT_SOURCE_DIR}/raspakit/potentials/intramolecular/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/interpolation/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/properties/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/integrators/*.ixx

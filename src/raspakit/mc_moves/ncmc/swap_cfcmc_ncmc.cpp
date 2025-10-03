@@ -46,10 +46,10 @@ import interactions_ewald;
 import interactions_external_field;
 import mc_moves_move_types;
 
-std::span<Atom> spanOfMolecule(std::size_t selectedComponent, std::size_t selectedMolecule, std::vector<Atom> atomPositions,
+std::span<Atom> spanOfMolecule(std::size_t selectedComponent, std::size_t selectedMolecule, std::vector<Atom> atomData,
                                const System& system)
 {
-  return std::span(&atomPositions[system.atomsOffset(selectedComponent, selectedMolecule)],
+  return std::span(&atomData[system.atomsOffset(selectedComponent, selectedMolecule)],
                    system.components[selectedComponent].atoms.size());
 }
 
@@ -74,22 +74,22 @@ std::size_t oldN = system.numberOfIntegerMoleculesPerComponent[selectedComponent
 
 std::size_t indexFractionalMolecule = system.indexOfGCFractionalMoleculesPerComponent_CFCMC(selectedComponent);
 
-// all copied data: moleculePositions, moleculeAtomPositions, thermostat, dt
+// all copied data: moleculeData, moleculeAtomPositions, thermostat, dt
 // all const data: components, forcefield, simulationbox, numberofmoleculespercomponents, fixedFrameworkStoredEik
 // all scratch data: eik_x, eik_y, eik_z, eik_xy
-std::span<Atom> atomPositions = system.spanOfMoleculeAtoms();
-std::vector<Atom> moleculeAtomPositions(atomPositions.size());
-std::copy(atomPositions.begin(), atomPositions.end(), moleculeAtomPositions.begin());
+std::span<Atom> atomData = system.spanOfMoleculeAtoms();
+std::vector<Atom> moleculeAtomPositions(atomData.size());
+std::copy(atomData.begin(), atomData.end(), moleculeAtomPositions.begin());
 
-std::vector<Molecule> moleculePositions(system.moleculePositions);
+std::vector<Molecule> moleculeData(system.moleculeData);
 std::optional<Thermostat> thermostat(system.thermostat);
 
 std::vector<std::size_t> numberOfMoleculesPerComponent(system.numberOfMoleculesPerComponent);
 
 RunningEnergy referenceEnergy = system.runningEnergies;
-referenceEnergy.translationalKineticEnergy = Integrators::computeTranslationalKineticEnergy(moleculePositions);
+referenceEnergy.translationalKineticEnergy = Integrators::computeTranslationalKineticEnergy(moleculeData);
 referenceEnergy.rotationalKineticEnergy =
-Integrators::computeRotationalKineticEnergy(moleculePositions, system.components);
+Integrators::computeRotationalKineticEnergy(moleculeData, system.components);
 RunningEnergy currentEnergy = referenceEnergy;
 
 // get Timestep from the max change
@@ -107,7 +107,7 @@ std::size_t newBin = (oldBin + i + 1) % numberOfPerturbations;
 std::size_t newLambda = deltaLambda * static_cast<double>(newBin);
 
 std::span<Atom> fractionalMolecule =
-spanOfMolecule(selectedComponent, indexFractionalMolecule, atomPositions, system);
+spanOfMolecule(selectedComponent, indexFractionalMolecule, atomData, system);
 std::vector<Atom> oldFractionalMolecule(fractionalMolecule.begin(), fractionalMolecule.end());
 
 if (newBin == 0)
@@ -123,7 +123,7 @@ else if (newBin == 1)
 std::size_t newMolecule = system.numberOfMoleculesPerComponent[selectedComponent];
 
 time_begin = std::chrono::system_clock::now();
-std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
+std::optional<ChainGrowData> growData = CBMC::growMoleculeSwapInsertion(
 random, system.frameworkComponents, component, system.hasExternalField, system.components,
 system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), moleculeAtomPositions, system.beta,
 growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, newMolecule, 0.0,
@@ -133,12 +133,12 @@ component.mc_moves_cputime[move]["Insertion-NonEwald"] += (time_end - time_begin
 system.mc_moves_cputime[move]["Insertion-NonEwald"] += (time_end - time_begin);
 
 std::vector<Atom>::const_iterator iterator = system.iteratorForMolecule(
-selectedComponent, selectedMolecule, components, atomPositions, numberOfFrameworkAtoms);
+selectedComponent, selectedMolecule, components, atomData, numberOfFrameworkAtoms);
 moleculeAtomPositions.insert(iterator, growData->atom.begin(), growData->atom.end());
 
 std::vector<Molecule>::iterator moleculeIterator = system.indexForMolecule(
-selectedComponent, selectedMolecule, components, atomPositions, numberOfFrameworkAtoms);
-moleculePositions.insert(moleculeIterator, growData->molecule);
+selectedComponent, selectedMolecule, components, atomData, numberOfFrameworkAtoms);
+moleculeData.insert(moleculeIterator, growData->molecule);
 
 numberOfMoleculesPerComponent[selectedComponent]++;
 
@@ -146,8 +146,8 @@ numberOfMoleculesPerComponent[selectedComponent]++;
 // std::span<Atom> lastMolecule = system.spanOfMolecule(selectedComponent, lastMoleculeId);
 // fractionalMolecule = system.spanOfMolecule(selectedComponent, indexFractionalMolecule);
 // std::swap_ranges(fractionalMolecule.begin(), fractionalMolecule.end(), lastMolecule.begin());
-// std::swap(system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)],
-//           system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, lastMoleculeId)]);
+// std::swap(system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)],
+//           system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, lastMoleculeId)]);
 
 }
 else
@@ -166,7 +166,7 @@ system.fixedFrameworkStoredEik, numberOfMoleculesPerComponent);
 for (std::size_t step = 0; step < numberOfMDStepsPerIntegration; step++)
 {
 currentEnergy = Integrators::velocityVerlet(
-moleculePositions, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
+moleculeData, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
 system.forceField, system.simulationBox, system.eik_x, system.eik_y, system.eik_z, system.eik_xy,
 system.totalEik, system.fixedFrameworkStoredEik,  system.interpolationGrids, system.numberOfMoleculesPerComponent);
 }
@@ -225,7 +225,7 @@ std::size_t newBin = (oldBin - i - 1) % numberOfPerturbations;
 std::size_t newLambda = deltaLambda * static_cast<double>(newBin);
 
 std::span<Atom> fractionalMolecule =
-spanOfMolecule(selectedComponent, indexFractionalMolecule, atomPositions, system);
+spanOfMolecule(selectedComponent, indexFractionalMolecule, atomData, system);
 std::vector<Atom> oldFractionalMolecule(fractionalMolecule.begin(), fractionalMolecule.end());
 
 if (newBin == 0)
@@ -241,7 +241,7 @@ else if (newBin == 1)
 std::size_t newMolecule = system.numberOfMoleculesPerComponent[selectedComponent];
 
 time_begin = std::chrono::system_clock::now();
-std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
+std::optional<ChainGrowData> growData = CBMC::growMoleculeSwapInsertion(
 random, system.frameworkComponents, component, system.hasExternalField, system.components,
 system.forceField, system.simulationBox, system.spanOfFrameworkAtoms(), moleculeAtomPositions, system.beta,
 growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, newMolecule, 0.0,
@@ -251,12 +251,12 @@ component.mc_moves_cputime[move]["Insertion-NonEwald"] += (time_end - time_begin
 system.mc_moves_cputime[move]["Insertion-NonEwald"] += (time_end - time_begin);
 
 std::vector<Atom>::const_iterator iterator =
-iteratorForMolecule(selectedComponent, selectedMolecule, components, atomPositions, numberOfFrameworkAtoms);
+iteratorForMolecule(selectedComponent, selectedMolecule, components, atomData, numberOfFrameworkAtoms);
 moleculeAtomPositions.insert(iterator, growData->atom.begin(), growData->atom.end());
 
 std::vector<Molecule>::iterator moleculeIterator =
-indexForMolecule(selectedComponent, selectedMolecule, components, atomPositions, numberOfFrameworkAtoms);
-moleculePositions.insert(moleculeIterator, growData->molecule);
+indexForMolecule(selectedComponent, selectedMolecule, components, atomData, numberOfFrameworkAtoms);
+moleculeData.insert(moleculeIterator, growData->molecule);
 
 numberOfMoleculesPerComponent[selectedComponent]++;
 
@@ -264,8 +264,8 @@ numberOfMoleculesPerComponent[selectedComponent]++;
 // std::span<Atom> lastMolecule = system.spanOfMolecule(selectedComponent, lastMoleculeId);
 // fractionalMolecule = system.spanOfMolecule(selectedComponent, indexFractionalMolecule);
 // std::swap_ranges(fractionalMolecule.begin(), fractionalMolecule.end(), lastMolecule.begin());
-// std::swap(system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)],
-//           system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, lastMoleculeId)]);
+// std::swap(system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)],
+//           system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, lastMoleculeId)]);
 
 }
 else
@@ -284,7 +284,7 @@ system.fixedFrameworkStoredEik, numberOfMoleculesPerComponent);
 for (std::size_t step = 0; step < numberOfMDStepsPerIntegration; step++)
 {
 currentEnergy = Integrators::velocityVerlet(
-moleculePositions, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
+moleculeData, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
 system.forceField, system.simulationBox, system.eik_x, system.eik_y, system.eik_z, system.eik_xy,
 system.totalEik, system.fixedFrameworkStoredEik, system.interpolationGrids, system.numberOfMoleculesPerComponent);
 }

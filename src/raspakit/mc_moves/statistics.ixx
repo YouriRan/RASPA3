@@ -41,9 +41,9 @@ export struct MCMoveStatistics
     statsMapDouble3[MoveTypes::Swap] = MoveStatistics<double3>{};
     statsMapDouble3[MoveTypes::SwapCBMC] = MoveStatistics<double3>{};
     statsMapDouble3[MoveTypes::SwapCFCMC] = MoveStatistics<double3>{
-        .maxChange = double3(0.0, 0.0, 0.5), .lowerLimit = double3(0.0), .upperLimit = double3(1.0)};
+        .maxChange = double3(0.0, 0.0, 0.5), .lowerLimit = double3(0.1), .upperLimit = double3(1.0)};
     statsMapDouble3[MoveTypes::SwapCBCFCMC] = MoveStatistics<double3>{
-        .maxChange = double3(0.0, 0.0, 0.5), .lowerLimit = double3(0.0), .upperLimit = double3(1.0)};
+        .maxChange = double3(0.0, 0.0, 0.5), .lowerLimit = double3(0.1), .upperLimit = double3(1.0)};
     statsMapDouble3[MoveTypes::GibbsSwapCFCMC] = MoveStatistics<double3>{
         .maxChange = double3(0.0, 0.0, 0.5), .lowerLimit = double3(0.0), .upperLimit = double3(1.0)};
     statsMapDouble3[MoveTypes::SwapNCMC] = MoveStatistics<double3>{};
@@ -52,6 +52,7 @@ export struct MCMoveStatistics
     statsMapDouble[MoveTypes::VolumeChange] =
         MoveStatistics<double>{.maxChange = 0.1, .lowerLimit = 0.01, .upperLimit = 1.5};
     statsMapDouble[MoveTypes::ReinsertionCBMC] = MoveStatistics<double>{};
+    statsMapDouble[MoveTypes::PartialReinsertionCBMC] = MoveStatistics<double>{};
     statsMapDouble[MoveTypes::IdentityChangeCBMC] = MoveStatistics<double>{};
     statsMapDouble[MoveTypes::GibbsVolume] =
         MoveStatistics<double>{.maxChange = 0.1, .lowerLimit = 0.01, .upperLimit = 1.5};

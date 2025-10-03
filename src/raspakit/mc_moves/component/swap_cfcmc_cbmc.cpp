@@ -65,7 +65,6 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
   // Store old lambda values and bin index
   std::size_t oldBin = lambda.currentBin;
   double deltaLambda = lambda.delta;
-  double oldLambda = component.lambdaGC.lambdaValue();
 
   // Get maximum allowed change in lambda for this move
   double maxChange = component.mc_moves_statistics.getMaxChange(move, 2);
@@ -204,12 +203,11 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
     std::size_t newMolecule = system.numberOfMoleculesPerComponent[selectedComponent];
 
     time_begin = std::chrono::system_clock::now();
-    std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
-        random, component, system.hasExternalField, system.components, system.forceField, system.simulationBox,
-        system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-        system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, newMolecule,
-        newLambda, system.components[selectedComponent].lambdaGC.computeDUdlambda, true,
-        system.numberOfTrialDirections);
+    std::optional<ChainGrowData> growData = CBMC::growMoleculeSwapInsertion(
+        random, component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+        system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(), system.beta, growType,
+        cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, newMolecule, newLambda,
+        system.components[selectedComponent].lambdaGC.computeDUdlambda, true);
     time_end = std::chrono::system_clock::now();
     component.mc_moves_cputime[move]["Insertion-NonEwald"] += (time_end - time_begin);
     system.mc_moves_cputime[move]["Insertion-NonEwald"] += (time_end - time_begin);
@@ -259,10 +257,9 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
         -system.beta * (energyFourierDifference.potentialEnergy() + tailEnergyDifferenceGrow.potentialEnergy()));
 
     // Compute acceptance probability
-    double fugacity = component.fugacityCoefficient.value_or(1.0) * system.pressure;
+    double fugacity = component.molFraction * component.fugacityCoefficient.value_or(1.0) * system.pressure;
     double idealGasRosenbluthWeight = component.idealGasRosenbluthWeight.value_or(1.0);
-    double preFactor = correctionFactorEwald * system.beta * component.molFraction * fugacity *
-                       system.simulationBox.volume /
+    double preFactor = correctionFactorEwald * system.beta * fugacity * system.simulationBox.volume /
                        static_cast<double>(1 + system.numberOfIntegerMoleculesPerComponent[selectedComponent]);
     double biasTerm = lambda.biasFactor[newBin] - lambda.biasFactor[oldBin];
     double Pacc = preFactor * (growData->RosenbluthWeight / idealGasRosenbluthWeight) *
@@ -296,8 +293,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
       std::span<Atom> lastMolecule = system.spanOfMolecule(selectedComponent, lastMoleculeId);
       fractionalMolecule = system.spanOfMolecule(selectedComponent, indexFractionalMolecule);
       std::swap_ranges(fractionalMolecule.begin(), fractionalMolecule.end(), lastMolecule.begin());
-      std::swap(system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)],
-                system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, lastMoleculeId)]);
+      std::swap(system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)],
+                system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, lastMoleculeId)]);
 
       component.mc_moves_statistics.addAccepted(move, 0);
 
@@ -330,6 +327,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
       double cutOffFrameworkVDW = system.forceField.cutOffFrameworkVDW;
       double cutOffMoleculeVDW = system.forceField.cutOffMoleculeVDW;
       double cutOffCoulomb = system.forceField.cutOffCoulomb;
+      Component::GrowType growType = component.growType;
 
       // Select a random integer molecule to be fractional
       selectedMolecule = system.randomIntegerMoleculeOfComponent(random, selectedComponent);
@@ -344,11 +342,10 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
 
       // Retrace the existing fractional molecule
       time_begin = std::chrono::system_clock::now();
-      ChainData retraceData = CBMC::retraceMoleculeSwapDeletion(
-          random, component, system.hasExternalField, system.components, system.forceField, system.simulationBox,
+      ChainRetraceData retraceData = CBMC::retraceMoleculeSwapDeletion(
+          random, component, system.hasExternalField, system.forceField, system.simulationBox,
           system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-          system.beta, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, indexFractionalMolecule,
-          fractionalMolecule, oldLambda, system.numberOfTrialDirections);
+          system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, fractionalMolecule);
       time_end = std::chrono::system_clock::now();
       component.mc_moves_cputime[move]["Deletion-NonEwald"] += (time_end - time_begin);
       system.mc_moves_cputime[move]["Deletion-NonEwald"] += (time_end - time_begin);
@@ -524,9 +521,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
 
         // Swap molecules to keep the fractional molecule at a fixed index
         std::swap_ranges(newFractionalMolecule.begin(), newFractionalMolecule.end(), fractionalMolecule.begin());
-        std::swap(
-            system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, selectedMolecule)],
-            system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)]);
+        std::swap(system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, selectedMolecule)],
+                  system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)]);
 
         // Delete the selected molecule
         system.deleteMolecule(selectedComponent, selectedMolecule, newFractionalMolecule);

@@ -139,6 +139,7 @@ export struct InputReader
   std::size_t optimizeMCMovesEvery{5000};       ///< Interval for optimizing Monte Carlo moves.
   std::size_t writeEvery{100};                  ///< Interval for writing simulation data.
   bool restartFromBinary{false};  ///< Flag to indicate if the simulation should restart from a binary file.
+  std::string restartFromBinaryFileName{"restart_data.bin"};  ///< Filename of the binary restart-file
 
   std::optional<unsigned long long> randomSeed{std::nullopt};  ///< Optional random seed for reproducibility.
 

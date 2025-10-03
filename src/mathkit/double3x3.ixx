@@ -4,9 +4,16 @@ module;
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <format>
 #include <fstream>
 #include <istream>
 #include <ostream>
+#include <print>
+#include <span>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <vector>
 #endif
 
 export module double3x3;
@@ -225,6 +232,32 @@ export union double3x3
   {
     return {{{m11, m12, m13}, {m21, m22, m23}, {m31, m32, m33}}};
   }
+  /*
+  void rotateAroundAxis(double3 v, std::vector<double3> &coordinates, double angle)
+  {
+    double c = std::cos(angle);
+    double w = 1.0 - c;
+    double s = std::sin(angle);
+
+    if( angle < 0.0) angle = -angle;
+
+    double3x3 rotation_matrix = double3x3{
+          double3{ v.x * v.x * w + c, v.x * v.y * w + v.z * s, v.x * v.z * w - v.y * s },
+          double3{ v.x * v.y * w - v.z * s, v.y * v.y * w + c, v.y * v.z * w + v.x * s },
+          double3{ v.x * v.z * w + v.y * s, v.y * v.z * w - v.x * s, v.z * v.z * w + c }
+      };
+
+    for(double3 &coordinate : coordinates)
+    {
+      coordinate = rotation_matrix * coordinate;
+    }
+  }
+  */
+
+  std::tuple<double3x3, double3, double3x3> singularValueDecomposition() const;
+  static double3x3 computeRotationMatrix(double3 center_of_mass_A, std::span<double3> positions_A,
+                                         double3 center_of_mass_B, std::span<double3> positions_B);
+  static double3x3 computeRotationMatrix(double3 a, double3 b);
 
   friend Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const double3x3& vec);
   friend Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, double3x3& vec);
@@ -437,6 +470,19 @@ export inline double3x3 sqrt(const double3x3& b)
   r.m33 = std::sqrt(b.m33);
   return r;
 }
+
+export template <>
+struct std::formatter<double3x3> : std::formatter<std::string_view>
+{
+  auto format(const double3x3& v, std::format_context& ctx) const
+  {
+    std::string temp{};
+    std::format_to(std::back_inserter(temp), "({}, {}, {})\n", v.ax, v.bx, v.cx);
+    std::format_to(std::back_inserter(temp), "({}, {}, {})\n", v.ay, v.by, v.cy);
+    std::format_to(std::back_inserter(temp), "({}, {}, {})\n", v.az, v.bz, v.cz);
+    return std::formatter<std::string_view>::format(temp, ctx);
+  }
+};
 
 export void to_json(nlohmann::json& j, const double3x3& a)
 {

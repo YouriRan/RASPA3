@@ -62,14 +62,14 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
 
   // Update move counts statistics for swap insertion move
 
-  // all copied data: moleculePositions, moleculeAtomPositions, thermostat, dt
+  // all copied data: moleculeData, moleculeAtomPositions, thermostat, dt
   // all const data: components, forcefield, simulationbox, numberofmoleculespercomponents, fixedFrameworkStoredEik
   // all scratch data: eik_x, eik_y, eik_z, eik_xy
-  std::span<Atom> atomPositions = system.spanOfMoleculeAtoms();
-  std::vector<Atom> moleculeAtomPositions(atomPositions.size());
-  std::copy(atomPositions.begin(), atomPositions.end(), moleculeAtomPositions.begin());
+  std::span<Atom> atomData = system.spanOfMoleculeAtoms();
+  std::vector<Atom> moleculeAtomPositions(atomData.size());
+  std::copy(atomData.begin(), atomData.end(), moleculeAtomPositions.begin());
 
-  std::vector<Molecule> moleculePositions(system.moleculePositions);
+  std::vector<Molecule> moleculeData(system.moleculeData);
   std::optional<Thermostat> thermostat(system.thermostat);
 
   // get Timestep from the max change
@@ -88,11 +88,10 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     component.mc_moves_statistics.addTrial(move, 0);
     // Attempt to grow a new molecule using CBMC
     time_begin = std::chrono::system_clock::now();
-    std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
-        random, component, system.hasExternalField, system.components, system.forceField, system.simulationBox,
+    std::optional<ChainGrowData> growData = CBMC::growMoleculeSwapInsertion(
+        random, component, system.hasExternalField, system.forceField, system.simulationBox,
         system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-        system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, oldN, 1.0, false, false,
-        system.numberOfTrialDirections);
+        system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, oldN, 1.0, false, false);
     time_end = std::chrono::system_clock::now();
 
     // Update CPU time statistics for the non-Ewald part of the move
@@ -153,17 +152,17 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
                             system.numberOfMoleculesPerComponent.begin() + selectedComponent + 1, 0uz);
 
     std::vector<Molecule>::iterator moleculeIterator =
-        moleculePositions.begin() + static_cast<std::vector<Atom>::difference_type>(index);
-    moleculePositions.insert(moleculeIterator, growData->molecule);
+        moleculeData.begin() + static_cast<std::vector<Atom>::difference_type>(index);
+    moleculeData.insert(moleculeIterator, growData->molecule);
 
     // MD INTEGRATION
     // initialize the velocities according to Boltzmann distribution
     // NOTE: it is important that the reference energy has the initial kinetic energies
-    Integrators::initializeVelocities(random, moleculePositions, system.components, system.temperature);
+    Integrators::initializeVelocities(random, moleculeData, system.components, system.temperature);
 
     if (system.numberOfFrameworkAtoms == 0)
     {
-      Integrators::removeCenterOfMassVelocityDrift(moleculePositions);
+      Integrators::removeCenterOfMassVelocityDrift(moleculeData);
     }
 
     // before getting energy, recompute current energy
@@ -171,16 +170,16 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
 
     RunningEnergy referenceEnergy = system.runningEnergies;
 
-    referenceEnergy.translationalKineticEnergy = Integrators::computeTranslationalKineticEnergy(moleculePositions);
+    referenceEnergy.translationalKineticEnergy = Integrators::computeTranslationalKineticEnergy(moleculeData);
     referenceEnergy.rotationalKineticEnergy =
-        Integrators::computeRotationalKineticEnergy(moleculePositions, system.components);
+        Integrators::computeRotationalKineticEnergy(moleculeData, system.components);
     RunningEnergy currentEnergy = referenceEnergy;
 
     // integrate for N steps
     time_begin = std::chrono::system_clock::now();
     for (std::size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
     {
-      currentEnergy = Integrators::velocityVerlet(moleculePositions, moleculeAtomPositions, system.components, dt,
+      currentEnergy = Integrators::velocityVerlet(moleculeData, moleculeAtomPositions, system.components, dt,
                                                   thermostat, system.spanOfFrameworkAtoms(), system.forceField,
                                                   system.simulationBox, system.eik_x, system.eik_y, system.eik_z,
                                                   system.eik_xy, system.totalEik, system.fixedFrameworkStoredEik,
@@ -223,14 +222,14 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
 
       system.insertMolecule(selectedComponent, growData->molecule, growData->atom);
 
-      system.moleculePositions = moleculePositions;
+      system.moleculeData = moleculeData;
       system.thermostat = thermostat;
       system.timeStep = dt;
 
-      std::copy(moleculeAtomPositions.begin(), moleculeAtomPositions.end(), atomPositions.begin());
+      std::copy(moleculeAtomPositions.begin(), moleculeAtomPositions.end(), atomData.begin());
       system.spanOfMoleculeAtoms() = moleculeAtomPositions;
 
-      Integrators::createCartesianPositions(system.moleculePositions, system.spanOfMoleculeAtoms(), system.components);
+      Integrators::createCartesianPositions(system.moleculeData, system.spanOfMoleculeAtoms(), system.components);
       Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
       return {currentEnergy, double3(0.0, 1.0 - Pacc, Pacc)};
     }
@@ -252,27 +251,27 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
 
     // initialize the velocities according to Boltzmann distribution
     // NOTE: it is important that the reference energy has the initial kinetic energies
-    Integrators::initializeVelocities(random, moleculePositions, system.components, system.temperature);
+    Integrators::initializeVelocities(random, moleculeData, system.components, system.temperature);
 
     if (system.numberOfFrameworkAtoms == 0)
     {
-      Integrators::removeCenterOfMassVelocityDrift(moleculePositions);
+      Integrators::removeCenterOfMassVelocityDrift(moleculeData);
     }
 
     // before getting energy, recompute current energy
     system.precomputeTotalGradients();
 
     RunningEnergy referenceEnergy = system.runningEnergies;
-    referenceEnergy.translationalKineticEnergy = Integrators::computeTranslationalKineticEnergy(moleculePositions);
+    referenceEnergy.translationalKineticEnergy = Integrators::computeTranslationalKineticEnergy(moleculeData);
     referenceEnergy.rotationalKineticEnergy =
-        Integrators::computeRotationalKineticEnergy(moleculePositions, system.components);
+        Integrators::computeRotationalKineticEnergy(moleculeData, system.components);
     RunningEnergy currentEnergy = referenceEnergy;
 
     // integrate for N steps
     time_begin = std::chrono::system_clock::now();
     for (std::size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
     {
-      currentEnergy = Integrators::velocityVerlet(moleculePositions, moleculeAtomPositions, system.components, dt,
+      currentEnergy = Integrators::velocityVerlet(moleculeData, moleculeAtomPositions, system.components, dt,
                                                   thermostat, system.spanOfFrameworkAtoms(), system.forceField,
                                                   system.simulationBox, system.eik_x, system.eik_y, system.eik_z,
                                                   system.eik_xy, system.totalEik, system.fixedFrameworkStoredEik,
@@ -282,11 +281,10 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
 
     // Retrace the molecule for the swap deletion using CBMC algorithm
     time_begin = std::chrono::system_clock::now();
-    ChainData retraceData = CBMC::retraceMoleculeSwapDeletion(
-        random, component, system.hasExternalField, system.components, system.forceField, system.simulationBox,
+    ChainRetraceData retraceData = CBMC::retraceMoleculeSwapDeletion(
+        random, component, system.hasExternalField, system.forceField, system.simulationBox,
         system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-        system.beta, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, selectedMolecule,
-        molecule, 1.0, system.numberOfTrialDirections);
+        system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, molecule);
     time_end = std::chrono::system_clock::now();
 
     // Update the CPU time statistics for the non-Ewald part of the move
@@ -332,8 +330,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     index += selectedMolecule;
 
     std::vector<Molecule>::iterator moleculeIterator =
-        moleculePositions.begin() + static_cast<std::vector<Atom>::difference_type>(index);
-    moleculePositions.erase(moleculeIterator, moleculeIterator + 1);
+        moleculeData.begin() + static_cast<std::vector<Atom>::difference_type>(index);
+    moleculeData.erase(moleculeIterator, moleculeIterator + 1);
 
     // Calculate the correction factor for Ewald summation
     double correctionFactorEwald =
@@ -367,13 +365,13 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
       component.mc_moves_statistics.addAccepted(move, 1);
 
       system.deleteMolecule(selectedComponent, selectedMolecule, molecule);
-      system.moleculePositions = moleculePositions;
+      system.moleculeData = moleculeData;
       system.thermostat = thermostat;
       system.timeStep = dt;
 
-      std::copy(moleculeAtomPositions.begin(), moleculeAtomPositions.end(), atomPositions.begin());
+      std::copy(moleculeAtomPositions.begin(), moleculeAtomPositions.end(), atomData.begin());
       system.spanOfMoleculeAtoms() = moleculeAtomPositions;
-      Integrators::createCartesianPositions(system.moleculePositions, system.spanOfMoleculeAtoms(), system.components);
+      Integrators::createCartesianPositions(system.moleculeData, system.spanOfMoleculeAtoms(), system.components);
       Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
       return {currentEnergy, double3(Pacc, 1.0 - Pacc, 0.0)};
     }

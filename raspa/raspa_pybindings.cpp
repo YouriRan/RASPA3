@@ -54,6 +54,8 @@ import input_reader;
 import property_loading;
 import loadings;
 import property_lambda_probability_histogram;
+import connectivity_table;
+import intra_molecular_potentials;
 
 PYBIND11_MODULE(raspalib, m)
 {
@@ -140,7 +142,8 @@ PYBIND11_MODULE(raspalib, m)
       .value("ChargeEquilibration", Framework::UseChargesFrom::ChargeEquilibration);
 
   framework
-      .def(pybind11::init<std::size_t, const ForceField &, std::string, SimulationBox, std::size_t, std::vector<Atom>, int3>(),
+      .def(pybind11::init<std::size_t, const ForceField &, std::string, SimulationBox, std::size_t, std::vector<Atom>,
+                          int3>(),
            pybind11::arg("frameworkId"), pybind11::arg("forceField"), pybind11::arg("componentName"),
            pybind11::arg("simulationBox"), pybind11::arg("spaceGroupHallNumber"), pybind11::arg("definedAtoms"),
            pybind11::arg("numberOfUnitCells"))
@@ -174,6 +177,10 @@ PYBIND11_MODULE(raspalib, m)
       .def("normalizedAverageProbabilityHistogram",
            &PropertyLambdaProbabilityHistogram::normalizedAverageProbabilityHistogram);
 
+  pybind11::class_<ConnectivityTable>(m, "ConnectivityTable").def(pybind11::init<>());
+
+  pybind11::class_<Potentials::IntraMolecularPotentials>(m, "IntraMolecularPotentials").def(pybind11::init<>());
+
   // define before component init to prevent failing default argument
   pybind11::class_<Component> component(m, "Component");
 
@@ -183,15 +190,18 @@ PYBIND11_MODULE(raspalib, m)
       .export_values();
 
   component
-      .def(pybind11::init<std::size_t, const ForceField &, std::string, double, double, double, std::vector<Atom>, std::size_t,
+      .def(pybind11::init<std::size_t, const ForceField &, std::string, double, double, double, std::vector<Atom>,
+                          const ConnectivityTable &, const Potentials::IntraMolecularPotentials &, std::size_t,
                           std::size_t, const MCMoveProbabilities &, std::optional<double>, bool>(),
            pybind11::arg("componentId"), pybind11::arg("forceField"), pybind11::arg("componentName"),
            pybind11::arg("criticalTemperature"), pybind11::arg("criticalPressure"), pybind11::arg("acentricFactor"),
-           pybind11::arg("definedAtoms"), pybind11::arg("numberOfBlocks") = 5, pybind11::arg("numberOfLambdaBins") = 41,
+           pybind11::arg("definedAtoms"), pybind11::arg("connectivitytable") = ConnectivityTable(),
+           pybind11::arg("intraMolecularPotentials") = Potentials::IntraMolecularPotentials(),
+           pybind11::arg("numberOfBlocks") = 5, pybind11::arg("numberOfLambdaBins") = 41,
            pybind11::arg("particleProbabilities"), pybind11::arg("fugacityCoefficient") = std::nullopt,
            pybind11::arg("thermodynamicIntegration") = false)
-      .def(pybind11::init<Component::Type, std::size_t, const ForceField &, std::string &, std::string, std::size_t, std::size_t,
-                          const MCMoveProbabilities &, std::optional<double>, bool>(),
+      .def(pybind11::init<Component::Type, std::size_t, const ForceField &, std::string &, std::string, std::size_t,
+                          std::size_t, const MCMoveProbabilities &, std::optional<double>, bool>(),
            pybind11::arg("type") = Component::Type::Adsorbate, pybind11::arg("componentId"),
            pybind11::arg("forceField"), pybind11::arg("componentName"), pybind11::arg("fileName"),
            pybind11::arg("numberOfBlocks") = 5, pybind11::arg("numberOfLambdaBins") = 41,
@@ -205,10 +215,12 @@ PYBIND11_MODULE(raspalib, m)
   pybind11::class_<Loadings>(m, "Loadings")
       .def(pybind11::init<std::size_t>())
       .def_readonly("numberOfMolecules", &Loadings::numberOfMolecules)
-      .def("printStatus", static_cast<std::string (Loadings::*)(const Component &, std::optional<double>, std::optional<int3>) const>(
-                              &Loadings::printStatus))
+      .def("printStatus",
+           static_cast<std::string (Loadings::*)(const Component &, std::optional<double>, std::optional<int3>) const>(
+               &Loadings::printStatus))
       .def("printStatus", static_cast<std::string (Loadings::*)(const Component &, const Loadings &, const Loadings &,
-                                                                std::optional<double>, std::optional<int3>) const>(&Loadings::printStatus));
+                                                                std::optional<double>, std::optional<int3>) const>(
+                              &Loadings::printStatus));
 
   pybind11::class_<PropertyLoading>(m, "PropertyLoading")
       .def(pybind11::init<std::size_t, std::size_t>())
@@ -219,13 +231,14 @@ PYBIND11_MODULE(raspalib, m)
 
   pybind11::class_<System>(m, "System")
       .def(pybind11::init<std::size_t, ForceField, std::optional<SimulationBox>, double, std::optional<double>, double,
-                          std::optional<Framework>, std::vector<Component>, std::vector<std::size_t>, std::size_t,
-                          MCMoveProbabilities, std::optional<std::size_t>>(),
+                          std::optional<Framework>, std::vector<Component>, std::vector<std::vector<double3>>,
+                          std::vector<std::size_t>, std::size_t, MCMoveProbabilities, std::optional<std::size_t>>(),
            pybind11::arg("systemId"), pybind11::arg("forceField"), pybind11::arg("simulationBox") = std::nullopt,
            pybind11::arg("externalTemperature"), pybind11::arg("externalPressure") = std::nullopt,
            pybind11::arg("heliumVoidFraction") = 0.0, pybind11::arg("frameworkComponents") = std::vector<Framework>(),
-           pybind11::arg("components"), pybind11::arg("initialNumberOfMolecules") = std::vector<std::size_t>(),
-           pybind11::arg("numberOfBlocks") = 5, pybind11::arg("systemProbabilities") = MCMoveProbabilities(),
+           pybind11::arg("components"), pybind11::arg("initialPositions") = std::vector<std::vector<double3>>(),
+           pybind11::arg("initialNumberOfMolecules") = std::vector<std::size_t>(), pybind11::arg("numberOfBlocks") = 5,
+           pybind11::arg("systemProbabilities") = MCMoveProbabilities(),
            pybind11::arg("sampleMoviesEvery") = std::nullopt)
       .def("computeTotalEnergies", &System::computeTotalEnergies)
       .def("frameworkMass", &System::frameworkMass)
@@ -233,7 +246,7 @@ PYBIND11_MODULE(raspalib, m)
       .def_readonly("components", &System::components)
       .def_readonly("loadings", &System::loadings)
       .def_readonly("averageLoadings", &System::averageLoadings)
-      .def_readwrite("atomPositions", &System::atomPositions)
+      .def_readwrite("atomData", &System::atomData)
       .def("writeMCMoveStatistics", &System::writeMCMoveStatistics)
       .def("__repr__", &System::repr);
 
@@ -264,8 +277,8 @@ PYBIND11_MODULE(raspalib, m)
       .export_values();
 
   pybind11::class_<MonteCarlo> mc(m, "MonteCarlo");
-  mc.def(pybind11::init<std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::vector<System> &, RandomNumber &,
-                        std::size_t, bool>(),
+  mc.def(pybind11::init<std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t,
+                        std::vector<System> &, RandomNumber &, std::size_t, bool>(),
          pybind11::arg("numberOfCycles"), pybind11::arg("numberOfInitializationCycles"),
          pybind11::arg("numberOfEquilibrationCycles") = 0, pybind11::arg("printEvery") = 5000,
          pybind11::arg("writeBinaryRestartEvery") = 5000, pybind11::arg("rescaleWangLandauEvery") = 1000,

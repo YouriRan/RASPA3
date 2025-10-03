@@ -63,6 +63,7 @@ std::optional<RunningEnergy> MC_Moves::volumeMove(RandomNumber &random, System &
 
   // Propose a new volume change
   double newVolume = std::exp(std::log(oldVolume) + maxVolumeChange * (2.0 * random.uniform() - 1.0));
+
   // Compute scaling factor for box dimensions
   double scale = std::pow(newVolume / oldVolume, 1.0 / 3.0);
 
@@ -76,7 +77,6 @@ std::optional<RunningEnergy> MC_Moves::volumeMove(RandomNumber &random, System &
   int3 ewald_k_stored = system.forceField.numberOfWaveVectors;
 
   system.forceField.initializeAutomaticCutOff(newBox);
-  system.forceField.initializeEwaldParameters(newBox);
 
   time_begin = std::chrono::system_clock::now();
   // Compute new intermolecular energy
@@ -103,6 +103,20 @@ std::optional<RunningEnergy> MC_Moves::volumeMove(RandomNumber &random, System &
   // Sum up all energy contributions
   RunningEnergy newTotalEnergy = newTotalInterEnergy + newTotalTailEnergy + newTotalEwaldEnergy;
 
+  // The intra-molecular energies have not changed by the com-scaling
+  newTotalEnergy.bond = oldTotalEnergy.bond;
+  newTotalEnergy.ureyBradley = oldTotalEnergy.ureyBradley;
+  newTotalEnergy.bend = oldTotalEnergy.bend;
+  newTotalEnergy.inversionBend = oldTotalEnergy.inversionBend;
+  newTotalEnergy.outOfPlaneBend = oldTotalEnergy.outOfPlaneBend;
+  newTotalEnergy.torsion = oldTotalEnergy.torsion;
+  newTotalEnergy.improperTorsion = oldTotalEnergy.improperTorsion;
+  newTotalEnergy.bondBond = oldTotalEnergy.bondBond;
+  newTotalEnergy.bondBend = oldTotalEnergy.bondBend;
+  newTotalEnergy.bondTorsion = oldTotalEnergy.bondTorsion;
+  newTotalEnergy.bendBend = oldTotalEnergy.bendBend;
+  newTotalEnergy.bendTorsion = oldTotalEnergy.bendTorsion;
+
   // Update constructed move counts
   system.mc_moves_statistics.addConstructed(move);
 
@@ -116,12 +130,12 @@ std::optional<RunningEnergy> MC_Moves::volumeMove(RandomNumber &random, System &
     system.mc_moves_statistics.addAccepted(move);
 
     system.simulationBox = newBox;
-    std::copy(newPositions.first.begin(), newPositions.first.end(), system.moleculePositions.begin());
-    std::copy(newPositions.second.begin(), newPositions.second.end(), system.atomPositions.begin());
+    std::copy(newPositions.first.begin(), newPositions.first.end(), system.moleculeData.begin());
+    std::copy(newPositions.second.begin(), newPositions.second.end(), system.atomData.begin());
 
     Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
 
-    return newTotalEnergy;
+    return newTotalEnergy - oldTotalEnergy;
   }
 
   system.forceField.cutOffFrameworkVDW = cutOffFrameworkVDW_stored;

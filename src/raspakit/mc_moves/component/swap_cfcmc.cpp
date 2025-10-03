@@ -276,9 +276,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
                                           tailEnergyDifference2;
 
     // Calculate acceptance probability
-    double fugacity = component.fugacityCoefficient.value_or(1.0) * system.pressure;
-    double preFactor =
-        system.beta * component.molFraction * fugacity * system.simulationBox.volume / static_cast<double>(1 + oldN);
+    double fugacity = component.molFraction * component.fugacityCoefficient.value_or(1.0) * system.pressure;
+    double preFactor = system.beta * fugacity * system.simulationBox.volume / static_cast<double>(1 + oldN);
     double biasTerm = lambda.biasFactor[newBin] - lambda.biasFactor[oldBin];
     double Pacc =
         preFactor *
@@ -311,8 +310,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       std::span<Atom> lastMolecule = system.spanOfMolecule(selectedComponent, lastMoleculeId);
       fractionalMolecule = system.spanOfMolecule(selectedComponent, indexFractionalMolecule);
       std::swap_ranges(fractionalMolecule.begin(), fractionalMolecule.end(), lastMolecule.begin());
-      std::swap(system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)],
-                system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, lastMoleculeId)]);
+      std::swap(system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, indexFractionalMolecule)],
+                system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, lastMoleculeId)]);
 
       component.mc_moves_statistics.addAccepted(move, 0);
 
@@ -557,8 +556,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
 
         // Swap molecules to maintain fractional molecule index
         std::swap_ranges(newFractionalMolecule.begin(), newFractionalMolecule.end(), fractionalMolecule.begin());
-        std::swap(system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, selectedMolecule)],
-                  system.moleculePositions[system.moleculeIndexOfComponent(selectedComponent, 0)]);
+        std::swap(system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, selectedMolecule)],
+                  system.moleculeData[system.moleculeIndexOfComponent(selectedComponent, 0)]);
 
         system.deleteMolecule(selectedComponent, selectedMolecule, newFractionalMolecule);
 

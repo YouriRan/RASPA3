@@ -7,6 +7,7 @@ module;
 #include <iostream>
 #include <numbers>
 #include <print>
+#include <source_location>
 #include <span>
 #include <streambuf>
 #include <string>
@@ -19,6 +20,7 @@ module sample_movies;
 import std;
 #endif
 
+import archive;
 import double3;
 import stringutils;
 import atom;
@@ -34,7 +36,7 @@ SampleMovie::SampleMovie(std::size_t systemId, std::size_t sampleEvery) : sample
 }
 
 void SampleMovie::update(const ForceField &forceField, std::size_t systemId, const SimulationBox simulationBox,
-                         std::span<Atom> atomPositions, std::size_t currentCycle)
+                         std::span<Atom> atomData, std::size_t currentCycle)
 {
   if (currentCycle % sampleEvery == 0)
   {
@@ -46,7 +48,7 @@ void SampleMovie::update(const ForceField &forceField, std::size_t systemId, con
                simulationBox.lengthB, simulationBox.lengthC, simulationBox.angleAlpha * 180.0 / std::numbers::pi,
                simulationBox.angleBeta * 180.0 / std::numbers::pi, simulationBox.angleGamma * 180.0 / std::numbers::pi);
 
-    for (int index = 1; const Atom &atom : atomPositions)
+    for (int index = 1; const Atom &atom : atomData)
     {
       std::size_t atomicNumber = forceField.pseudoAtoms[static_cast<std::size_t>(atom.type)].atomicNumber;
       std::string name = std::format("{:<4}", forceField.pseudoAtoms[static_cast<std::size_t>(atom.type)].name);
@@ -60,4 +62,42 @@ void SampleMovie::update(const ForceField &forceField, std::size_t systemId, con
     stream << "ENDMDL\n";
     ++modelNumber;
   }
+}
+
+Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const SampleMovie &m)
+{
+  archive << m.versionNumber;
+
+  archive << m.sampleEvery;
+
+#if DEBUG_ARCHIVE
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
+
+  return archive;
+}
+
+Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, SampleMovie &m)
+{
+  std::uint64_t versionNumber;
+  archive >> versionNumber;
+  if (versionNumber > m.versionNumber)
+  {
+    const std::source_location &location = std::source_location::current();
+    throw std::runtime_error(std::format("Invalid version reading 'SampleMovie' at line {} in file {}\n",
+                                         location.line(), location.file_name()));
+  }
+
+  archive >> m.sampleEvery;
+
+#if DEBUG_ARCHIVE
+  std::uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("SampleMovie: Error in binary restart\n"));
+  }
+#endif
+
+  return archive;
 }

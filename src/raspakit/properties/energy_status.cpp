@@ -61,6 +61,12 @@ std::string EnergyStatus::printEnergyStatus(const std::vector<Component> &compon
              Units::displayedUnitOfEnergyString);
   std::print(stream, "    dU/dlambda:                              {: .6e} [{}/-]\n", conv * totalEnergy.dUdlambda,
              Units::displayedUnitOfEnergyString);
+  std::print(stream, "    translational kinetic energy:            {: .6e} [{}/-]\n", conv * translationalKineticEnergy,
+             Units::displayedUnitOfEnergyString);
+  std::print(stream, "    rotational kinetic energy:               {: .6e} [{}/-]\n", conv * rotationalKineticEnergy,
+             Units::displayedUnitOfEnergyString);
+  std::print(stream, "    Nose-Hoover energy:                      {: .6e} [{}/-]\n", conv * noseHooverEnergy,
+             Units::displayedUnitOfEnergyString);
 
   for (std::size_t i = 0; i < components.size(); ++i)
   {
@@ -88,10 +94,11 @@ std::string EnergyStatus::printEnergyStatus(const std::vector<Component> &compon
                Units::displayedUnitOfEnergyString);
     std::print(stream, "    Molecule bendTorsion:       {: .6e} [{}]\n", conv * intraComponentEnergies[i].bendTorsion,
                Units::displayedUnitOfEnergyString);
-    std::print(stream, "    Molecule intraVDW:          {: .6e} [{}]\n", conv * intraComponentEnergies[i].intraVDW,
+    std::print(stream, "    Molecule intraVDW:          {: .6e} [{}]\n", conv * intraComponentEnergies[i].vanDerWaals,
                Units::displayedUnitOfEnergyString);
-    std::print(stream, "    Molecule intraChargeCharge: {: .6e} [{}]\n\n",
-               conv * intraComponentEnergies[i].intraChargeCharge, Units::displayedUnitOfEnergyString);
+    std::print(stream, "    Molecule intraChargeCharge: {: .6e} [{}]\n\n", conv * intraComponentEnergies[i].coulomb,
+               Units::displayedUnitOfEnergyString);
+
     for (std::size_t j = 0; j < components.size(); ++j)
     {
       std::print(stream, "    Component: {}-{} [{}-{}]\n", i, j, components[i].name, components[j].name);
@@ -135,6 +142,9 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Energy
   archive << e.interComponentEnergies;
   archive << e.polarizationEnergy;
   archive << e.dUdlambda;
+  archive << e.translationalKineticEnergy;
+  archive << e.rotationalKineticEnergy;
+  archive << e.noseHooverEnergy;
 
 #if DEBUG_ARCHIVE
   archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
@@ -168,6 +178,9 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, EnergyStatus
   archive >> e.interComponentEnergies;
   archive >> e.polarizationEnergy;
   archive >> e.dUdlambda;
+  archive >> e.translationalKineticEnergy;
+  archive >> e.rotationalKineticEnergy;
+  archive >> e.noseHooverEnergy;
 
 #if DEBUG_ARCHIVE
   std::uint64_t magicNumber;

@@ -14,7 +14,6 @@
 #include <vector>
 #endif
 
-
 #ifndef USE_LEGACY_HEADERS
 #include <locale.h>
 import std;
@@ -84,7 +83,7 @@ int main(int argc, char* argv[])
         MonteCarlo mc(inputReader);
         if (inputReader.restartFromBinary)
         {
-          std::ifstream ifile("restart_data.bin", std::ios::binary);
+          std::ifstream ifile(inputReader.restartFromBinaryFileName, std::ios::binary);
           if (!ifile.is_open())
           {
             throw std::runtime_error("Restart file doesn't exist..\n");

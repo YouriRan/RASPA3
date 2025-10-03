@@ -73,7 +73,7 @@ std::optional<RunningEnergy> MC_Moves::volumeMoveNCMC(RandomNumber &random, Syst
   SimulationBox newBox = system.simulationBox.scaled(scale);
   std::pair<std::vector<Molecule>, std::vector<Atom>> newPositions = system.scaledCenterOfMassPositions(scale);
 
-  std::vector<Molecule> moleculePositions = newPositions.first;
+  std::vector<Molecule> moleculeData = newPositions.first;
   std::vector<Atom> moleculeAtomPositions = newPositions.second;
   std::optional<Thermostat> thermostat(system.thermostat);
 
@@ -81,17 +81,17 @@ std::optional<RunningEnergy> MC_Moves::volumeMoveNCMC(RandomNumber &random, Syst
 
   // initialize the velocities according to Boltzmann distribution
   // NOTE: it is important that the reference energy has the initial kinetic energies
-  Integrators::initializeVelocities(random, moleculePositions, system.components, system.temperature);
+  Integrators::initializeVelocities(random, moleculeData, system.components, system.temperature);
 
   if (system.numberOfFrameworkAtoms == 0)
   {
-    Integrators::removeCenterOfMassVelocityDrift(moleculePositions);
+    Integrators::removeCenterOfMassVelocityDrift(moleculeData);
   }
 
   RunningEnergy referenceEnergy = system.runningEnergies;
-  referenceEnergy.translationalKineticEnergy = Integrators::computeTranslationalKineticEnergy(moleculePositions);
+  referenceEnergy.translationalKineticEnergy = Integrators::computeTranslationalKineticEnergy(moleculeData);
   referenceEnergy.rotationalKineticEnergy =
-      Integrators::computeRotationalKineticEnergy(moleculePositions, system.components);
+      Integrators::computeRotationalKineticEnergy(moleculeData, system.components);
   RunningEnergy currentEnergy = referenceEnergy;
 
   currentEnergy = Integrators::updateGradients(moleculeAtomPositions, system.spanOfFrameworkAtoms(), system.forceField,
@@ -104,7 +104,7 @@ std::optional<RunningEnergy> MC_Moves::volumeMoveNCMC(RandomNumber &random, Syst
   for (std::size_t step = 0; step < system.numberOfHybridMCSteps; ++step)
   {
     currentEnergy = Integrators::velocityVerlet(
-        moleculePositions, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
+        moleculeData, moleculeAtomPositions, system.components, dt, thermostat, system.spanOfFrameworkAtoms(),
         system.forceField, newBox, system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.totalEik,
         system.fixedFrameworkStoredEik, system.interpolationGrids, system.numberOfMoleculesPerComponent);
   }
@@ -124,14 +124,14 @@ std::optional<RunningEnergy> MC_Moves::volumeMoveNCMC(RandomNumber &random, Syst
   {
     system.mc_moves_statistics.addAccepted(move);
 
-    system.moleculePositions = moleculePositions;
+    system.moleculeData = moleculeData;
     system.thermostat = thermostat;
     system.timeStep = dt;
     system.simulationBox = newBox;
 
     system.spanOfMoleculeAtoms() = moleculeAtomPositions;
 
-    Integrators::createCartesianPositions(system.moleculePositions, system.spanOfMoleculeAtoms(), system.components);
+    Integrators::createCartesianPositions(system.moleculeData, system.spanOfMoleculeAtoms(), system.components);
     Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
     return currentEnergy;
   }

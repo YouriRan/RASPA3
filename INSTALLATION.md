@@ -86,7 +86,9 @@ ninja -C build
 ninja -C build install      # optional
 ```
 
-**Note**: remove the package ocl-icd from env.yml for Mac and Windows installations, as OpenCL is only available for Linux. For Max using the system OpenCL is recommended.
+**Note**: remove the package ocl-icd from env.yml for Mac and Windows installations, as OpenCL is only available for Linux. For MacOS using the system OpenCL is recommended.
+
+**Note**: it is often necessary to add the conda installed libraries raspa3 links against to your dynamic library path using `export LD_LIBRARY_PATH=${CONDA_PREFIX}/lib:$LD_LIBRARY_PATH`.
 
 ### 2.3 Linux examples
 
@@ -150,4 +152,4 @@ Common shortcuts:
 
 ---
 
-Need help?  Open an issue on GitHub or ask on the discussion forum.
+Need help?  Open an issue on [GitHub](https://www.github.com/iRASPA/RASPA3/issues) or ask on the discussion forum.

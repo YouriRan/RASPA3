@@ -58,21 +58,18 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsSwapMove_C
   componentB.mc_moves_statistics.addTrial(move);
 
   // Retrieve cutoff distances and grow type from system A
-  double cutOffFrameworkVDW = systemA.forceField.cutOffFrameworkVDW;
-  double cutOffMoleculeVDW = systemA.forceField.cutOffMoleculeVDW;
-  double cutOffCoulomb = systemA.forceField.cutOffCoulomb;
+  double cutOffFrameworkVDWA = systemA.forceField.cutOffFrameworkVDW;
+  double cutOffMoleculeVDWA = systemA.forceField.cutOffMoleculeVDW;
+  double cutOffCoulombA = systemA.forceField.cutOffCoulomb;
   Component::GrowType growType = componentA.growType;
-
-  // std::vector<Atom> atoms = componentA.recenteredCopy(1.0,
-  // systemA.numberOfMoleculesPerComponent[selectedComponent]);
 
   // Attempt to grow a new molecule in system A using CBMC insertion
   time_begin = std::chrono::system_clock::now();
-  std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
-      random, componentA, systemA.hasExternalField, systemA.components, systemA.forceField, systemA.simulationBox,
+  std::optional<ChainGrowData> growData = CBMC::growMoleculeSwapInsertion(
+      random, componentA, systemA.hasExternalField, systemA.forceField, systemA.simulationBox,
       systemA.interpolationGrids, systemA.framework, systemA.spanOfFrameworkAtoms(), systemA.spanOfMoleculeAtoms(),
-      systemA.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, newMoleculeIndex,
-      1.0, false, false, systemA.numberOfTrialDirections);
+      systemA.beta, growType, cutOffFrameworkVDWA, cutOffMoleculeVDWA, cutOffCoulombA, newMoleculeIndex, 1.0, false,
+      false);
   time_end = std::chrono::system_clock::now();
 
   // Update CPU time statistics for CBMC insertion (non-Ewald part)
@@ -116,16 +113,20 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsSwapMove_C
       std::exp(-systemA.beta * (energyFourierDifferenceA.potentialEnergy() + tailEnergyDifferenceA.potentialEnergy()));
 
   // Select a random molecule of the selected component from system B
-  std::size_t selectedMolecule = systemB.randomMoleculeOfComponent(random, selectedComponent);
+  std::size_t selectedMolecule = systemB.randomIntegerMoleculeOfComponent(random, selectedComponent);
   std::span<Atom> molecule = systemB.spanOfMolecule(selectedComponent, selectedMolecule);
+
+  // Retrieve cutoff distances and grow type from system B
+  double cutOffFrameworkVDWB = systemB.forceField.cutOffFrameworkVDW;
+  double cutOffMoleculeVDWB = systemB.forceField.cutOffMoleculeVDW;
+  double cutOffCoulombB = systemB.forceField.cutOffCoulomb;
 
   // Retrace the selected molecule in system B for deletion using CBMC
   time_begin = std::chrono::system_clock::now();
-  ChainData retraceData = CBMC::retraceMoleculeSwapDeletion(
-      random, componentB, systemB.hasExternalField, systemB.components, systemB.forceField, systemB.simulationBox,
+  ChainRetraceData retraceData = CBMC::retraceMoleculeSwapDeletion(
+      random, componentB, systemB.hasExternalField, systemB.forceField, systemB.simulationBox,
       systemB.interpolationGrids, systemB.framework, systemB.spanOfFrameworkAtoms(), systemB.spanOfMoleculeAtoms(),
-      systemB.beta, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, selectedMolecule, molecule,
-      1.0, systemB.numberOfTrialDirections);
+      systemB.beta, growType, cutOffFrameworkVDWB, cutOffMoleculeVDWB, cutOffCoulombB, molecule);
   time_end = std::chrono::system_clock::now();
 
   // Update CPU time statistics for CBMC deletion (non-Ewald part)

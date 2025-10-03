@@ -3,6 +3,7 @@ module;
 #ifdef USE_LEGACY_HEADERS
 #include <cmath>
 #include <cstddef>
+#include <format>
 #include <fstream>
 #endif
 
@@ -107,3 +108,14 @@ export inline double4 sqrt(const double4& a)
 {
   return double4(std::sqrt(a.x), std::sqrt(a.y), std::sqrt(a.z), std::sqrt(a.w));
 }
+
+export template <>
+struct std::formatter<double4> : std::formatter<std::string_view>
+{
+  auto format(const double4& v, std::format_context& ctx) const
+  {
+    std::string temp{};
+    std::format_to(std::back_inserter(temp), "({}, {}, {} {})", v.x, v.y, v.z, v.w);
+    return std::formatter<std::string_view>::format(temp, ctx);
+  }
+};

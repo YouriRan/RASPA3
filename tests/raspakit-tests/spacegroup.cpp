@@ -30,13 +30,13 @@ TEST(spacegroup, TestLennardJonesVDWTwoMethanes)
   ForceField forceField = TestFactories::makeDefaultFF(12.0, false, false, false);
   Component c = TestFactories::makeMethane(forceField, 0);
 
-  System system = System(0, forceField, SimulationBox(25.0, 25.0, 25.0), 300.0, 1e4, 1.0, {}, {c}, {2}, 5);
+  System system = System(0, forceField, SimulationBox(25.0, 25.0, 25.0), 300.0, 1e4, 1.0, {}, {c}, {}, {2}, 5);
 
-  system.atomPositions[0].position = double3(0.0, 0.0, 0.0);
-  system.atomPositions[1].position = double3(0.0, 0.0, 3.72 * std::pow(2.0, 1.0 / 6.0));
+  system.atomData[0].position = double3(0.0, 0.0, 0.0);
+  system.atomData[1].position = double3(0.0, 0.0, 3.72 * std::pow(2.0, 1.0 / 6.0));
 
   RunningEnergy energy =
-      Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, system.atomPositions);
+      Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, system.atomData);
 
   EXPECT_NEAR(energy.moleculeMoleculeVDW * Units::EnergyToKelvin, -158.5, 1e-12);
 }
@@ -124,15 +124,14 @@ TEST(spacegroup, TestLennardJonesVDWMethaneInITQ_29_P1)
                  Atom(double3(0.890200000000, 0.109800000000, 0.342900000000), -1.025, 1.0, 0, 1, 0, false, false)},
                 int3(1, 1, 1));
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {1}, 5);
+  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {}, {1}, 5);
 
-  std::span<Atom> atomPositions = system.spanOfMoleculeAtoms();
+  std::span<Atom> atomData = system.spanOfMoleculeAtoms();
   std::span<const Atom> frameworkAtoms = system.spanOfFrameworkAtoms();
-  atomPositions[0].position = double3(0.5 * 11.8671, 0.5 * 11.8671, 0.5 * 11.8671);
+  atomData[0].position = double3(0.5 * 11.8671, 0.5 * 11.8671, 0.5 * 11.8671);
 
-  RunningEnergy energy =
-      Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
-                                                   system.framework, frameworkAtoms, atomPositions);
+  RunningEnergy energy = Interactions::computeFrameworkMoleculeEnergy(
+      system.forceField, system.simulationBox, system.interpolationGrids, system.framework, frameworkAtoms, atomData);
 
   EXPECT_NEAR(energy.frameworkMoleculeVDW * Units::EnergyToKelvin, -337.77056357, 1e-6);
 }
@@ -219,15 +218,14 @@ TEST(spacegroup, TestLennardJonesVDWMethaneInITQ_29_2x2x2_P1)
                  Atom(double3(0.000000000000, 0.184700000000, 0.368300000000), 2.05, 1.0, 0, 0, 0, false, false),
                  Atom(double3(0.890200000000, 0.109800000000, 0.342900000000), -1.025, 1.0, 0, 1, 0, false, false)},
                 int3(2, 2, 2));
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {1}, 5);
+  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {}, {1}, 5);
 
-  std::span<Atom> atomPositions = system.spanOfMoleculeAtoms();
+  std::span<Atom> atomData = system.spanOfMoleculeAtoms();
   std::span<const Atom> frameworkAtoms = system.spanOfFrameworkAtoms();
-  atomPositions[0].position = double3(0.5 * 11.8671, 0.5 * 11.8671, 0.5 * 11.8671);
+  atomData[0].position = double3(0.5 * 11.8671, 0.5 * 11.8671, 0.5 * 11.8671);
 
-  RunningEnergy energy =
-      Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
-                                                   system.framework, frameworkAtoms, atomPositions);
+  RunningEnergy energy = Interactions::computeFrameworkMoleculeEnergy(
+      system.forceField, system.simulationBox, system.interpolationGrids, system.framework, frameworkAtoms, atomData);
 
   EXPECT_NEAR(energy.frameworkMoleculeVDW * Units::EnergyToKelvin, -602.89568378, 1e-6);
 }
@@ -238,15 +236,14 @@ TEST(spacegroup, TestLennardJonesVDWMethaneInITQ_29)
   Framework f = TestFactories::makeITQ29(forceField, int3(1, 1, 1));
   Component c = TestFactories::makeMethane(forceField, 0);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {1}, 5);
+  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {}, {1}, 5);
 
-  std::span<Atom> atomPositions = system.spanOfMoleculeAtoms();
+  std::span<Atom> atomData = system.spanOfMoleculeAtoms();
   std::span<const Atom> frameworkAtoms = system.spanOfFrameworkAtoms();
-  atomPositions[0].position = double3(0.5 * 11.8671, 0.5 * 11.8671, 0.5 * 11.8671);
+  atomData[0].position = double3(0.5 * 11.8671, 0.5 * 11.8671, 0.5 * 11.8671);
 
-  RunningEnergy energy =
-      Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
-                                                   system.framework, frameworkAtoms, atomPositions);
+  RunningEnergy energy = Interactions::computeFrameworkMoleculeEnergy(
+      system.forceField, system.simulationBox, system.interpolationGrids, system.framework, frameworkAtoms, atomData);
 
   EXPECT_NEAR(energy.frameworkMoleculeVDW * Units::EnergyToKelvin, -337.77056357, 1e-6);
 }
@@ -257,15 +254,14 @@ TEST(spacegroup, TestLennardJonesVDWMethaneInMFI)
   Framework f = TestFactories::makeMFI_Si(forceField, int3(1, 1, 1));
   Component c = TestFactories::makeMethane(forceField, 0);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {1}, 5);
+  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {}, {1}, 5);
 
-  std::span<Atom> atomPositions = system.spanOfMoleculeAtoms();
+  std::span<Atom> atomData = system.spanOfMoleculeAtoms();
   std::span<const Atom> frameworkAtoms = system.spanOfFrameworkAtoms();
-  atomPositions[0].position = double3(10.011, 4.097475, 0.0);
+  atomData[0].position = double3(10.011, 4.097475, 0.0);
 
-  RunningEnergy energy =
-      Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
-                                                   system.framework, frameworkAtoms, atomPositions);
+  RunningEnergy energy = Interactions::computeFrameworkMoleculeEnergy(
+      system.forceField, system.simulationBox, system.interpolationGrids, system.framework, frameworkAtoms, atomData);
 
   EXPECT_NEAR(energy.frameworkMoleculeVDW * Units::EnergyToKelvin, -1784.82292180, 1e-6);
 }
@@ -276,15 +272,14 @@ TEST(spacegroup, TestLennardJonesVDWMethaneInMFI2x2x2)
   Framework f = TestFactories::makeMFI_Si(forceField, int3(2, 2, 2));
   Component c = TestFactories::makeMethane(forceField, 0);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {1}, 5);
+  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {}, {1}, 5);
 
-  std::span<Atom> atomPositions = system.spanOfMoleculeAtoms();
+  std::span<Atom> atomData = system.spanOfMoleculeAtoms();
   std::span<const Atom> frameworkAtoms = system.spanOfFrameworkAtoms();
-  atomPositions[0].position = double3(10.011, 4.097475, 0.0);
+  atomData[0].position = double3(10.011, 4.097475, 0.0);
 
-  RunningEnergy energy =
-      Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
-                                                   system.framework, frameworkAtoms, atomPositions);
+  RunningEnergy energy = Interactions::computeFrameworkMoleculeEnergy(
+      system.forceField, system.simulationBox, system.interpolationGrids, system.framework, frameworkAtoms, atomData);
 
   EXPECT_NEAR(energy.frameworkMoleculeVDW * Units::EnergyToKelvin, -1828.89015075, 1e-6);
 }
@@ -588,15 +583,14 @@ TEST(spacegroup, TestLennardJonesVDWMethaneInMFI_P1)
                  Atom(double3(0.996000000000, 0.652800000000, 0.792200000000), -1.025, 1.0, 0, 1, 0, false, false)},
                 int3(1, 1, 1));
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {1}, 5);
+  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {}, {1}, 5);
 
-  std::span<Atom> atomPositions = system.spanOfMoleculeAtoms();
+  std::span<Atom> atomData = system.spanOfMoleculeAtoms();
   std::span<const Atom> frameworkAtoms = system.spanOfFrameworkAtoms();
-  atomPositions[0].position = double3(10.011, 4.097475, 0.0);
+  atomData[0].position = double3(10.011, 4.097475, 0.0);
 
-  RunningEnergy energy =
-      Interactions::computeFrameworkMoleculeEnergy(system.forceField, system.simulationBox, system.interpolationGrids,
-                                                   system.framework, frameworkAtoms, atomPositions);
+  RunningEnergy energy = Interactions::computeFrameworkMoleculeEnergy(
+      system.forceField, system.simulationBox, system.interpolationGrids, system.framework, frameworkAtoms, atomData);
 
   EXPECT_NEAR(energy.frameworkMoleculeVDW * Units::EnergyToKelvin, -1784.82292180, 1e-6);
 }

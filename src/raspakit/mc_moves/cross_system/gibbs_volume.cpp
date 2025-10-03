@@ -80,7 +80,6 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
   int3 ewald_k_stored_A = systemA.forceField.numberOfWaveVectors;
 
   systemA.forceField.initializeAutomaticCutOff(newBoxA);
-  systemA.forceField.initializeEwaldParameters(newBoxA);
 
   // Compute new intermolecular energy for systemA
   time_begin = std::chrono::system_clock::now();
@@ -107,6 +106,11 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
   // Update energy and statistics for systemA
   RunningEnergy newTotalEnergyA = newTotalInterEnergyA + newTotalTailEnergyA + newTotalEwaldEnergyA;
 
+  if (newTotalInterEnergyA.potentialEnergy() > systemA.forceField.energyOverlapCriteria)
+  {
+    return std::nullopt;
+  }
+
   systemA.mc_moves_statistics.addConstructed(move);
 
   // Scale systemB to new volume and calculate new positions
@@ -124,7 +128,6 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
   int3 ewald_k_stored_B = systemB.forceField.numberOfWaveVectors;
 
   systemB.forceField.initializeAutomaticCutOff(newBoxB);
-  systemB.forceField.initializeEwaldParameters(newBoxB);
 
   // Compute new intermolecular energy for systemB
   time_begin = std::chrono::system_clock::now();
@@ -151,6 +154,11 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
   // Update energy and statistics for systemB
   RunningEnergy newTotalEnergyB = newTotalInterEnergyB + newTotalTailEnergyB + newTotalEwaldEnergyB;
 
+  if (newTotalInterEnergyB.potentialEnergy() > systemB.forceField.energyOverlapCriteria)
+  {
+    return std::nullopt;
+  }
+
   systemB.mc_moves_statistics.addConstructed(move);
 
   // Calculate total energy change deltaU
@@ -166,18 +174,18 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
     systemA.mc_moves_statistics.addAccepted(move);
 
     systemA.simulationBox = newBoxA;
-    std::copy(newPositionsA.first.begin(), newPositionsA.first.end(), systemA.moleculePositions.begin());
-    std::copy(newPositionsA.second.begin(), newPositionsA.second.end(), systemA.atomPositions.begin());
+    std::copy(newPositionsA.first.begin(), newPositionsA.first.end(), systemA.moleculeData.begin());
+    std::copy(newPositionsA.second.begin(), newPositionsA.second.end(), systemA.atomData.begin());
     Interactions::acceptEwaldMove(systemA.forceField, systemA.storedEik, systemA.totalEik);
 
     systemB.mc_moves_statistics.addAccepted(move);
 
     systemB.simulationBox = newBoxB;
-    std::copy(newPositionsB.first.begin(), newPositionsB.first.end(), systemB.moleculePositions.begin());
-    std::copy(newPositionsB.second.begin(), newPositionsB.second.end(), systemB.atomPositions.begin());
+    std::copy(newPositionsB.first.begin(), newPositionsB.first.end(), systemB.moleculeData.begin());
+    std::copy(newPositionsB.second.begin(), newPositionsB.second.end(), systemB.atomData.begin());
     Interactions::acceptEwaldMove(systemB.forceField, systemB.storedEik, systemB.totalEik);
 
-    return std::make_pair(newTotalEnergyA, newTotalEnergyB);
+    return std::make_pair(newTotalEnergyA - oldTotalEnergyA, newTotalEnergyB - oldTotalEnergyB);
   }
 
   systemA.forceField.cutOffFrameworkVDW = cutOffFrameworkVDW_stored_A;

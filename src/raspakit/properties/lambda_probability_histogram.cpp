@@ -58,11 +58,14 @@ void PropertyLambdaProbabilityHistogram::WangLandauIteration(PropertyLambdaProba
       std::fill(histogram.begin(), histogram.end(), 0.0);
       occupancyCount = 0;
       occupancyTotal = 0;
+
       // std::vector<double>::iterator maxValueIterator = std::max_element(histogram.begin(), histogram.end());
       // double maximumValue = *maxValueIterator;
+
+      // std::print("biasing factors: {}\n", biasFactor);
       //
       // bool allBinsAtLeast90PercentOfThisValue = true;
-      // for(std::std::size_t i = 0; i < histogram.size(); ++i)
+      // for(std::size_t i = 0; i < histogram.size(); ++i)
       //{
       //   if (histogram[i] < 0.9 * maximumValue)
       //   {
@@ -72,7 +75,7 @@ void PropertyLambdaProbabilityHistogram::WangLandauIteration(PropertyLambdaProba
       // }
       // if (allBinsAtLeast90PercentOfThisValue)
       //{
-      //   std::cout << "allBinsAtLeast90PercentOfThisValue" << std::endl;
+      //   std::print("rescaling!\n");
       //   WangLandauScalingFactor *= 0.5;
       //   std::fill(histogram.begin(), histogram.end(), 0.0);
       //   occupancyCount = 0;
@@ -237,6 +240,19 @@ std::string PropertyLambdaProbabilityHistogram::writeAveragesStatistics(double b
                    beta * imposedChemicalPotential.value());
       }
       std::print(stream, "    ---------------------------------------------------------------------------\n");
+      std::print(stream, "    Excess chemical potential:    {: .6e} +/- {: .6e} [{}]\n",
+                 (excessChemicalPotential.first + excessChemicalPotentialBias), excessChemicalPotential.second,
+                 Units::unitOfEnergyString);
+      std::print(stream, "    Ideal gas chemical potential: {: .6e} +/- {: .6e} [{}]\n",
+                 idealGasChemicalPotential.first, idealGasChemicalPotential.second, Units::unitOfEnergyString);
+      std::print(stream, "    Total chemical potential:     {: .6e} +/- {: .6e} [{}]\n", totalChemicalPotential.first,
+                 totalChemicalPotential.second, Units::unitOfEnergyString);
+      if (imposedChemicalPotential)
+      {
+        std::print(stream, "    Imposed chemical potential:   {: .6e} [{}]\n", imposedChemicalPotential.value(),
+                   Units::unitOfEnergyString);
+      }
+      std::print(stream, "    ---------------------------------------------------------------------------\n");
       if (imposedFugacity)
       {
         std::print(stream, "    Imposed fugacity:             {: .6e} [{}]\n",
@@ -335,12 +351,8 @@ void PropertyLambdaProbabilityHistogram::writeBiasingFile(std::filesystem::path 
   std::ofstream stream(path, std::ios::out);
 
   nlohmann::json json;
-  std::vector<double> shifted{biasFactor};
-  for (std::size_t i = 0; i < shifted.size(); ++i)
-  {
-    shifted[i] -= shifted.back();
-  }
-  json["bias"] = shifted;
+
+  json["bias"] = biasFactor;
 
   stream << json.dump(2);
 }

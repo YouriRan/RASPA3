@@ -3,9 +3,11 @@ module;
 #ifdef USE_LEGACY_HEADERS
 #include <cmath>
 #include <cstddef>
+#include <fstream>
 #include <iostream>
 #include <ostream>
 #include <print>
+#include <source_location>
 #include <sstream>
 #include <vector>
 #endif
@@ -16,6 +18,7 @@ module multi_site_isotherm;
 import std;
 #endif
 
+import archive;
 import special_functions;
 import isotherm;
 import stringutils;
@@ -178,4 +181,38 @@ std::string MultiSiteIsotherm::gnuplotFunctionString([[maybe_unused]] char s) co
     }
   }
   return stream.str();
+}
+
+Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const MultiSiteIsotherm &c)
+{
+  archive << c.versionNumber;
+
+#if DEBUG_ARCHIVE
+  archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
+#endif
+
+  return archive;
+}
+
+Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, MultiSiteIsotherm &c)
+{
+  std::uint64_t versionNumber;
+  archive >> versionNumber;
+  if (versionNumber > c.versionNumber)
+  {
+    const std::source_location &location = std::source_location::current();
+    throw std::runtime_error(std::format("Invalid version reading 'Component' at line {} in file {}\n", location.line(),
+                                         location.file_name()));
+  }
+
+#if DEBUG_ARCHIVE
+  std::uint64_t magicNumber;
+  archive >> magicNumber;
+  if (magicNumber != static_cast<std::uint64_t>(0x6f6b6179))
+  {
+    throw std::runtime_error(std::format("Component: Error in binary restart\n"));
+  }
+#endif
+
+  return archive;
 }

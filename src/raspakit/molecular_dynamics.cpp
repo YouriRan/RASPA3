@@ -188,12 +188,12 @@ void MolecularDynamics::initialize()
   for (System& system : systems)
   {
     system.precomputeTotalRigidEnergy();
-    Integrators::createCartesianPositions(system.moleculePositions, system.spanOfMoleculeAtoms(), system.components);
+    Integrators::createCartesianPositions(system.moleculeData, system.spanOfMoleculeAtoms(), system.components);
     system.precomputeTotalGradients();
     system.runningEnergies.translationalKineticEnergy =
-        Integrators::computeTranslationalKineticEnergy(system.moleculePositions);
+        Integrators::computeTranslationalKineticEnergy(system.moleculeData);
     system.runningEnergies.rotationalKineticEnergy =
-        Integrators::computeRotationalKineticEnergy(system.moleculePositions, system.components);
+        Integrators::computeRotationalKineticEnergy(system.moleculeData, system.components);
 
     std::ostream stream(streams[system.systemId].rdbuf());
     stream << system.runningEnergies.printMC("Recomputed from scratch");
@@ -220,8 +220,8 @@ void MolecularDynamics::initialize()
       System& selectSecondSystem = systems[selectedSystemPair.second];
 
       std::size_t selectedComponent = selectedSystem.randomComponent(random);
-      MC_Moves::performRandomMove(random, selectedSystem, selectSecondSystem, selectedComponent,
-                                  fractionalMoleculeSystem);
+      MC_Moves::performRandomMoveInitialization(random, selectedSystem, selectSecondSystem, selectedComponent,
+                                                fractionalMoleculeSystem);
 
       for (System& system : systems)
       {
@@ -279,10 +279,10 @@ void MolecularDynamics::equilibrate()
   for (System& system : systems)
   {
     std::ostream stream(streams[system.systemId].rdbuf());
-    Integrators::createCartesianPositions(system.moleculePositions, system.spanOfMoleculeAtoms(), system.components);
-    Integrators::initializeVelocities(random, system.moleculePositions, system.components, system.temperature);
+    Integrators::createCartesianPositions(system.moleculeData, system.spanOfMoleculeAtoms(), system.components);
+    Integrators::initializeVelocities(random, system.moleculeData, system.components, system.temperature);
 
-    Integrators::removeCenterOfMassVelocityDrift(system.moleculePositions);
+    Integrators::removeCenterOfMassVelocityDrift(system.moleculeData);
     if (system.thermostat.has_value())
     {
       if (!system.framework.has_value() && system.numberOfMolecules() > 1uz)
@@ -295,9 +295,9 @@ void MolecularDynamics::equilibrate()
 
     system.precomputeTotalGradients();
     system.runningEnergies.translationalKineticEnergy =
-        Integrators::computeTranslationalKineticEnergy(system.moleculePositions);
+        Integrators::computeTranslationalKineticEnergy(system.moleculeData);
     system.runningEnergies.rotationalKineticEnergy =
-        Integrators::computeRotationalKineticEnergy(system.moleculePositions, system.components);
+        Integrators::computeRotationalKineticEnergy(system.moleculeData, system.components);
     if (system.thermostat.has_value())
     {
       system.runningEnergies.NoseHooverEnergy = system.thermostat->getEnergy();
@@ -320,7 +320,7 @@ void MolecularDynamics::equilibrate()
     for (System& system : systems)
     {
       system.runningEnergies = Integrators::velocityVerlet(
-          system.moleculePositions, system.spanOfMoleculeAtoms(), system.components, system.timeStep, system.thermostat,
+          system.moleculeData, system.spanOfMoleculeAtoms(), system.components, system.timeStep, system.thermostat,
           system.spanOfFrameworkAtoms(), system.forceField, system.simulationBox, system.eik_x, system.eik_y,
           system.eik_z, system.eik_xy, system.totalEik, system.fixedFrameworkStoredEik, system.interpolationGrids,
           system.numberOfMoleculesPerComponent);
@@ -393,12 +393,12 @@ void MolecularDynamics::production()
   {
     std::ostream stream(streams[system.systemId].rdbuf());
 
-    Integrators::createCartesianPositions(system.moleculePositions, system.spanOfMoleculeAtoms(), system.components);
+    Integrators::createCartesianPositions(system.moleculeData, system.spanOfMoleculeAtoms(), system.components);
     system.precomputeTotalGradients();
     system.runningEnergies.translationalKineticEnergy =
-        Integrators::computeTranslationalKineticEnergy(system.moleculePositions);
+        Integrators::computeTranslationalKineticEnergy(system.moleculeData);
     system.runningEnergies.rotationalKineticEnergy =
-        Integrators::computeRotationalKineticEnergy(system.moleculePositions, system.components);
+        Integrators::computeRotationalKineticEnergy(system.moleculeData, system.components);
     if (system.thermostat.has_value())
     {
       system.runningEnergies.NoseHooverEnergy = system.thermostat->getEnergy();
@@ -468,7 +468,7 @@ void MolecularDynamics::production()
     for (System& system : systems)
     {
       system.runningEnergies = Integrators::velocityVerlet(
-          system.moleculePositions, system.spanOfMoleculeAtoms(), system.components, system.timeStep, system.thermostat,
+          system.moleculeData, system.spanOfMoleculeAtoms(), system.components, system.timeStep, system.thermostat,
           system.spanOfFrameworkAtoms(), system.forceField, system.simulationBox, system.eik_x, system.eik_y,
           system.eik_z, system.eik_xy, system.totalEik, system.fixedFrameworkStoredEik, system.interpolationGrids,
           system.numberOfMoleculesPerComponent);
@@ -553,6 +553,41 @@ void MolecularDynamics::production()
     totalSimulationTime += (t2 - t1);
   continueProductionStage:;
   }
+
+  // output properties to files
+  for (System& system : systems)
+  {
+    if (system.propertyConventionalRadialDistributionFunction.has_value())
+    {
+      system.propertyConventionalRadialDistributionFunction->writeOutput(system.forceField, system.systemId,
+                                                                         system.simulationBox.volume,
+                                                                         system.totalNumberOfPseudoAtoms, currentCycle);
+    }
+
+    if (system.propertyRadialDistributionFunction.has_value())
+    {
+      system.propertyRadialDistributionFunction->writeOutput(system.forceField, system.systemId,
+                                                             system.simulationBox.volume,
+                                                             system.totalNumberOfPseudoAtoms, currentCycle);
+    }
+    if (system.propertyDensityGrid.has_value())
+    {
+      system.propertyDensityGrid->writeOutput(system.systemId, system.simulationBox, system.forceField,
+                                              system.framework, system.components, currentCycle);
+    }
+
+    if (system.propertyMSD.has_value())
+    {
+      system.propertyMSD->writeOutput(system.systemId, system.components, system.numberOfIntegerMoleculesPerComponent,
+                                      system.timeStep, currentCycle);
+    }
+
+    if (system.propertyVACF.has_value())
+    {
+      system.propertyVACF->writeOutput(system.systemId, system.components, system.numberOfIntegerMoleculesPerComponent,
+                                       system.timeStep, currentCycle);
+    }
+  }
 }
 
 void MolecularDynamics::output()
@@ -573,19 +608,15 @@ void MolecularDynamics::output()
   {
     std::ostream stream(streams[system.systemId].rdbuf());
 
-    std::print(stream, "Monte-Carlo moves statistics\n");
-    std::print(stream, "===============================================================================\n\n");
+    std::print(stream, "\n");
+    std::print(stream, "===============================================================================\n");
+    std::print(stream, "                             Simulation finished!\n");
+    std::print(stream, "===============================================================================\n");
+    std::print(stream, "\n");
 
-    std::print(stream, "{}", system.writeMCMoveStatistics());
+    std::string status_line{std::format("Final state after {} cycles\n\n", numberOfCycles)};
 
-    std::print(stream, "Production run counting of the MC moves summed over systems and components\n");
-    std::print(stream, "===============================================================================\n\n");
-
-    std::print(stream, "{}\n", countTotal.writeMCMoveStatistics(numberOfSteps));
-
-    std::print(stream, "\n\n");
-
-    std::print(stream, "Production run CPU timings of the MC moves\n");
+    std::print(stream, "Production run CPU timings of the MD simulation\n");
     std::print(stream, "===============================================================================\n\n");
 
     for (const Component& component : system.components)
@@ -594,17 +625,18 @@ void MolecularDynamics::output()
                  component.mc_moves_cputime.writeMCMoveCPUTimeStatistics(component.componentId, component.name));
     }
     std::print(stream, "{}", system.mc_moves_cputime.writeMCMoveCPUTimeStatistics());
-    std::print(stream, "{}", integratorsCPUTime.writeIntegratorsCPUTimeStatistics());
-
-    std::print(stream, "Production run CPU timings of the MC moves summed over systems and components\n");
-    std::print(stream, "===============================================================================\n\n");
-
-    std::print(stream, "{}", total.writeMCMoveCPUTimeStatistics(totalSimulationTime));
+    std::print(stream, "{}", integratorsCPUTime.writeIntegratorsCPUTimeStatistics(totalSimulationTime));
     std::print(stream, "\n\n");
 
     std::print(
         stream, "{}",
         system.averageEnergies.writeAveragesStatistics(system.hasExternalField, system.framework, system.components));
+
+    std::print(stream, "Temperature averages and statistics:\n");
+    std::print(stream, "===============================================================================\n\n");
+    std::print(stream, "{}", system.averageTemperature.writeAveragesStatistics("Total"));
+    std::print(stream, "{}", system.averageTranslationalTemperature.writeAveragesStatistics("Translational"));
+    std::print(stream, "{}", system.averageRotationalTemperature.writeAveragesStatistics("Rotational"));
 
     if (!(system.framework.has_value() && system.framework->rigid))
     {

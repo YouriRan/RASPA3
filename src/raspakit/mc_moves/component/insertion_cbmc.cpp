@@ -67,11 +67,10 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::insertionMoveCBMC(Ran
 
   // Attempt to grow a new molecule using CBMC
   time_begin = std::chrono::system_clock::now();
-  std::optional<ChainData> growData = CBMC::growMoleculeSwapInsertion(
-      random, component, system.hasExternalField, system.components, system.forceField, system.simulationBox,
-      system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-      system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedComponent, selectedMolecule,
-      1.0, false, false, system.numberOfTrialDirections);
+  std::optional<ChainGrowData> growData = CBMC::growMoleculeSwapInsertion(
+      random, component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+      system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(), system.beta, growType,
+      cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, selectedMolecule, 1.0, false, false);
   time_end = std::chrono::system_clock::now();
 
   // Update CPU time statistics for the non-Ewald part of the move
@@ -82,6 +81,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::insertionMoveCBMC(Ran
   if (!growData) return {std::nullopt, double3(0.0, 1.0, 0.0)};
 
   std::span<const Atom> newMolecule = std::span(growData->atom.begin(), growData->atom.end());
+  std::vector<double3> new_electric_field = std::vector<double3>(newMolecule.size());
 
   // Check if the new molecule is inside blocked pockets
   if (system.insideBlockedPockets(system.components[selectedComponent], newMolecule))
@@ -120,16 +120,16 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::insertionMoveCBMC(Ran
   if (system.forceField.computePolarization)
   {
     Interactions::computeFrameworkMoleculeElectricFieldDifference(system.forceField, system.simulationBox,
-                                                                  system.spanOfFrameworkAtoms(),
-                                                                  growData->electricField, {}, growData->atom, {});
+                                                                  system.spanOfFrameworkAtoms(), new_electric_field, {},
+                                                                  growData->atom, {});
 
     Interactions::computeEwaldFourierElectricFieldDifference(
         system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.fixedFrameworkStoredEik, system.storedEik,
-        system.totalEik, system.forceField, system.simulationBox, growData->electricField, {}, growData->atom, {});
+        system.totalEik, system.forceField, system.simulationBox, new_electric_field, {}, growData->atom, {});
 
     // Compute polarization energy difference
-    polarizationDifference = Interactions::computePolarizationEnergyDifference(
-        system.forceField, growData->electricField, {}, growData->atom, {});
+    polarizationDifference = Interactions::computePolarizationEnergyDifference(system.forceField, new_electric_field,
+                                                                               {}, growData->atom, {});
   }
 
   // Calculate correction factor for Ewald energy difference
@@ -138,10 +138,9 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::insertionMoveCBMC(Ran
                                polarizationDifference.potentialEnergy()));
 
   // Compute the acceptance probability pre-factor
-  double fugacity = component.fugacityCoefficient.value_or(1.0) * system.pressure;
+  double fugacity = component.molFraction * component.fugacityCoefficient.value_or(1.0) * system.pressure;
   double idealGasRosenbluthWeight = component.idealGasRosenbluthWeight.value_or(1.0);
-  double preFactor = correctionFactorEwald * system.beta * component.molFraction * fugacity *
-                     system.simulationBox.volume /
+  double preFactor = correctionFactorEwald * system.beta * fugacity * system.simulationBox.volume /
                      double(1 + system.numberOfIntegerMoleculesPerComponent[selectedComponent]);
 
   // Calculate the acceptance probability Pacc
@@ -168,7 +167,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::insertionMoveCBMC(Ran
 
     // Accept Ewald move and insert the new molecule into the system
     Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
-    system.insertMoleculePolarization(selectedComponent, growData->molecule, growData->atom, growData->electricField);
+    system.insertMoleculePolarization(selectedComponent, growData->molecule, growData->atom, new_electric_field);
 
     return {growData->energies + energyFourierDifference + tailEnergyDifference + polarizationDifference,
             double3(0.0, 1.0 - Pacc, Pacc)};

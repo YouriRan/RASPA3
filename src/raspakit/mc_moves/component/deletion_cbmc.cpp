@@ -70,14 +70,14 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMoveCBMC(Rand
     double cutOffFrameworkVDW = system.forceField.cutOffFrameworkVDW;
     double cutOffMoleculeVDW = system.forceField.cutOffMoleculeVDW;
     double cutOffCoulomb = system.forceField.cutOffCoulomb;
+    Component::GrowType growType = component.growType;
 
     // Retrace the molecule for the swap deletion using CBMC algorithm
     time_begin = std::chrono::system_clock::now();
-    ChainData retraceData = CBMC::retraceMoleculeSwapDeletion(
-        random, system.components[selectedComponent], system.hasExternalField, system.components, system.forceField,
-        system.simulationBox, system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(),
-        system.spanOfMoleculeAtoms(), system.beta, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb,
-        selectedComponent, selectedMolecule, molecule, 1.0, system.numberOfTrialDirections);
+    ChainRetraceData retraceData = CBMC::retraceMoleculeSwapDeletion(
+        random, system.components[selectedComponent], system.hasExternalField, system.forceField, system.simulationBox,
+        system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
+        system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, molecule);
     time_end = std::chrono::system_clock::now();
 
     // Update the CPU time statistics for the non-Ewald part of the move
@@ -112,18 +112,20 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMoveCBMC(Rand
     RunningEnergy polarizationDifference;
     if (system.forceField.computePolarization)
     {
+      std::vector<Atom> old_molecule = std::vector(molecule.begin(), molecule.end());
+      std::vector<double3> old_electric_field = std::vector<double3>(old_molecule.size());
+
       Interactions::computeFrameworkMoleculeElectricFieldDifference(system.forceField, system.simulationBox,
                                                                     system.spanOfFrameworkAtoms(), {},
-                                                                    retraceData.electricField, {}, retraceData.atom);
+                                                                    old_electric_field, {}, old_molecule);
 
-      Interactions::computeEwaldFourierElectricFieldDifference(system.eik_x, system.eik_y, system.eik_z, system.eik_xy,
-                                                               system.fixedFrameworkStoredEik, system.storedEik,
-                                                               system.totalEik, system.forceField, system.simulationBox,
-                                                               {}, retraceData.electricField, {}, retraceData.atom);
+      Interactions::computeEwaldFourierElectricFieldDifference(
+          system.eik_x, system.eik_y, system.eik_z, system.eik_xy, system.fixedFrameworkStoredEik, system.storedEik,
+          system.totalEik, system.forceField, system.simulationBox, {}, old_electric_field, {}, old_molecule);
 
       // Compute polarization energy difference
-      polarizationDifference = Interactions::computePolarizationEnergyDifference(
-          system.forceField, {}, retraceData.electricField, {}, retraceData.atom);
+      polarizationDifference = Interactions::computePolarizationEnergyDifference(system.forceField, {},
+                                                                                 old_electric_field, {}, old_molecule);
     }
 
     // Calculate the correction factor for Ewald summation
@@ -132,10 +134,10 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::deletionMoveCBMC(Rand
                                  polarizationDifference.potentialEnergy()));
 
     // Compute acceptance probability factors
-    double fugacity = component.fugacityCoefficient.value_or(1.0) * system.pressure;
+    double fugacity = component.molFraction * component.fugacityCoefficient.value_or(1.0) * system.pressure;
     double idealGasRosenbluthWeight = component.idealGasRosenbluthWeight.value_or(1.0);
     double preFactor = correctionFactorEwald * double(system.numberOfIntegerMoleculesPerComponent[selectedComponent]) /
-                       (system.beta * component.molFraction * fugacity * system.simulationBox.volume);
+                       (system.beta * fugacity * system.simulationBox.volume);
     double Pacc = preFactor * idealGasRosenbluthWeight / retraceData.RosenbluthWeight;
     std::size_t oldN = system.numberOfIntegerMoleculesPerComponent[selectedComponent];
     double biasTransitionMatrix = system.tmmc.biasFactor(oldN - 1, oldN);

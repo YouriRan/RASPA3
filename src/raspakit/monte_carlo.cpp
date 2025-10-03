@@ -274,15 +274,16 @@ void MonteCarlo::performCycle()
       case SimulationStage::Uninitialized:
         break;
       case SimulationStage::Initialization:
-        MC_Moves::performRandomMove(random, selectedSystem, selectedSecondSystem, selectedComponent,
-                                    fractionalMoleculeSystem);
+        MC_Moves::performRandomMoveInitialization(random, selectedSystem, selectedSecondSystem, selectedComponent,
+                                                  fractionalMoleculeSystem);
         break;
       case SimulationStage::Equilibration:
-        MC_Moves::performRandomMove(random, selectedSystem, selectedSecondSystem, selectedComponent,
-                                    fractionalMoleculeSystem);
+        MC_Moves::performRandomMoveEquilibration(random, selectedSystem, selectedSecondSystem, selectedComponent,
+                                                 fractionalMoleculeSystem);
 
         selectedSystem.components[selectedComponent].lambdaGC.WangLandauIteration(
             PropertyLambdaProbabilityHistogram::WangLandauPhase::Sample, selectedSystem.containsTheFractionalMolecule);
+
         selectedSecondSystem.components[selectedComponent].lambdaGC.WangLandauIteration(
             PropertyLambdaProbabilityHistogram::WangLandauPhase::Sample,
             selectedSecondSystem.containsTheFractionalMolecule);
@@ -292,15 +293,6 @@ void MonteCarlo::performCycle()
                                               fractionalMoleculeSystem, estimation.currentBin);
         numberOfSteps++;
         break;
-    }
-
-    if (simulationStage == SimulationStage::Equilibration)
-    {
-      selectedSystem.components[selectedComponent].lambdaGC.WangLandauIteration(
-          PropertyLambdaProbabilityHistogram::WangLandauPhase::Sample, selectedSystem.containsTheFractionalMolecule);
-      selectedSecondSystem.components[selectedComponent].lambdaGC.WangLandauIteration(
-          PropertyLambdaProbabilityHistogram::WangLandauPhase::Sample,
-          selectedSecondSystem.containsTheFractionalMolecule);
     }
 
     selectedSystem.components[selectedComponent].lambdaGC.sampleOccupancy(selectedSystem.containsTheFractionalMolecule);
@@ -551,6 +543,19 @@ void MonteCarlo::production()
     }
   }
 
+  if (outputToFiles)
+  {
+    std::filesystem::create_directories("bias_factors");
+    for (System& system : systems)
+    {
+      for (Component& component : system.components)
+      {
+        component.lambdaGC.writeBiasingFile(
+            std::format("bias_factors/lambda_bias_{}.s{}.json", component.name, system.systemId));
+      }
+    }
+  }
+
   numberOfSteps = 0uz;
   for (currentCycle = 0uz; currentCycle != numberOfCycles; ++currentCycle)
   {
@@ -586,7 +591,8 @@ void MonteCarlo::production()
         if (outputToFiles)
         {
           std::ostream stream(streams[system.systemId].rdbuf());
-          std::print(stream, "{}", system.writeProductionStatusReportMC(currentCycle, numberOfCycles));
+          std::string status_line{std::format("Current cycle: {} out of {}\n", currentCycle, numberOfCycles)};
+          std::print(stream, "{}", system.writeProductionStatusReportMC(status_line));
           std::flush(stream);
         }
       }
@@ -683,6 +689,64 @@ void MonteCarlo::production()
     totalSimulationTime += (t2 - t1);
 
   continueProductionStage:;
+  }
+
+  // Carry out last write of properties after simulation has finished
+  if (outputToFiles)
+  {
+    // Write out last status
+    for (System& system : systems)
+    {
+      system.writeRestartFile();
+
+      system.forceField.initializeAutomaticCutOff(system.simulationBox);
+
+      std::pair<EnergyStatus, double3x3> molecularPressure = system.computeMolecularPressure();
+      system.currentEnergyStatus = molecularPressure.first;
+      system.currentExcessPressureTensor = molecularPressure.second / system.simulationBox.volume;
+
+      system.loadings =
+          Loadings(system.components.size(), system.numberOfIntegerMoleculesPerComponent, system.simulationBox);
+
+      std::ostream stream(streams[system.systemId].rdbuf());
+
+      std::print(stream, "\n");
+      std::print(stream, "===============================================================================\n");
+      std::print(stream, "                             Simulation finished!\n");
+      std::print(stream, "===============================================================================\n");
+      std::print(stream, "\n");
+
+      std::string status_line{std::format("Final state after {} cycles\n", numberOfCycles)};
+      std::print(stream, "{}", system.writeProductionStatusReportMC(status_line));
+      std::flush(stream);
+
+      if (system.propertyConventionalRadialDistributionFunction.has_value())
+      {
+        system.propertyConventionalRadialDistributionFunction->writeOutput(
+            system.forceField, system.systemId, system.simulationBox.volume, system.totalNumberOfPseudoAtoms,
+            currentCycle);
+      }
+
+      if (system.propertyRadialDistributionFunction.has_value())
+      {
+        system.propertyRadialDistributionFunction->writeOutput(system.forceField, system.systemId,
+                                                               system.simulationBox.volume,
+                                                               system.totalNumberOfPseudoAtoms, currentCycle);
+      }
+      if (system.propertyDensityGrid.has_value())
+      {
+        system.propertyDensityGrid->writeOutput(system.systemId, system.simulationBox, system.forceField,
+                                                system.framework, system.components, currentCycle);
+      }
+      if (system.averageEnergyHistogram.has_value())
+      {
+        system.averageEnergyHistogram->writeOutput(system.systemId, currentCycle);
+      }
+      if (system.averageNumberOfMoleculesHistogram.has_value())
+      {
+        system.averageNumberOfMoleculesHistogram->writeOutput(system.systemId, system.components, currentCycle);
+      }
+    }
   }
 }
 
@@ -822,10 +886,11 @@ Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const MonteC
   archive << mc.simulationStage;
 
   archive << mc.systems;
-
   archive << mc.fractionalMoleculeSystem;
 
   archive << mc.estimation;
+
+  // not written: totalGridCreationTime
 
   archive << mc.totalInitializationSimulationTime;
   archive << mc.totalEquilibrationSimulationTime;
@@ -864,10 +929,11 @@ Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, MonteCarlo& 
   archive >> mc.simulationStage;
 
   archive >> mc.systems;
-
   archive >> mc.fractionalMoleculeSystem;
 
   archive >> mc.estimation;
+
+  // not written: totalGridCreationTime
 
   archive >> mc.totalInitializationSimulationTime;
   archive >> mc.totalEquilibrationSimulationTime;

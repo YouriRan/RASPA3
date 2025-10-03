@@ -119,8 +119,8 @@ export struct System
    */
   System(std::size_t id, ForceField forcefield, std::optional<SimulationBox> box, double T, std::optional<double> P,
          double heliumVoidFraction, std::optional<Framework> framework, std::vector<Component> components,
-         std::vector<std::size_t> initialNumberOfMolecules, std::size_t numberOfBlocks,
-         const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
+         std::vector<std::vector<double3>> initialPositions, std::vector<std::size_t> initialNumberOfMolecules,
+         std::size_t numberOfBlocks, const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
          std::optional<std::size_t> sampleMoviesEvery = std::nullopt);
 
   System(std::size_t id, double T, std::optional<double> P, double heliumVoidFraction,
@@ -194,12 +194,13 @@ export struct System
   double timeStep{0.0005};
 
   SimulationBox simulationBox;
+  bool containsTheFractionalMolecule{true};
 
   // A contiguous list of adsorbate atoms per component for easy and fast looping
   // The atoms-order is defined as increasing per component and molecule.
   // Because the number of atoms is fixed per component it is easy to access the n-th molecule
-  std::vector<Atom> atomPositions;
-  std::vector<Molecule> moleculePositions;
+  std::vector<Atom> atomData;
+  std::vector<Molecule> moleculeData;
   std::vector<double> electricPotential;
   std::vector<double3> electricField;
   std::vector<double3> electricFieldNew;
@@ -213,7 +214,6 @@ export struct System
   double3x3 currentExcessPressureTensor;
   EnergyStatus currentEnergyStatus;
 
-  std::size_t numberOfTrialDirections{10};
   std::size_t numberOfHybridMCSteps{10};
 
   std::vector<std::complex<double>> eik_xy{};
@@ -236,6 +236,29 @@ export struct System
   Reactions reactions;
   TransitionMatrix tmmc;
 
+  // property measurements
+  PropertyEnergy averageEnergies;
+  PropertyLoading averageLoadings;
+  PropertyEnthalpy averageEnthalpiesOfAdsorption;
+  PropertyTemperature averageTemperature;
+  PropertyTemperature averageTranslationalTemperature;
+  PropertyTemperature averageRotationalTemperature;
+  PropertyPressure averagePressure;
+  PropertySimulationBox averageSimulationBox;
+
+  std::optional<SampleMovie> samplePDBMovie;
+
+  std::optional<PropertyConventionalRadialDistributionFunction> propertyConventionalRadialDistributionFunction;
+  std::optional<PropertyRadialDistributionFunction> propertyRadialDistributionFunction;
+  std::optional<PropertyDensityGrid> propertyDensityGrid;
+  std::optional<PropertyEnergyHistogram> averageEnergyHistogram;
+  std::optional<PropertyNumberOfMoleculesHistogram> averageNumberOfMoleculesHistogram;
+  std::optional<PropertyMeanSquaredDisplacement> propertyMSD;
+  std::optional<PropertyVelocityAutoCorrelationFunction> propertyVACF;
+  std::optional<WriteLammpsData> writeLammpsData;
+  std::optional<PropertySoap> propertySoap;
+  std::map<std::string, PropertyAutocorrelation> propertyAutocorrelation;
+
   // Breakthrough settings
   std::size_t columnNumberOfGridPoints{100};
   double columnTotalPressure{1e5};
@@ -252,29 +275,6 @@ export struct System
   std::size_t numberOfCarrierGases{0};
   std::size_t carrierGasComponent{0};
   std::size_t maxIsothermTerms{0};
-
-  bool containsTheFractionalMolecule{true};
-
-  // property measurements
-  PropertyEnergy averageEnergies;
-  PropertyLoading averageLoadings;
-  PropertyEnthalpy averageEnthalpiesOfAdsorption;
-  PropertyTemperature averageTemperature;
-  PropertyTemperature averageTranslationalTemperature;
-  PropertyTemperature averageRotationalTemperature;
-  PropertyPressure averagePressure;
-  PropertySimulationBox averageSimulationBox;
-  std::optional<SampleMovie> samplePDBMovie;
-  std::optional<PropertyConventionalRadialDistributionFunction> propertyConventionalRadialDistributionFunction;
-  std::optional<PropertyRadialDistributionFunction> propertyRadialDistributionFunction;
-  std::optional<PropertyDensityGrid> propertyDensityGrid;
-  std::optional<PropertyEnergyHistogram> averageEnergyHistogram;
-  std::optional<PropertyNumberOfMoleculesHistogram> averageNumberOfMoleculesHistogram;
-  std::optional<PropertyMeanSquaredDisplacement> propertyMSD;
-  std::optional<PropertyVelocityAutoCorrelationFunction> propertyVACF;
-  std::map<std::string, PropertyAutocorrelation> propertyAutocorrelation;
-  std::optional<PropertySoap> propertySoap;
-  std::optional<WriteLammpsData> writeLammpsData;
 
   std::vector<std::optional<InterpolationEnergyGrid>> interpolationGrids;
 
@@ -300,7 +300,7 @@ export struct System
   void addComponent(const Component &&component) noexcept(false);
 
   void createFrameworks();
-  void createInitialMolecules();
+  void createInitialMolecules(const std::vector<std::vector<double3>> &initialPositions);
 
   void checkCartesianPositions();
 
@@ -331,6 +331,7 @@ export struct System
   std::size_t moleculeIndexOfComponent(std::size_t selectedComponent, std::size_t selectedMolecule);
   std::span<Atom> spanOfMolecule(std::size_t selectedComponent, std::size_t selectedMolecule);
   const std::span<const Atom> spanOfMolecule(std::size_t selectedComponent, std::size_t selectedMolecule) const;
+  const std::span<const Atom> spanOfIntegerAtomsOfComponent(std::size_t selectedComponent) const;
   std::span<const Atom> spanOfFrameworkAtoms() const;
   std::span<Atom> spanOfFrameworkAtoms();
   std::span<const Atom> spanOfRigidFrameworkAtoms() const;
@@ -384,7 +385,7 @@ export struct System
   std::string writeInitializationStatusReport(std::size_t currentCycle, std::size_t numberOfCycles) const;
   std::string writeEquilibrationStatusReportMC(std::size_t currentCycle, std::size_t numberOfCycles) const;
   std::string writeEquilibrationStatusReportMD(std::size_t currentCycle, std::size_t numberOfCycles) const;
-  std::string writeProductionStatusReportMC(std::size_t currentCycle, std::size_t numberOfCycles) const;
+  std::string writeProductionStatusReportMC(const std::string &statusLine) const;
   std::string writeProductionStatusReportMD(std::size_t currentCycle, std::size_t numberOfCycles) const;
   std::string writeSystemStatus() const;
   std::string writeComponentStatus() const;
@@ -402,6 +403,7 @@ export struct System
                                   std::span<double3> electricField);
   void insertFractionalMolecule(std::size_t selectedComponent, const Molecule &molecule, std::vector<Atom> atoms,
                                 std::size_t moleculeId);
+  void updateMoleculeAtomInformation();
   void checkMoleculeIds();
 
   std::vector<Atom> randomConfiguration(RandomNumber &random, std::size_t selectedComponent,
@@ -425,7 +427,6 @@ export struct System
   friend Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, System &s);
 
   void writeRestartFile();
-  void readRestartFile();
 
   std::string repr() const;
 };

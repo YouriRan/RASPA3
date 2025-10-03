@@ -29,7 +29,6 @@
   <a href="#running">Running</a> •
   <a href="#python">Python</a> •
   <a href="#dependencies">Dependencies</a> •
-  <a href="#installation-guide">Installation Guide</a> •
 </p>
 
 # Authors
@@ -75,17 +74,20 @@ cd examples/basic/1_mc_methane_in_box
 - MC/MD hybrid move
 - tail-corrections for CFCMC
 - grids for rigid frameworks
+- writing and reading restart-files
+
+# Experimental
+- flexible molecules
+- partial insertion move
 
 # Todo-list
-- restart-file
-- flexible molecules
+- zeo++-type calculations
 - flexible frameworks
 - reaction ensemble
 - identity change
 - polarization
 - cell-lists for rigid frameworks
 - partial molar volumes
-- zeo++-type calculations
 - partial molar enthalpies/volumes
 - optimization
 - elastic constants

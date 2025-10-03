@@ -14,6 +14,7 @@ module;
 #include <iostream>
 #include <iterator>
 #include <map>
+#include <numeric>
 #include <optional>
 #include <ostream>
 #include <print>
@@ -76,7 +77,9 @@ import bond_bend_potential;
 import bond_torsion_potential;
 import bend_bend_potential;
 import bend_torsion_potential;
-import internal_potentials;
+import van_der_waals_potential;
+import coulomb_potential;
+import intra_molecular_potentials;
 import vdwparameters;
 import json;
 
@@ -105,20 +108,13 @@ Component::Component(Component::Type type, std::size_t currentComponent, const F
   }
   lambdaGC.computeDUdlambda = thermodynamicIntegration;
 
-  connectivityTable = ConnectivityTable(definedAtoms.size());
-
-  for (const BondPotential &bond_potential : internalPotentials.bonds)
-  {
-    std::size_t A = bond_potential.identifiers[0];
-    std::size_t B = bond_potential.identifiers[1];
-    connectivityTable[A, B] = true;
-    connectivityTable[B, A] = true;
-  }
+  cbmc_moves_statistics = std::vector<CBMCMoveStatistics>(definedAtoms.size());
 }
 
 // create programmatically an 'adsorbate' component
 Component::Component(std::size_t componentId, const ForceField &forceField, std::string componentName, double T_c,
-                     double P_c, double w, std::vector<Atom> atomList, std::size_t numberOfBlocks,
+                     double P_c, double w, std::vector<Atom> atomList, const ConnectivityTable &connectivityTable,
+                     const Potentials::IntraMolecularPotentials &intraMolecularPotentials, std::size_t numberOfBlocks,
                      std::size_t numberOfLambdaBins, const MCMoveProbabilities &particleProbabilities,
                      std::optional<double> fugacityCoefficient, bool thermodynamicIntegration) noexcept(false)
     : type(Type::Adsorbate),
@@ -128,11 +124,13 @@ Component::Component(std::size_t componentId, const ForceField &forceField, std:
       criticalPressure(P_c),
       acentricFactor(w),
       fugacityCoefficient(fugacityCoefficient),
+      connectivityTable(connectivityTable),
+      intraMolecularPotentials(intraMolecularPotentials),
       lambdaGC(numberOfBlocks, numberOfLambdaBins),
       lambdaGibbs(numberOfBlocks, numberOfLambdaBins),
       mc_moves_probabilities(particleProbabilities),
-      averageRosenbluthWeights(numberOfBlocks),
-      connectivityTable(atomList.size())
+      cbmc_moves_statistics(atomList.size()),
+      averageRosenbluthWeights(numberOfBlocks)
 {
   totalMass = 0.0;
   netCharge = 0.0;
@@ -148,11 +146,10 @@ Component::Component(std::size_t componentId, const ForceField &forceField, std:
   computeRigidProperties();
   lambdaGC.computeDUdlambda = thermodynamicIntegration;
 
-  for (const BondPotential &bond_potential : internalPotentials.bonds)
+  if (!intraMolecularPotentials.bonds.empty())
   {
-    std::size_t A = bond_potential.identifiers[0];
-    std::size_t B = bond_potential.identifiers[1];
-    connectivityTable[A, B] = true;
+    rigid = true;
+    growType = Component::GrowType::Flexible;
   }
 }
 
@@ -291,7 +288,7 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
     if (!index.has_value())
     {
       throw std::runtime_error(
-          std::format("[Component reader]: unknown pseudo-atom '{}', please lookup type in in 'pseudo_atoms.json'\n",
+          std::format("[Component reader]: unknown pseudo-atom '{}', please lookup type in in 'force_field.json'\n",
                       pseudoAtomName));
     }
     std::size_t pseudoAtomType = index.value();
@@ -326,9 +323,10 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
     double charge = forceField.pseudoAtoms[pseudoAtomType].charge;
     double scaling = 1.0;
 
-    definedAtoms.push_back({Atom(double3(position[0], position[1], position[2]), charge, scaling, 0,
-                                 static_cast<std::uint16_t>(pseudoAtomType), static_cast<std::uint8_t>(componentId), 0, 0),
-                            mass});
+    definedAtoms.push_back(
+        {Atom(double3(position[0], position[1], position[2]), charge, scaling, 0,
+              static_cast<std::uint16_t>(pseudoAtomType), static_cast<std::uint8_t>(componentId), 0, 0),
+         mass});
   }
 
   if (parsed_data.contains("StartingBead"))
@@ -340,202 +338,9 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
     }
 
     std::int64_t starting_bead = parsed_data["StartingBead"].get<std::int64_t>();
-    if(starting_bead >= 0)
+    if (starting_bead >= 0)
     {
       startingBead = static_cast<std::size_t>(starting_bead);
-    }
-
-  }
-
-  if (parsed_data.contains("Type"))
-  {
-    if (!parsed_data["Type"].is_string())
-    {
-      throw std::runtime_error(
-          std::format("[Component reader]: item {} must be an string (the name of the pseudo-atom)\n", parsed_data["Type"].dump()));
-    }
-    std::string typeString = parsed_data["Type"].get<std::string>();
-    if (caseInSensStringCompare(typeString, "Flexible"))
-    {
-      growType = GrowType::Flexible;
-    }
-    else if (caseInSensStringCompare(typeString, "Rigid"))
-    {
-      growType = GrowType::Rigid;
-    }
-  }
-
-  // Read bonds
-  if (parsed_data.contains("Bonds"))
-  {
-    internalPotentials.bonds.reserve(parsed_data["Bonds"].size());
-
-    for (auto &[_, item] : parsed_data["Bonds"].items())
-    {
-      if (!item.is_array())
-      {
-        throw std::runtime_error(std::format("[Component reader]: item {} must be an array\n", item.dump()));
-      }
-
-      if (item.size() != 3)
-      {
-        throw std::runtime_error(
-            std::format("[Component reader]: item {} must be an array with at least three elements, "
-                        "(1) an array with the two identifiers of the bond, (2) the potential type, "
-                        "and (3) an array containg the potential parameters\n",
-                        item.dump()));
-      }
-
-      try
-      {
-        std::vector<std::size_t> identifiers =
-            item[0].is_array() ? item[0].get<std::vector<std::size_t>>() : std::vector<std::size_t>{};
-        std::string potential_name = item[1].get<std::string>();
-        std::vector<double> potential_parameters =
-            item[2].is_array() ? item[2].get<std::vector<double>>() : std::vector<double>{};
-        BondPotential bond = BondPotential({identifiers[0], identifiers[1]},
-                                           BondPotential::definitionForString.at(potential_name), potential_parameters);
-
-        internalPotentials.bonds.push_back(bond);
-      }
-      catch (std::exception const &e)
-      {
-        throw std::runtime_error(std::format("Error in Bond-potential ({}): {}\n", item.dump(), e.what()));
-      }
-    }
-  }
-
-  // Read bends
-  if (parsed_data.contains("Bends"))
-  {
-    internalPotentials.bends.reserve(parsed_data["Bends"].size());
-
-    for (auto &[_, item] : parsed_data["Bends"].items())
-    {
-      if (!item.is_array())
-      {
-        throw std::runtime_error(std::format("[Component reader]: item {} must be an array\n", item.dump()));
-      }
-
-      if (item.size() != 3)
-      {
-        throw std::runtime_error(
-            std::format("[Component reader]: item {} must be an array with at least three elements, "
-                        "(1) an array with the three identifiers of the bend, (2) the potential type, "
-                        "and (3) an array containg the potential parameters\n",
-                        item.dump()));
-      }
-
-      try
-      {
-        std::vector<std::size_t> identifiers =
-            item[0].is_array() ? item[0].get<std::vector<std::size_t>>() : std::vector<std::size_t>{};
-        std::string potential_name = item[1].get<std::string>();
-        std::vector<double> potential_parameters =
-            item[2].is_array() ? item[2].get<std::vector<double>>() : std::vector<double>{};
-
-        BendPotential bend = BendPotential({identifiers[0], identifiers[1], identifiers[2]},
-                                           BendPotential::definitionForString.at(potential_name), potential_parameters);
-
-        internalPotentials.bends.push_back(bend);
-      }
-      catch (std::exception const &e)
-      {
-        throw std::runtime_error(std::format("Error in Bend-potential ({}): {}\n", item.dump(), e.what()));
-      }
-    }
-  }
-
-  // Read torsions
-  if (parsed_data.contains("Torsions"))
-  {
-    internalPotentials.torsions.reserve(parsed_data["Torsions"].size());
-
-    for (auto &[_, item] : parsed_data["Torsions"].items())
-    {
-      if (!item.is_array())
-      {
-        throw std::runtime_error(std::format("[Component reader]: item {} must be an array\n", item.dump()));
-      }
-
-      if (item.size() != 3)
-      {
-        throw std::runtime_error(
-            std::format("[Component reader]: item {} must be an array with at least three elements, "
-                        "(1) an array with the four identifiers of the dihedrals, (2) the potential type, "
-                        "and (3) an array containg the potential parameters\n",
-                        item.dump()));
-      }
-
-      try
-      {
-        std::vector<std::size_t> identifiers =
-            item[0].is_array() ? item[0].get<std::vector<std::size_t>>() : std::vector<std::size_t>{};
-        std::string potential_name = item[1].get<std::string>();
-        std::vector<double> potential_parameters =
-            item[2].is_array() ? item[2].get<std::vector<double>>() : std::vector<double>{};
-
-        TorsionPotential torsion =
-            TorsionPotential({identifiers[0], identifiers[1], identifiers[2], identifiers[3]},
-                             TorsionPotential::definitionForString.at(potential_name), potential_parameters);
-
-        internalPotentials.torsions.push_back(torsion);
-      }
-      catch (std::exception const &e)
-      {
-        throw std::runtime_error(std::format("Error in Torsion-potential ({}): {}\n", item.dump(), e.what()));
-      }
-    }
-  }
-
-  // Read Intra Van der Waals
-  if (parsed_data.contains("VanDerWaals"))
-  {
-    internalPotentials.torsions.reserve(parsed_data["VanDerWaals"].size());
-
-    for (auto &[_, item] : parsed_data["VanDerWaals"].items())
-    {
-      if (!item.is_array())
-      {
-        throw std::runtime_error(std::format("[Component reader]: item {} must be an array\n", item.dump()));
-      }
-
-      if (item.size() == 2)
-      {
-        // parse 'identifier, identifier'
-        std::size_t A = item[0].get<std::size_t>();
-        std::size_t typeA = atoms[A].type;
-        std::size_t B = item[1].get<std::size_t>();
-        std::size_t typeB = atoms[B].type;
-        VDWParameters parameters = forceField(A, B);
-      }
-      else if (item.size() == 3)
-      {
-        // parse '[identifier, identifier], 1.0'
-      }
-      else if (item.size() == 5)
-      {
-        // parse '[identifier, identifier], 1.0, "LENNARD_JONES", [epsilon, sigma]'
-      }
-
-      try
-      {
-        std::vector<std::size_t> identifiers =
-            item[0].is_array() ? item[0].get<std::vector<std::size_t>>() : std::vector<std::size_t>{};
-        std::string potential_name = item[1].get<std::string>();
-        std::vector<double> potential_parameters =
-            item[2].is_array() ? item[2].get<std::vector<double>>() : std::vector<double>{};
-
-        TorsionPotential torsion =
-            TorsionPotential({identifiers[0], identifiers[1], identifiers[2], identifiers[3]},
-                             TorsionPotential::definitionForString.at(potential_name), potential_parameters);
-
-        internalPotentials.torsions.push_back(torsion);
-      }
-      catch (std::exception const &e)
-      {
-        throw std::runtime_error(std::format("Error in Torsion-potential ({}): {}\n", item.dump(), e.what()));
-      }
     }
   }
 
@@ -548,6 +353,38 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
   }
 
   computeRigidProperties();
+
+  if (parsed_data.contains("Type"))
+  {
+    if (!parsed_data["Type"].is_string())
+    {
+      throw std::runtime_error(std::format(
+          "[Component reader]: item {} must be an string (the name of the pseudo-atom)\n", parsed_data["Type"].dump()));
+    }
+    std::string typeString = parsed_data["Type"].get<std::string>();
+    if (caseInSensStringCompare(typeString, "Flexible"))
+    {
+      rigid = false;
+      growType = GrowType::Flexible;
+    }
+    else if (caseInSensStringCompare(typeString, "Rigid"))
+    {
+      rigid = true;
+      growType = GrowType::Rigid;
+    }
+  }
+
+  connectivityTable = readConnectivityTable(definedAtoms.size(), parsed_data);
+  if (growType == GrowType::Flexible)
+  {
+    intraMolecularPotentials.bonds = readBondPotentials(forceField, parsed_data);
+    intraMolecularPotentials.bends = readBendPotentials(forceField, parsed_data);
+    intraMolecularPotentials.torsions = readTorsionPotentials(forceField, parsed_data);
+    intraMolecularPotentials.vanDerWaals = readVanDerWaalsPotentials(forceField, parsed_data);
+    // intraMolecularPotentials.coulombs = readCoulombPotentials(forceField, parsed_data);
+
+    partialReinsertionFixedAtoms = readPartialReinsertionFixedAtoms(parsed_data);
+  }
 }
 
 void Component::computeRigidProperties()
@@ -671,13 +508,13 @@ std::vector<Atom> Component::rotatePositions(const simd_quatd &q) const
   for (std::size_t i = 0; i < atoms.size(); ++i)
   {
     Atom a = atoms[i];
-    a.position = rotationMatrix * atoms[i].position;
+    a.position = atoms[startingBead].position + rotationMatrix * (atoms[i].position - atoms[startingBead].position);
     rotatedAtoms.push_back(a);
   }
   return rotatedAtoms;
 }
 
-double3 Component::computeCenterOfMass(std::vector<Atom> atom_list) const
+double3 Component::computeCenterOfMass(std::span<Atom> atom_list) const
 {
   std::vector<std::pair<Atom, double>> a{definedAtoms};
   for (std::size_t i = 0; i != a.size(); ++i)
@@ -694,7 +531,7 @@ double3 Component::computeCenterOfMass(std::vector<Atom> atom_list) const
   return com / total_mass;
 }
 
-std::string Component::printStatus(const ForceField &forceField) const
+std::string Component::printStatus(const ForceField &forceField, double inputPressure) const
 {
   std::ostringstream stream;
 
@@ -716,6 +553,8 @@ std::string Component::printStatus(const ForceField &forceField) const
   std::print(stream, "    Mol-fraction:                 {} [-]\n", molFraction);
   std::print(stream << std::boolalpha, "    Swappable:                   {}\n\n", swappable);
   std::print(stream, "    Mass:                         {} [-]\n", totalMass);
+  std::print(stream, "    Fugacity:                     {} [Pa]\n",
+             molFraction * fugacityCoefficient.value_or(1.0) * inputPressure);
   if (fugacityCoefficient.has_value())
   {
     std::print(stream, "    Fugacity coefficient:         {} [-]\n", fugacityCoefficient.value());
@@ -724,8 +563,12 @@ std::string Component::printStatus(const ForceField &forceField) const
   std::print(stream, "    Compressibility:              {} [-]\n", compressibility);
   std::print(stream, "    Excess molecules:             {} [-]\n\n", amountOfExcessMolecules);
 
-  std::print(stream, "    Number Of Atoms:    {}\n", atoms.size());
-  std::print(stream, "    CBMC starting bead: {}\n", startingBead);
+  std::print(stream, "    Number Of Atoms:              {}\n", atoms.size());
+  std::print(stream, "    CBMC starting bead:           {}\n", startingBead);
+  if (idealGasRosenbluthWeight.has_value())
+  {
+    std::print(stream, "    Ideal gas Rosenbluth weight:  {:10.8f}\n", idealGasRosenbluthWeight.value());
+  }
   for (std::size_t i = 0; i != atoms.size(); ++i)
   {
     std::size_t atomType = static_cast<std::size_t>(atoms[i].type);
@@ -768,7 +611,7 @@ std::string Component::printStatus(const ForceField &forceField) const
   }
   std::print(stream, "\n");
 
-  switch(growType)
+  switch (growType)
   {
     case GrowType::Rigid:
       std::print(stream, "    molecule is modelled as 'rigid'\n\n");
@@ -780,144 +623,163 @@ std::string Component::printStatus(const ForceField &forceField) const
       std::unreachable();
   }
 
-  if(growType == GrowType::Flexible)
+  if (growType == GrowType::Flexible)
   {
     std::print(stream, "    connectivity:\n");
     std::print(stream, "{}\n", connectivityTable.print("        "));
 
-    std::print(stream, "    number of bond potentials: {}\n", internalPotentials.bonds.size());
-    for (std::size_t i = 0; i < internalPotentials.bonds.size(); ++i)
+    std::size_t number_of_total_bonds = connectivityTable.findAllBonds().size();
+    std::print(stream, "    number of bond potentials: {} (out of {})\n", intraMolecularPotentials.bonds.size(),
+               number_of_total_bonds);
+    for (std::size_t i = 0; i < intraMolecularPotentials.bonds.size(); ++i)
     {
-      std::print(stream, "        {}", internalPotentials.bonds[i].print());
+      std::print(stream, "        {}", intraMolecularPotentials.bonds[i].print());
     }
     std::print(stream, "\n");
 
-    if(!internalPotentials.ureyBradleys.empty())
+    if (!intraMolecularPotentials.ureyBradleys.empty())
     {
-      std::print(stream, "    number of Urey-Bradley potentials: {}\n", internalPotentials.ureyBradleys.size());
-      for (std::size_t i = 0; i < internalPotentials.ureyBradleys.size(); ++i)
+      std::print(stream, "    number of Urey-Bradley potentials: {}\n", intraMolecularPotentials.ureyBradleys.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.ureyBradleys.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.ureyBradleys[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.ureyBradleys[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.bends.empty())
+    if (!intraMolecularPotentials.bends.empty())
     {
-      std::print(stream, "    number of bend potentials: {}\n", internalPotentials.bends.size());
-      for (std::size_t i = 0; i < internalPotentials.bends.size(); ++i)
+      std::size_t number_of_total_bends = connectivityTable.findAllBends().size();
+      std::print(stream, "    number of bend potentials: {} (out of {})\n", intraMolecularPotentials.bends.size(),
+                 number_of_total_bends);
+      for (std::size_t i = 0; i < intraMolecularPotentials.bends.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.bends[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.bends[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.inversionBends.empty())
+    if (!intraMolecularPotentials.inversionBends.empty())
     {
-      std::print(stream, "    number of inversion-bend potentials: {}\n", internalPotentials.inversionBends.size());
-      for (std::size_t i = 0; i < internalPotentials.inversionBends.size(); ++i)
+      std::print(stream, "    number of inversion-bend potentials: {}\n",
+                 intraMolecularPotentials.inversionBends.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.inversionBends.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.inversionBends[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.inversionBends[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.outOfPlaneBends.empty())
+    if (!intraMolecularPotentials.outOfPlaneBends.empty())
     {
-      std::print(stream, "    number of out-of-plane bend potentials: {}\n", internalPotentials.outOfPlaneBends.size());
-      for (std::size_t i = 0; i < internalPotentials.outOfPlaneBends.size(); ++i)
+      std::print(stream, "    number of out-of-plane bend potentials: {}\n",
+                 intraMolecularPotentials.outOfPlaneBends.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.outOfPlaneBends.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.outOfPlaneBends[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.outOfPlaneBends[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.torsions.empty())
+    if (!intraMolecularPotentials.torsions.empty())
     {
-      std::print(stream, "    number of torsion potentials: {}\n", internalPotentials.torsions.size());
-      for (std::size_t i = 0; i < internalPotentials.torsions.size(); ++i)
+      std::size_t number_of_total_torsions = connectivityTable.findAllTorsions().size();
+      std::print(stream, "    number of torsion potentials: {} (out of {})\n", intraMolecularPotentials.torsions.size(),
+                 number_of_total_torsions);
+      for (std::size_t i = 0; i < intraMolecularPotentials.torsions.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.torsions[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.torsions[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.improperTorsions.empty())
+    if (!intraMolecularPotentials.improperTorsions.empty())
     {
-      std::print(stream, "    number of improper-torsion potentials: {}\n", internalPotentials.improperTorsions.size());
-      for (std::size_t i = 0; i < internalPotentials.improperTorsions.size(); ++i)
+      std::print(stream, "    number of improper-torsion potentials: {}\n",
+                 intraMolecularPotentials.improperTorsions.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.improperTorsions.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.improperTorsions[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.improperTorsions[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.bondBonds.empty())
+    if (!intraMolecularPotentials.bondBonds.empty())
     {
-      std::print(stream, "    number of bond-bond potentials: {}\n", internalPotentials.bondBonds.size());
-      for (std::size_t i = 0; i < internalPotentials.bondBonds.size(); ++i)
+      std::print(stream, "    number of bond-bond potentials: {}\n", intraMolecularPotentials.bondBonds.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.bondBonds.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.bondBonds[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.bondBonds[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.bondBends.empty())
+    if (!intraMolecularPotentials.bondBends.empty())
     {
-      std::print(stream, "    number of bond-bend potentials: {}\n", internalPotentials.bondBends.size());
-      for (std::size_t i = 0; i < internalPotentials.bondBends.size(); ++i)
+      std::print(stream, "    number of bond-bend potentials: {}\n", intraMolecularPotentials.bondBends.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.bondBends.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.bondBends[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.bondBends[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.bondTorsions.empty())
+    if (!intraMolecularPotentials.bondTorsions.empty())
     {
-      std::print(stream, "    number of bond-torsion potentials: {}\n", internalPotentials.bondTorsions.size());
-      for (std::size_t i = 0; i < internalPotentials.bondTorsions.size(); ++i)
+      std::print(stream, "    number of bond-torsion potentials: {}\n", intraMolecularPotentials.bondTorsions.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.bondTorsions.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.bondTorsions[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.bondTorsions[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.bendBends.empty())
+    if (!intraMolecularPotentials.bendBends.empty())
     {
-      std::print(stream, "    number of bend-bend potentials: {}\n", internalPotentials.bendBends.size());
-      for (std::size_t i = 0; i < internalPotentials.bendBends.size(); ++i)
+      std::print(stream, "    number of bend-bend potentials: {}\n", intraMolecularPotentials.bendBends.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.bendBends.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.bendBends[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.bendBends[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.bendTorsions.empty())
+    if (!intraMolecularPotentials.bendTorsions.empty())
     {
-      std::print(stream, "    number of bend-torsion potentials: {}\n", internalPotentials.bendTorsions.size());
-      for (std::size_t i = 0; i < internalPotentials.bendTorsions.size(); ++i)
+      std::print(stream, "    number of bend-torsion potentials: {}\n", intraMolecularPotentials.bendTorsions.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.bendTorsions.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.bendTorsions[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.bendTorsions[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.vanDerWaals.empty())
+    if (!intraMolecularPotentials.vanDerWaals.empty())
     {
-      std::print(stream, "    number of Van der Waals potentials: {}\n", internalPotentials.vanDerWaals.size());
-      for (std::size_t i = 0; i < internalPotentials.vanDerWaals.size(); ++i)
+      std::print(stream, "    number of Van der Waals potentials: {}\n", intraMolecularPotentials.vanDerWaals.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.vanDerWaals.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.vanDerWaals[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.vanDerWaals[i].print());
       }
       std::print(stream, "\n");
     }
 
-    if(!internalPotentials.coulombs.empty())
+    if (!intraMolecularPotentials.coulombs.empty())
     {
-      std::print(stream, "    number of coulomb potentials: {}\n", internalPotentials.coulombs.size());
-      for (std::size_t i = 0; i < internalPotentials.coulombs.size(); ++i)
+      std::print(stream, "    number of coulomb potentials: {}\n", intraMolecularPotentials.coulombs.size());
+      for (std::size_t i = 0; i < intraMolecularPotentials.coulombs.size(); ++i)
       {
-        std::print(stream, "        {}", internalPotentials.coulombs[i].print());
+        std::print(stream, "        {}", intraMolecularPotentials.coulombs[i].print());
+      }
+      std::print(stream, "\n");
+    }
+
+    if (!partialReinsertionFixedAtoms.empty())
+    {
+      std::print(stream, "    number of partial-reinsertion moves: {}\n", partialReinsertionFixedAtoms.size());
+      for (std::size_t i = 0; i < partialReinsertionFixedAtoms.size(); ++i)
+      {
+        std::print(stream, "        fixed atoms: {}\n", partialReinsertionFixedAtoms[i]);
       }
       std::print(stream, "\n");
     }
@@ -971,11 +833,11 @@ nlohmann::json Component::jsonStatus() const
   }
   status["moveProbabilities"] = moves;
 
-  status["n_bonds"] = internalPotentials.bonds.size();
-  std::vector<std::string> bondTypes(internalPotentials.bonds.size());
-  for (std::size_t i = 0; i < internalPotentials.bonds.size(); ++i)
+  status["n_bonds"] = intraMolecularPotentials.bonds.size();
+  std::vector<std::string> bondTypes(intraMolecularPotentials.bonds.size());
+  for (std::size_t i = 0; i < intraMolecularPotentials.bonds.size(); ++i)
   {
-    bondTypes[i] = internalPotentials.bonds[i].print();
+    bondTypes[i] = intraMolecularPotentials.bonds[i].print();
   }
   status["bondTypes"] = bondTypes;
   return status;
@@ -1027,12 +889,11 @@ std::pair<Molecule, std::vector<Atom>> Component::translate(const Molecule &mole
   }
   else
   {
-    std::transform(molecule_atoms.begin(), molecule_atoms.end(), trialAtoms.begin(),
-                   [&](Atom a)
-                   {
-                     a.position += displacement;
-                     return a;
-                   });
+    trialMolecule.centerOfMassPosition += displacement;
+    for (Atom &atom : trialAtoms)
+    {
+      atom.position += displacement;
+    }
   }
 
   return {trialMolecule, trialAtoms};
@@ -1059,13 +920,11 @@ std::pair<Molecule, std::vector<Atom>> Component::rotate(const Molecule &molecul
   else
   {
     double3x3 rotationMatrix = double3x3(rotation);
-    std::transform(molecule_atoms.begin(), molecule_atoms.end(), trialAtoms.begin(),
-                   [&](Atom a)
-                   {
-                     a.position = rotationMatrix * (a.position - molecule_atoms[startingBead].position) +
-                                  molecule_atoms[startingBead].position;
-                     return a;
-                   });
+    for (std::size_t i = 0; i < trialAtoms.size(); ++i)
+    {
+      trialAtoms[i].position = rotationMatrix * (molecule_atoms[i].position - molecule_atoms[startingBead].position) +
+                               molecule_atoms[startingBead].position;
+    }
   }
 
   return {trialMolecule, trialAtoms};
@@ -1094,6 +953,525 @@ std::string Component::printBreakthroughStatus() const
   return stream.str();
 }
 
+ConnectivityTable Component::readConnectivityTable(std::size_t size,
+                                                   const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+{
+  ConnectivityTable table(size);
+
+  if (parsed_data.contains("Connectivity"))
+  {
+    for (auto &[_, item] : parsed_data["Connectivity"].items())
+    {
+      if (!item.is_array())
+      {
+        throw std::runtime_error(std::format("[Component reader]: item {} must be an array\n", item.dump()));
+      }
+
+      if (item.size() != 2)
+      {
+        throw std::runtime_error(
+            std::format("[Component reader]: item {} must be an array with two unsigned integers.\n", item.dump()));
+      }
+
+      try
+      {
+        std::vector<std::size_t> identifiers = item.get<std::vector<std::size_t>>();
+
+        table[identifiers[0], identifiers[1]] = true;
+        table[identifiers[1], identifiers[0]] = true;
+      }
+      catch (std::exception const &e)
+      {
+        throw std::runtime_error(std::format("Error in connectivities ({}): {}\n", item.dump(), e.what()));
+      }
+    }
+  }
+  return table;
+}
+
+std::vector<BondPotential> Component::readBondPotentials(const ForceField &forceField,
+                                                         const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+{
+  std::vector<BondPotential> bond_potentials{};
+
+  std::vector<std::array<std::size_t, 2>> found_bonds = connectivityTable.findAllBonds();
+
+  if (parsed_data.contains("Bonds"))
+  {
+    intraMolecularPotentials.bonds.reserve(found_bonds.size());
+
+    // fill in each of the bonds
+    for (const std::array<std::size_t, 2> found_bond : found_bonds)
+    {
+      // check which bond-definition matches on this definition
+      // only one is allowed (no ambiguities)
+      bool bond_identified{false};
+
+      for (auto &[_, item] : parsed_data["Bonds"].items())
+      {
+        if (!item.is_array())
+        {
+          throw std::runtime_error(std::format("[Component reader]: item {} must be an array\n", item.dump()));
+        }
+
+        if (item.size() != 3)
+        {
+          throw std::runtime_error(
+              std::format("[Component reader]: item {} must be an array with at least three elements, "
+                          "(1) an array with the two identifiers of the bond, (2) the potential type, "
+                          "and (3) an array containg the potential parameters\n",
+                          item.dump()));
+        }
+
+        try
+        {
+          // parse [1]: the potential name
+          std::string potential_name = item[1].get<std::string>();
+
+          // parse [2]: the parameters
+          std::vector<double> potential_parameters =
+              item[2].is_array() ? item[2].get<std::vector<double>>() : std::vector<double>{};
+
+          if (item[0][0].is_string() && item[0][1].is_string())
+          {
+            std::vector<std::string> identifiers = item[0].get<std::vector<std::string>>();
+
+            std::optional<std::size_t> type_A = forceField.findPseudoAtom(identifiers[0]);
+            std::optional<std::size_t> type_B = forceField.findPseudoAtom(identifiers[1]);
+
+            if (!(type_A.has_value() && type_B.has_value()))
+            {
+              throw std::runtime_error(
+                  std::format("[Component reader]: unknown pseudo-atom {} {}\n", identifiers[0], identifiers[1]));
+            }
+
+            if ((atoms[found_bond[0]].type == type_A.value() && atoms[found_bond[1]].type == type_B.value()) ||
+                (atoms[found_bond[0]].type == type_B.value() && atoms[found_bond[1]].type == type_A.value()))
+            {
+              if (bond_identified)
+              {
+                throw std::runtime_error(
+                    std::format("Error in Bond-potential: ambiguity in define bond-potential (bond {}-{} matches on "
+                                "multiple definitions)\n",
+                                found_bond[0], found_bond[1]));
+              }
+
+              bond_identified = true;
+
+              BondPotential bond_potential =
+                  BondPotential({found_bond[0], found_bond[1]}, BondPotential::definitionForString.at(potential_name),
+                                potential_parameters);
+              bond_potentials.push_back(bond_potential);
+            }
+          }
+          else if (item[0][0].is_number_unsigned() && item[0][1].is_number_unsigned())
+          {
+            std::size_t A = item[0][0].get<std::size_t>();
+            std::size_t B = item[0][1].get<std::size_t>();
+            if ((found_bond[0] == A && found_bond[1] == B) || (found_bond[0] == B && found_bond[1] == A))
+            {
+              if (bond_identified)
+              {
+                throw std::runtime_error(
+                    std::format("Error in Bond-potential: ambiguity in define bond-potential (bond {}-{} matches on "
+                                "multiple definitions)\n",
+                                found_bond[0], found_bond[1]));
+              }
+
+              bond_identified = true;
+
+              // parse using unsigned integer identifiers
+              std::vector<std::size_t> bond =
+                  item[0].is_array() ? item[0].get<std::vector<std::size_t>>() : std::vector<std::size_t>{};
+
+              BondPotential bond_potential = BondPotential(
+                  {bond[0], bond[1]}, BondPotential::definitionForString.at(potential_name), potential_parameters);
+              bond_potentials.push_back(bond_potential);
+            }
+          }
+        }
+        catch (std::exception const &e)
+        {
+          throw std::runtime_error(std::format("Error in Bond-potential ({}): {}\n", item.dump(), e.what()));
+        }
+      }
+    }
+  }
+
+  if (found_bonds.size() != bond_potentials.size())
+  {
+    throw std::runtime_error(std::format("Error in Bond-potential: not all bond-potentials defined ({} missing)\n",
+                                         found_bonds.size() - bond_potentials.size()));
+  }
+
+  return bond_potentials;
+}
+
+std::vector<BendPotential> Component::readBendPotentials(const ForceField &forceField,
+                                                         const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+{
+  std::vector<BendPotential> bend_potentials{};
+
+  std::vector<std::array<std::size_t, 3>> found_bends = connectivityTable.findAllBends();
+
+  if (parsed_data.contains("Bends"))
+  {
+    intraMolecularPotentials.bends.reserve(found_bends.size());
+
+    // fill in each of the bends
+    for (const std::array<std::size_t, 3> found_bend : found_bends)
+    {
+      // check which bend-definition matches on this definition
+      // only one is allowed (no ambiguities)
+      bool bend_identified{false};
+
+      for (auto &[_, item] : parsed_data["Bends"].items())
+      {
+        if (!item.is_array())
+        {
+          throw std::runtime_error(std::format("[Component reader]: item {} must be an array\n", item.dump()));
+        }
+
+        if (item.size() != 3)
+        {
+          throw std::runtime_error(
+              std::format("[Component reader]: item {} must be an array with at least three elements, "
+                          "(1) an array with the three identifiers of the bend, (2) the potential type, "
+                          "and (3) an array containg the potential parameters\n",
+                          item.dump()));
+        }
+
+        try
+        {
+          // parse [1]: the potential name
+          std::string potential_name = item[1].get<std::string>();
+
+          // parse [2]: the parameters
+          std::vector<double> potential_parameters =
+              item[2].is_array() ? item[2].get<std::vector<double>>() : std::vector<double>{};
+
+          if (item[0][0].is_string() && item[0][1].is_string() && item[0][2].is_string())
+          {
+            std::vector<std::string> identifiers = item[0].get<std::vector<std::string>>();
+
+            std::optional<std::size_t> type_A = forceField.findPseudoAtom(identifiers[0]);
+            std::optional<std::size_t> type_B = forceField.findPseudoAtom(identifiers[1]);
+            std::optional<std::size_t> type_C = forceField.findPseudoAtom(identifiers[2]);
+
+            if (!(type_A.has_value() && type_B.has_value() && type_C.has_value()))
+            {
+              throw std::runtime_error(std::format("[Component reader]: unknown pseudo-atom {} {} {}\n", identifiers[0],
+                                                   identifiers[1], identifiers[2]));
+            }
+
+            if ((atoms[found_bend[0]].type == type_A.value() && atoms[found_bend[1]].type == type_B.value() &&
+                 atoms[found_bend[2]].type == type_C.value()) ||
+                (atoms[found_bend[0]].type == type_C.value() && atoms[found_bend[1]].type == type_B.value() &&
+                 atoms[found_bend[2]].type == type_A.value()))
+            {
+              if (bend_identified)
+              {
+                throw std::runtime_error(
+                    std::format("Error in Bend-potential: ambiguity in define bend-potential (bend {}-{}-{} matches on "
+                                "multiple definitions)\n",
+                                found_bend[0], found_bend[1], found_bend[2]));
+              }
+
+              bend_identified = true;
+
+              BendPotential bend_potential =
+                  BendPotential({found_bend[0], found_bend[1], found_bend[2]},
+                                BendPotential::definitionForString.at(potential_name), potential_parameters);
+              bend_potentials.push_back(bend_potential);
+            }
+          }
+          else if (item[0][0].is_number_unsigned() && item[0][1].is_number_unsigned() &&
+                   item[0][2].is_number_unsigned())
+          {
+            std::size_t A = item[0][0].get<std::size_t>();
+            std::size_t B = item[0][1].get<std::size_t>();
+            std::size_t C = item[0][2].get<std::size_t>();
+            if ((found_bend[0] == A && found_bend[1] == B && found_bend[2] == C) ||
+                (found_bend[0] == C && found_bend[1] == B && found_bend[2] == A))
+            {
+              if (bend_identified)
+              {
+                throw std::runtime_error(
+                    std::format("Error in Bend-potential: ambiguity in define bend-potential (bend {}-{}-{} matches on "
+                                "multiple definitions)\n",
+                                found_bend[0], found_bend[1], found_bend[2]));
+              }
+
+              bend_identified = true;
+
+              // parse using unsigned integer identifiers
+              std::vector<std::size_t> bend =
+                  item[0].is_array() ? item[0].get<std::vector<std::size_t>>() : std::vector<std::size_t>{};
+
+              BendPotential bend_potential =
+                  BendPotential({bend[0], bend[1], bend[2]}, BendPotential::definitionForString.at(potential_name),
+                                potential_parameters);
+              bend_potentials.push_back(bend_potential);
+            }
+          }
+        }
+        catch (std::exception const &e)
+        {
+          throw std::runtime_error(std::format("Error in Bend-potential ({}): {}\n", item.dump(), e.what()));
+        }
+      }
+    }
+  }
+
+  if (found_bends.size() != bend_potentials.size())
+  {
+    throw std::runtime_error(std::format("Error in Bend-potential: not all bend-potentials defined ({} missing)\n",
+                                         found_bends.size() - bend_potentials.size()));
+  }
+
+  return bend_potentials;
+}
+
+std::vector<TorsionPotential> Component::readTorsionPotentials(
+    const ForceField &forceField, const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+{
+  std::vector<TorsionPotential> torsion_potentials{};
+
+  std::vector<std::array<std::size_t, 4>> found_torsions = connectivityTable.findAllTorsions();
+
+  if (parsed_data.contains("Torsions"))
+  {
+    intraMolecularPotentials.torsions.reserve(found_torsions.size());
+
+    // fill in each of the torsions
+    for (const std::array<std::size_t, 4> found_torsion : found_torsions)
+    {
+      // check which torsion-definition matches on this definition
+      // only one is allowed (no ambiguities)
+      bool torsion_identified{false};
+
+      for (auto &[_, item] : parsed_data["Torsions"].items())
+      {
+        if (!item.is_array())
+        {
+          throw std::runtime_error(std::format("[Component reader]: item {} must be an array\n", item.dump()));
+        }
+
+        if (item.size() != 3)
+        {
+          throw std::runtime_error(
+              std::format("[Component reader]: item {} must be an array with at least three elements, "
+                          "(1) an array with the four identifiers of the torsion, (2) the potential type, "
+                          "and (3) an array containg the potential parameters\n",
+                          item.dump()));
+        }
+
+        try
+        {
+          // parse [1]: the potential name
+          std::string potential_name = item[1].get<std::string>();
+
+          // parse [2]: the parameters
+          std::vector<double> potential_parameters =
+              item[2].is_array() ? item[2].get<std::vector<double>>() : std::vector<double>{};
+
+          if (item[0][0].is_string() && item[0][1].is_string() && item[0][2].is_string())
+          {
+            std::vector<std::string> identifiers = item[0].get<std::vector<std::string>>();
+
+            std::optional<std::size_t> type_A = forceField.findPseudoAtom(identifiers[0]);
+            std::optional<std::size_t> type_B = forceField.findPseudoAtom(identifiers[1]);
+            std::optional<std::size_t> type_C = forceField.findPseudoAtom(identifiers[2]);
+            std::optional<std::size_t> type_D = forceField.findPseudoAtom(identifiers[3]);
+
+            if (!(type_A.has_value() && type_B.has_value() && type_C.has_value() && type_D.has_value()))
+            {
+              throw std::runtime_error(std::format("[Component reader]: unknown pseudo-atom {} {} {} {}\n",
+                                                   identifiers[0], identifiers[1], identifiers[2], identifiers[3]));
+            }
+
+            if ((atoms[found_torsion[0]].type == type_A.value() && atoms[found_torsion[1]].type == type_B.value() &&
+                 atoms[found_torsion[2]].type == type_C.value() && atoms[found_torsion[3]].type == type_D.value()) ||
+                (atoms[found_torsion[0]].type == type_D.value() && atoms[found_torsion[1]].type == type_C.value() &&
+                 atoms[found_torsion[2]].type == type_B.value() && atoms[found_torsion[3]].type == type_A.value()))
+            {
+              if (torsion_identified)
+              {
+                throw std::runtime_error(
+                    std::format("Error in Torsion-potential: ambiguity in define torsion-potential (torsion "
+                                "{}-{}-{}-{} matches on multiple definitions)\n",
+                                found_torsion[0], found_torsion[1], found_torsion[2], found_torsion[3]));
+              }
+
+              torsion_identified = true;
+
+              TorsionPotential torsion_potential =
+                  TorsionPotential({found_torsion[0], found_torsion[1], found_torsion[2], found_torsion[3]},
+                                   TorsionPotential::definitionForString.at(potential_name), potential_parameters);
+              torsion_potentials.push_back(torsion_potential);
+            }
+          }
+          else if (item[0][0].is_number_unsigned() && item[0][1].is_number_unsigned() &&
+                   item[0][2].is_number_unsigned() && item[0][3].is_number_unsigned())
+          {
+            std::size_t A = item[0][0].get<std::size_t>();
+            std::size_t B = item[0][1].get<std::size_t>();
+            std::size_t C = item[0][2].get<std::size_t>();
+            std::size_t D = item[0][3].get<std::size_t>();
+            if ((found_torsion[0] == A && found_torsion[1] == B && found_torsion[2] == C && found_torsion[3] == D) ||
+                (found_torsion[0] == D && found_torsion[1] == C && found_torsion[2] == B && found_torsion[3] == A))
+            {
+              if (torsion_identified)
+              {
+                throw std::runtime_error(
+                    std::format("Error in Torsion-potential: ambiguity in define torsion-potential (torsion "
+                                "{}-{}-{}-{} matches on multiple definitions)\n",
+                                found_torsion[0], found_torsion[1], found_torsion[2], found_torsion[3]));
+              }
+
+              torsion_identified = true;
+
+              // parse using unsigned integer identifiers
+              std::vector<std::size_t> torsion =
+                  item[0].is_array() ? item[0].get<std::vector<std::size_t>>() : std::vector<std::size_t>{};
+
+              TorsionPotential torsion_potential =
+                  TorsionPotential({torsion[0], torsion[1], torsion[2], torsion[3]},
+                                   TorsionPotential::definitionForString.at(potential_name), potential_parameters);
+              torsion_potentials.push_back(torsion_potential);
+            }
+          }
+        }
+        catch (std::exception const &e)
+        {
+          throw std::runtime_error(std::format("Error in Torsion-potential ({}): {}\n", item.dump(), e.what()));
+        }
+      }
+    }
+  }
+
+  if (found_torsions.size() != torsion_potentials.size())
+  {
+    throw std::runtime_error(
+        std::format("Error in Torsion-potential: not all torsion-potentials defined ({} missing)\n",
+                    found_torsions.size() - torsion_potentials.size()));
+  }
+
+  return torsion_potentials;
+}
+
+std::vector<VanDerWaalsPotential> Component::readVanDerWaalsPotentials(
+    const ForceField &forceField, [[maybe_unused]] const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+{
+  std::vector<VanDerWaalsPotential> van_der_waals_potentials{};
+
+  std::vector<std::array<std::size_t, 2>> found_van_der_waals = connectivityTable.findAllVanDerWaals();
+
+  for (std::array<std::size_t, 2> &found_van_der_waal : found_van_der_waals)
+  {
+    std::size_t A = found_van_der_waal[0];
+    std::size_t B = found_van_der_waal[1];
+    std::size_t typeA = static_cast<std::size_t>(atoms[A].type);
+    std::size_t typeB = static_cast<std::size_t>(atoms[B].type);
+
+    [[maybe_unused]] VDWParameters::Type potentialType = forceField(typeA, typeB).type;
+    double4 parameters = forceField(typeA, typeB).parameters;
+    double shift = forceField(typeA, typeB).shift;
+
+    // FIX: unit conversion
+    VanDerWaalsPotential potential = VanDerWaalsPotential(
+        {A, B}, VanDerWaalsType::LennardJones,
+        {parameters.x * Units::EnergyToKelvin, parameters.y, parameters.z, parameters.w}, 0.0, 1.0);
+
+    van_der_waals_potentials.push_back(potential);
+  }
+
+  return van_der_waals_potentials;
+}
+
+std::vector<CoulombPotential> Component::readCoulombPotentials(
+    const ForceField &forceField, [[maybe_unused]] const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+{
+  std::vector<CoulombPotential> coulomb_potentials{};
+
+  std::vector<std::array<std::size_t, 2>> found_coulombs = connectivityTable.findAllVanDerWaals();
+
+  for (std::array<std::size_t, 2> &found_coulomb : found_coulombs)
+  {
+    std::size_t A = found_coulomb[0];
+    std::size_t B = found_coulomb[1];
+    std::size_t typeA = static_cast<std::size_t>(atoms[A].type);
+    std::size_t typeB = static_cast<std::size_t>(atoms[B].type);
+
+    [[maybe_unused]] VDWParameters::Type potentialType = forceField(typeA, typeB).type;
+    double4 parameters = forceField(typeA, typeB).parameters;
+    double shift = forceField(typeA, typeB).shift;
+
+    CoulombPotential potential = CoulombPotential({A, B}, CoulombType::Coulomb);
+
+    coulomb_potentials.push_back(potential);
+  }
+
+  return coulomb_potentials;
+}
+
+std::vector<std::vector<std::size_t>> Component::readPartialReinsertionFixedAtoms(
+    const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+{
+  std::vector<std::vector<std::size_t>> config_moves{};
+
+  if (parsed_data.contains("Partial-reinsertion"))
+  {
+    auto item = parsed_data["Partial-reinsertion"];
+    if (!item.is_array())
+    {
+      throw std::runtime_error(std::format("[Component reader]: item {} must be an array\n", item.dump()));
+    }
+
+    try
+    {
+      config_moves = parsed_data["Partial-reinsertion"].get<std::vector<std::vector<std::size_t>>>();
+    }
+    catch (std::exception const &e)
+    {
+      throw std::runtime_error(std::format("Error in defined partial reinsertion ({}): {}\n", item.dump(), e.what()));
+    }
+  }
+
+  for (const std::vector<std::size_t> &config_move : config_moves)
+  {
+    if (!connectivityTable.checkIsConnectedSubgraph(config_move))
+    {
+      throw std::runtime_error(
+          std::format("Error in defined partial reinsertion ({} is not connected)\n", config_move));
+    }
+  }
+
+  for (const std::vector<std::size_t> &config_move : config_moves)
+  {
+    std::vector<std::size_t> beads_already_placed = config_move;
+
+    do
+    {
+      std::optional<std::vector<std::size_t>> nextBeads =
+          connectivityTable.checkValidityNextBeads(beads_already_placed);
+      if (nextBeads.has_value())
+      {
+        beads_already_placed.insert(beads_already_placed.end(), nextBeads->begin(), nextBeads->end());
+      }
+      else
+      {
+        throw std::runtime_error(
+            std::format("Error in defined partial reinsertion\n"
+                        "{} does not satisfy requirement that all branches need to be grown at the same time\n",
+                        config_move));
+      }
+    } while (beads_already_placed.size() < connectivityTable.numberOfBeads);
+  }
+
+  return config_moves;
+}
+
 Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Component &c)
 {
   archive << c.versionNumber;
@@ -1109,6 +1487,8 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Compon
   archive << c.blockingPockets;
 
   archive << c.rigid;
+  archive << c.translationalDegreesOfFreedom;
+  archive << c.rotationalDegreesOfFreedom;
 
   archive << c.criticalTemperature;
   archive << c.criticalPressure;
@@ -1129,7 +1509,16 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Compon
   archive << c.netCharge;
   archive << c.startingBead;
   archive << c.definedAtoms;
+
+  archive << c.inertiaVector;
+  archive << c.inverseInertiaVector;
+  archive << c.shapeType;
   archive << c.atoms;
+
+  archive << c.connectivityTable;
+  archive << c.intraMolecularPotentials;
+  archive << c.grownAtoms;
+  archive << c.partialReinsertionFixedAtoms;
 
   archive << c.initialNumberOfMolecules;
 
@@ -1137,17 +1526,19 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Compon
   archive << c.lambdaGibbs;
   archive << c.hasFractionalMolecule;
 
-  archive << c.internalPotentials;
-
-  archive << c.connectivityTable;
+  archive << c.intraMolecularPotentials;
 
   archive << c.mc_moves_probabilities;
   archive << c.mc_moves_statistics;
   archive << c.mc_moves_cputime;
 
+  archive << c.cbmc_moves_statistics;
+
   archive << c.averageRosenbluthWeights;
 
-  // MultiSiteIsotherm isotherm{};      // isotherm information
+  archive << c.lnPartitionFunction;
+
+  archive << c.isotherm;
   archive << c.massTransferCoefficient;
   archive << c.axialDispersionCoefficient;
   archive << c.isCarrierGas;
@@ -1155,8 +1546,6 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Compon
   archive << c.columnPressure;
   archive << c.columnLoading;
   archive << c.columnError;
-
-  archive << c.lnPartitionFunction;
 
   archive << c.pressureScale;
 
@@ -1189,6 +1578,8 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Component &c
   archive >> c.blockingPockets;
 
   archive >> c.rigid;
+  archive >> c.translationalDegreesOfFreedom;
+  archive >> c.rotationalDegreesOfFreedom;
 
   archive >> c.criticalTemperature;
   archive >> c.criticalPressure;
@@ -1209,7 +1600,16 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Component &c
   archive >> c.netCharge;
   archive >> c.startingBead;
   archive >> c.definedAtoms;
+
+  archive >> c.inertiaVector;
+  archive >> c.inverseInertiaVector;
+  archive >> c.shapeType;
   archive >> c.atoms;
+
+  archive >> c.connectivityTable;
+  archive >> c.intraMolecularPotentials;
+  archive >> c.grownAtoms;
+  archive >> c.partialReinsertionFixedAtoms;
 
   archive >> c.initialNumberOfMolecules;
 
@@ -1217,17 +1617,19 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Component &c
   archive >> c.lambdaGibbs;
   archive >> c.hasFractionalMolecule;
 
-  archive >> c.internalPotentials;
-
-  archive >> c.connectivityTable;
+  archive >> c.intraMolecularPotentials;
 
   archive >> c.mc_moves_probabilities;
   archive >> c.mc_moves_statistics;
   archive >> c.mc_moves_cputime;
 
+  archive >> c.cbmc_moves_statistics;
+
   archive >> c.averageRosenbluthWeights;
 
-  // MultiSiteIsotherm isotherm{};      // isotherm information
+  archive >> c.lnPartitionFunction;
+
+  archive >> c.isotherm;
   archive >> c.massTransferCoefficient;
   archive >> c.axialDispersionCoefficient;
   archive >> c.isCarrierGas;
@@ -1235,8 +1637,6 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Component &c
   archive >> c.columnPressure;
   archive >> c.columnLoading;
   archive >> c.columnError;
-
-  archive >> c.lnPartitionFunction;
 
   archive >> c.pressureScale;
 

@@ -37,9 +37,9 @@ import interpolation_energy_grid;
     const SimulationBox& simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
-    double cutOffCoulomb, const Atom& atom, std::size_t numberOfTrialDirections) noexcept
+    double cutOffCoulomb, const Atom& atom) noexcept
 {
-  std::vector<Atom> trialPositions(numberOfTrialDirections, atom);
+  std::vector<Atom> trialPositions(forceField.numberOfFirstBeadPositions, atom);
 
   // create trial positions randomly in the simulation box
   std::for_each(trialPositions.begin(), trialPositions.end(),
@@ -65,21 +65,17 @@ import interpolation_energy_grid;
   if (RosenbluthWeight < forceField.minimumRosenbluthFactor) return std::nullopt;
 
   return FirstBeadData(externalEnergies[selected].first, externalEnergies[selected].second,
-                       RosenbluthWeight / double(numberOfTrialDirections), 0.0);
+                       RosenbluthWeight / double(forceField.numberOfFirstBeadPositions), 0.0);
 }
 
-[[nodiscard]] FirstBeadData CBMC::retraceRigidMultipleFirstBeadSwapDeletion(
-    RandomNumber& random, const Component& component, bool hasExternalField, const ForceField& forcefield,
+[[nodiscard]] FirstBeadData CBMC::retraceMultipleFirstBeadSwapDeletion(
+    RandomNumber& random, const Component& component, bool hasExternalField, const ForceField& forceField,
     const SimulationBox& simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
-    double cutOffCoulomb, const Atom atom, double scaling, std::size_t numberOfTrialDirections) noexcept
+    double cutOffCoulomb, const Atom atom) noexcept
 {
-  std::vector<Atom> trialPositions(numberOfTrialDirections, atom);
-  for (Atom& trialPosition : trialPositions)
-  {
-    trialPosition.setScaling(scaling);
-  }
+  std::vector<Atom> trialPositions(forceField.numberOfFirstBeadPositions, atom);
 
   // set the trial positions of the first bead randomly in the simulation box for the 1..N_trial atomns, but leave the
   // first as the old
@@ -87,7 +83,7 @@ import interpolation_energy_grid;
                 [&](Atom& a) { a.position = simulationBox.randomPosition(random); });
 
   const std::vector<std::pair<Atom, RunningEnergy>> externalEnergies = computeExternalNonOverlappingEnergies(
-      component, hasExternalField, forcefield, simulationBox, interpolationGrids, framework, frameworkAtoms,
+      component, hasExternalField, forceField, simulationBox, interpolationGrids, framework, frameworkAtoms,
       moleculeAtoms, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, trialPositions);
 
   std::vector<double> logBoltmannFactors{};
@@ -98,17 +94,18 @@ import interpolation_energy_grid;
                                             [](const double& acc, const double& logBoltmannFactor)
                                             { return acc + std::exp(logBoltmannFactor); });
 
-  return FirstBeadData(atom, externalEnergies[0].second, RosenbluthWeight / double(numberOfTrialDirections), 0.0);
+  return FirstBeadData(atom, externalEnergies[0].second,
+                       RosenbluthWeight / double(forceField.numberOfFirstBeadPositions), 0.0);
 }
 
-[[nodiscard]] std::optional<FirstBeadData> CBMC::growRigidMultipleFirstBeadReinsertion(
+[[nodiscard]] std::optional<FirstBeadData> CBMC::growMultipleFirstBeadReinsertion(
     RandomNumber& random, const Component& component, bool hasExternalField, const ForceField& forceField,
     const SimulationBox& simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
-    double cutOffCoulomb, const Atom& atom, std::size_t numberOfTrialDirections) noexcept
+    double cutOffCoulomb, const Atom& atom) noexcept
 {
-  std::vector<Atom> trialPositions(numberOfTrialDirections, atom);
+  std::vector<Atom> trialPositions(forceField.numberOfFirstBeadPositions, atom);
   std::for_each(trialPositions.begin(), trialPositions.end(),
                 [&](Atom& a) { a.position = simulationBox.randomPosition(random); });
 
@@ -117,15 +114,6 @@ import interpolation_energy_grid;
       moleculeAtoms, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, trialPositions);
 
   if (externalEnergies.empty()) return std::nullopt;
-  /*
-    std::print("size: {}\n", externalEnergies.size());
-    for(auto [atom, energy] : externalEnergies)
-    {
-      std::print("externalEnergies: {} {} at: {} {} {}\n", energy.frameworkMoleculeVDW, energy.frameworkMoleculeCharge,
-    atom.position.x, atom.position.y, atom.position.z);
-    }
-    std::print("\n");
-    */
 
   std::vector<double> logBoltmannFactors{};
   std::transform(externalEnergies.begin(), externalEnergies.end(), std::back_inserter(logBoltmannFactors),
@@ -143,16 +131,16 @@ import interpolation_energy_grid;
   double storedR = RosenbluthWeight - std::exp(logBoltmannFactors[selected]);
 
   return FirstBeadData(externalEnergies[selected].first, externalEnergies[selected].second,
-                       RosenbluthWeight / double(numberOfTrialDirections), storedR);
+                       RosenbluthWeight / double(forceField.numberOfFirstBeadPositions), storedR);
 }
 
-[[nodiscard]] FirstBeadData CBMC::retraceRigidMultipleFirstBeadReinsertion(
+[[nodiscard]] FirstBeadData CBMC::retraceMultipleFirstBeadReinsertion(
     [[maybe_unused]] RandomNumber& random, const Component& component, bool hasExternalField,
     const ForceField& forceField, const SimulationBox& simulationBox,
     const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
-    double cutOffCoulomb, const Atom& atom, double storedR, std::size_t numberOfTrialDirections)
+    double cutOffCoulomb, const Atom& atom, double storedR)
 {
   std::vector<Atom> trialPositions({atom});
 
@@ -175,6 +163,6 @@ import interpolation_energy_grid;
                                             { return acc + std::exp(logBoltmannFactor); });
 
   // w(o)=exp(-beta u(o))+r  Eq. 18 from Esselink et al.
-  return FirstBeadData(atom, externalEnergies[0].second, (RosenbluthWeight + storedR) / double(numberOfTrialDirections),
-                       0.0);
+  return FirstBeadData(atom, externalEnergies[0].second,
+                       (RosenbluthWeight + storedR) / double(forceField.numberOfFirstBeadPositions), 0.0);
 }

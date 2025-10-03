@@ -179,16 +179,16 @@ void MonteCarloTransitionMatrix::performCycle()
       case SimulationStage::Uninitialized:
         break;
       case SimulationStage::Initialization:
-        MC_Moves::performRandomMove(random, selectedSystem, selectedSecondSystem, selectedComponent,
-                                    fractionalMoleculeSystem);
+        MC_Moves::performRandomMoveInitialization(random, selectedSystem, selectedSecondSystem, selectedComponent,
+                                                  fractionalMoleculeSystem);
 
         N = selectedSystem.numberOfIntegerMoleculesPerComponent[selectedComponent];
         selectedSystem.tmmc.updateHistogram(N);
         selectedSystem.tmmc.numberOfSteps++;
         break;
       case SimulationStage::Equilibration:
-        MC_Moves::performRandomMove(random, selectedSystem, selectedSecondSystem, selectedComponent,
-                                    fractionalMoleculeSystem);
+        MC_Moves::performRandomMoveEquilibration(random, selectedSystem, selectedSecondSystem, selectedComponent,
+                                                 fractionalMoleculeSystem);
 
         N = selectedSystem.numberOfIntegerMoleculesPerComponent[selectedComponent];
         selectedSystem.tmmc.updateHistogram(N);
@@ -501,7 +501,8 @@ void MonteCarloTransitionMatrix::production()
         system.loadings =
             Loadings(system.components.size(), system.numberOfIntegerMoleculesPerComponent, system.simulationBox);
 
-        std::print(stream, "{}", system.writeProductionStatusReportMC(currentCycle, numberOfCycles));
+        std::string status_line{std::format("Current cycle: {} out of {}\n", currentCycle, numberOfCycles)};
+        std::print(stream, "{}", system.writeProductionStatusReportMC(status_line));
         std::flush(stream);
       }
     }
