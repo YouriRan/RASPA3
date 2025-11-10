@@ -54,7 +54,7 @@ export namespace Integrators
  * \return The updated running energies after the integration step.
  */
 RunningEnergy velocityVerlet(
-    std::span<Molecule> moleculeData, std::span<Atom> moleculeAtomPositions, const std::vector<Component> components,
+    std::span<Molecule> moleculeData, std::span<Atom> moleculeAtomPositions, const std::vector<Component>& components,
     double dt, std::optional<Thermostat>& thermostat, std::span<Atom> frameworkAtomPositions,
     const ForceField& forceField, const SimulationBox& simulationBox, std::vector<std::complex<double>>& eik_x,
     std::vector<std::complex<double>>& eik_y, std::vector<std::complex<double>>& eik_z,

@@ -2126,6 +2126,12 @@ std::pair<EnergyStatus, double3x3> System::computeMolecularPressure() noexcept
   pressureInfo.second.cz -= pressureTailCorrection;
 
   // Correct rigid molecule contribution using the constraints forces
+  if (moleculeData.size() && !atomData.size())
+  {
+    throw std::runtime_error(std::format("Molecule data has size >1 while atomData is empty"));
+  }
+
+
   double3x3 correctionTerm{};
   for (Molecule& molecule : moleculeData)
   {
@@ -2133,9 +2139,14 @@ std::pair<EnergyStatus, double3x3> System::computeMolecularPressure() noexcept
 
     double totalMass = 0.0;
     double3 com(0.0, 0.0, 0.0);
+    if (!span.size())
+    {
+      throw std::runtime_error("Span empty");
+    }
     for (const Atom& atom : span)
     {
-      double mass = forceField.pseudoAtoms[static_cast<std::size_t>(atom.type)].mass;
+      std::size_t type = static_cast<std::size_t>(atom.type);
+      double mass = forceField.pseudoAtoms[type].mass;
       com += mass * atom.position;
       totalMass += mass;
     }

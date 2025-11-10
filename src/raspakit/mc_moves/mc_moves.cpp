@@ -414,6 +414,17 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
+    case MoveTypes::SwapNonEqCBMC:
+    {
+      const auto [energy, Pacc] =
+          MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
+      if (energy.has_value())
+      {
+        selectedSystem.runningEnergies = energy.value();
+      }
+      selectedSystem.tmmc.updateMatrix(Pacc, oldN);
+      break;
+    }
     case MoveTypes::Count:
     {
       throw std::runtime_error("Move count called, invalid sampling of move probabilities");
@@ -833,13 +844,13 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-        case MoveTypes::SwapNonEqCBMC:
+    case MoveTypes::SwapNonEqCBMC:
     {
-      const auto [energyDifference, Pacc] =
+      const auto [energy, Pacc] =
           MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
-      if (energyDifference)
+      if (energy.has_value())
       {
-        selectedSystem.runningEnergies += energyDifference.value();
+        selectedSystem.runningEnergies = energy.value();
       }
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
@@ -1256,11 +1267,11 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
     }
     case MoveTypes::SwapNonEqCBMC:
     {
-      const auto [energyDifference, Pacc] =
+      const auto [energy, Pacc] =
           MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
-      if (energyDifference)
+      if (energy.has_value())
       {
-        selectedSystem.runningEnergies += energyDifference.value();
+        selectedSystem.runningEnergies = energy.value();
       }
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;

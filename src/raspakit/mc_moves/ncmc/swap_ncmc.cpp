@@ -86,6 +86,10 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
   if (insert)  // Insertion
   {
     component.mc_moves_statistics.addTrial(move, 0);
+
+    RunningEnergy oldTotalInterEnergy =
+      Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, moleculeAtomPositions);
+
     // Attempt to grow a new molecule using CBMC
     time_begin = std::chrono::system_clock::now();
     std::optional<ChainGrowData> growData = CBMC::growMoleculeSwapInsertion(
@@ -190,8 +194,11 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     system.mc_moves_cputime[move]["Integration"] += (time_end - time_begin);
 
     // Calculate correction factor for Ewald energy difference
-    double correctionFactorEwald =
+    double correctionFactorEwald = // 1.0;
         std::exp(-system.beta * (energyFourierDifference.potentialEnergy() + tailEnergyDifference.potentialEnergy()));
+
+    RunningEnergy newTotalInterEnergy =
+      Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, moleculeAtomPositions);
 
     // Compute the acceptance probability pre-factor
     double fugacity = component.fugacityCoefficient.value_or(1.0) * system.pressure;
@@ -201,9 +208,11 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
                        double(1 + system.numberOfIntegerMoleculesPerComponent[selectedComponent]);
 
     // Calculate the acceptance probability Pacc
-    double drift = currentEnergy.potentialEnergy() - referenceEnergy.potentialEnergy();
-    double Pacc = preFactor;  // * (growData->RosenbluthWeight / idealGasRosenbluthWeight);
+    double Pacc = preFactor; // * (growData->RosenbluthWeight / idealGasRosenbluthWeight);
     double biasTransitionMatrix = system.tmmc.biasFactor(oldN + 1, oldN);
+    
+    double drift = newTotalInterEnergy.potentialEnergy() - oldTotalInterEnergy.potentialEnergy();
+    // double drift = std::abs(newTotalInterEnergy.conservedEnergy() - oldTotalInterEnergy.conservedEnergy());
 
     component.mc_moves_statistics.addConstructed(move, 0);
     // Check if TMMC is enabled and macrostate limit is not exceeded
@@ -216,7 +225,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
       }
     }
 
-    if (random.uniform() < biasTransitionMatrix * Pacc * std::exp(-system.beta * drift))
+    if (random.uniform() < Pacc * std::exp(-system.beta * drift))
     {
       component.mc_moves_statistics.addAccepted(move, 0);
 
@@ -226,8 +235,9 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
       system.thermostat = thermostat;
       system.timeStep = dt;
 
-      std::copy(moleculeAtomPositions.begin(), moleculeAtomPositions.end(), atomData.begin());
-      system.spanOfMoleculeAtoms() = moleculeAtomPositions;
+      std::span<Atom> newAtomData = system.spanOfMoleculeAtoms();
+      std::copy(moleculeAtomPositions.begin(), moleculeAtomPositions.end(), newAtomData.begin());
+      // system.spanOfMoleculeAtoms() = moleculeAtomPositions;
 
       Integrators::createCartesianPositions(system.moleculeData, system.spanOfMoleculeAtoms(), system.components);
       Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
@@ -237,11 +247,14 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
   }
   else
   {
+    component.mc_moves_statistics.addTrial(move, 1);
     if (oldN == 0)
     {
       return {std::nullopt, double3(0.0, 1.0, 0.0)};
     }
-    component.mc_moves_statistics.addTrial(move, 1);
+
+    RunningEnergy oldTotalInterEnergy =
+      Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, moleculeAtomPositions);
 
     // Get a reference to the molecule being deleted
     std::size_t selectedMolecule = system.randomIntegerMoleculeOfComponent(random, selectedComponent);
@@ -333,8 +346,11 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
         moleculeData.begin() + static_cast<std::vector<Atom>::difference_type>(index);
     moleculeData.erase(moleculeIterator, moleculeIterator + 1);
 
+    RunningEnergy newTotalInterEnergy =
+      Interactions::computeInterMolecularEnergy(system.forceField, system.simulationBox, moleculeAtomPositions);
+
     // Calculate the correction factor for Ewald summation
-    double correctionFactorEwald =
+    double correctionFactorEwald = // 1.0;
         std::exp(-system.beta * (energyFourierDifference.potentialEnergy() + tailEnergyDifference.potentialEnergy()));
 
     // Compute acceptance probability factors
@@ -342,7 +358,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     double idealGasRosenbluthWeight = component.idealGasRosenbluthWeight.value_or(1.0);
     double preFactor = correctionFactorEwald * double(system.numberOfIntegerMoleculesPerComponent[selectedComponent]) /
                        (system.beta * component.molFraction * fugacity * system.simulationBox.volume);
-    double Pacc = preFactor;  // * idealGasRosenbluthWeight / retraceData.RosenbluthWeight;
+    double Pacc = preFactor; // * idealGasRosenbluthWeight / retraceData.RosenbluthWeight;
     double biasTransitionMatrix = system.tmmc.biasFactor(oldN - 1, oldN);
 
     // Check if the new macrostate is within the allowed TMMC range
@@ -358,9 +374,10 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
     system.mc_moves_cputime[move]["Integration"] += (time_end - time_begin);
     component.mc_moves_statistics.addConstructed(move, 1);
 
-    double drift = std::abs(currentEnergy.conservedEnergy() - referenceEnergy.conservedEnergy());
+    double drift = newTotalInterEnergy.potentialEnergy() - oldTotalInterEnergy.potentialEnergy();
+    // double drift = std::abs(newTotalInterEnergy.conservedEnergy() - oldTotalInterEnergy.conservedEnergy());
 
-    if (random.uniform() < biasTransitionMatrix * Pacc * std::exp(-system.beta * drift))
+    if (random.uniform() < Pacc * std::exp(-system.beta * drift))
     {
       component.mc_moves_statistics.addAccepted(move, 1);
 
@@ -369,8 +386,10 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::NonEqCBMC(RandomNumbe
       system.thermostat = thermostat;
       system.timeStep = dt;
 
-      std::copy(moleculeAtomPositions.begin(), moleculeAtomPositions.end(), atomData.begin());
-      system.spanOfMoleculeAtoms() = moleculeAtomPositions;
+      std::span<Atom> newAtomData = system.spanOfMoleculeAtoms();
+      std::copy(moleculeAtomPositions.begin(), moleculeAtomPositions.end(), newAtomData.begin());
+      // system.spanOfMoleculeAtoms() = moleculeAtomPositions;
+
       Integrators::createCartesianPositions(system.moleculeData, system.spanOfMoleculeAtoms(), system.components);
       Interactions::acceptEwaldMove(system.forceField, system.storedEik, system.totalEik);
       return {currentEnergy, double3(Pacc, 1.0 - Pacc, 0.0)};
