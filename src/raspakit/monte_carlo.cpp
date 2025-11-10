@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -27,7 +31,7 @@ module;
 
 module monte_carlo;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -234,12 +238,14 @@ void MonteCarlo::createInterpolationGrids()
     if (outputToFiles)
     {
       std::ostream stream(streams[system.systemId].rdbuf());
-      system.createInterpolationGrids(stream);
+      system.createExternalFieldInterpolationGrid(stream);
+      system.createFrameworkInterpolationGrids(stream);
     }
     else
     {
       std::ostringstream local;
-      system.createInterpolationGrids(local);
+      system.createExternalFieldInterpolationGrid(local);
+      system.createFrameworkInterpolationGrids(local);
     }
   }
 }

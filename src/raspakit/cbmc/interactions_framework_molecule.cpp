@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <atomic>
@@ -21,7 +25,7 @@ module;
 
 module cbmc_interactions_framework_molecule;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -272,7 +276,12 @@ template <>
   cancel.clear();
 
   RunningEnergy energySum;
-#pragma omp parallel for reduction(+ : energySum)
+
+#pragma omp declare reduction \
+   (energy_sum_reduction : RunningEnergy : omp_out += omp_in) \
+   initializer(omp_priv = RunningEnergy{})
+
+#pragma omp parallel for reduction(energy_sum_reduction : energySum)
   for (std::span<const Atom>::iterator it1 = frameworkAtoms.begin(); it1 != frameworkAtoms.end(); ++it1)
   {
     if (!cancel.test())

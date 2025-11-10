@@ -1,19 +1,29 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <cstddef>
 #include <format>
 #include <fstream>
-#include <map>
-#include <random>
+#include <unordered_map>
 #include <source_location>
 #include <sstream>
 #include <vector>
+#include <iostream>
+#include <sstream>
+#include <print>
+#pragma push_macro("__SSE3__")
+#undef __SSE3__
+#include <random>
+#pragma pop_macro("__SSE3__")
 #endif
 
 module mc_moves_probabilities;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -57,10 +67,10 @@ MCMoveProbabilities::MCMoveProbabilities(double translationProbability, double r
   probabilities[MoveTypes::SwapNonEqCBMC] = swapNonEqCBMCProbability;
 }
 
-const std::map<MoveTypes, double> MCMoveProbabilities::normalizedMap() const
+const std::unordered_map<MoveTypes, double> MCMoveProbabilities::normalizedMap() const
 {
   double totalProbability = 0.0;
-  std::map<MoveTypes, double> normalizedMap(probabilities);
+  std::unordered_map<MoveTypes, double> normalizedMap(probabilities);
   for (auto &[moveType, probability] : normalizedMap)
   {
     totalProbability += probability;
@@ -111,6 +121,34 @@ MoveTypes MCMoveProbabilities::sample(RandomNumber &random)
     vectorProbabilities[i] = probabilities[static_cast<MoveTypes>(i)];
   }
   return static_cast<MoveTypes>(random.categoricalDistribution(vectorProbabilities));
+}
+
+std::string MCMoveProbabilities::repr()
+{
+  std::ostringstream stream;
+
+  std::print(stream, "translationProbability: {}\n", probabilities[MoveTypes::Translation]);
+  std::print(stream, "randomTranslationProbability: {}\n", probabilities[MoveTypes::RandomTranslation]);
+  std::print(stream, "rotationProbability: {}\n", probabilities[MoveTypes::Rotation]);
+  std::print(stream, "randomRotationProbability: {}\n", probabilities[MoveTypes::RandomRotation]);
+  std::print(stream, "volumeChangeProbability: {}\n", probabilities[MoveTypes::VolumeChange]);
+  std::print(stream, "reinsertionCBMCProbability: {}\n", probabilities[MoveTypes::ReinsertionCBMC]);
+  std::print(stream, "partialReinsertionCBMCProbability: {}\n", probabilities[MoveTypes::PartialReinsertionCBMC]);
+  std::print(stream, "identityChangeCBMCProbability: {}\n", probabilities[MoveTypes::IdentityChangeCBMC]);
+  std::print(stream, "swapProbability: {}\n", probabilities[MoveTypes::Swap]);
+  std::print(stream, "swapCBMCProbability: {}\n", probabilities[MoveTypes::SwapCBMC]);
+  std::print(stream, "swapCFCMCProbability: {}\n", probabilities[MoveTypes::SwapCFCMC]);
+  std::print(stream, "swapCBCFCMCProbability: {}\n", probabilities[MoveTypes::SwapCBCFCMC]);
+  std::print(stream, "gibbsVolumeChangeProbability: {}\n", probabilities[MoveTypes::GibbsVolume]);
+  std::print(stream, "gibbsSwapCBMCProbability: {}\n", probabilities[MoveTypes::GibbsSwapCBMC]);
+  std::print(stream, "gibbsSwapCFCMCProbability: {}\n", probabilities[MoveTypes::GibbsSwapCFCMC]);
+  std::print(stream, "widomProbability: {}\n", probabilities[MoveTypes::Widom]);
+  std::print(stream, "widomCFCMCProbability: {}\n", probabilities[MoveTypes::WidomCFCMC]);
+  std::print(stream, "widomCBCFCMCProbability: {}\n", probabilities[MoveTypes::WidomCBCFCMC]);
+  std::print(stream, "parallelTemperingProbability: {}\n", probabilities[MoveTypes::ParallelTempering]);
+  std::print(stream, "hybridMCProbability: {}\n", probabilities[MoveTypes::HybridMC]);
+
+  return stream.str();
 }
 
 Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const MCMoveProbabilities &p)

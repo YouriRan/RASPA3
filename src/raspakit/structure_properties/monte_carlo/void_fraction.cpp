@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <chrono>
@@ -16,11 +20,12 @@ module;
 
 module mc_void_fraction;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
 import double3;
+import double3x3;
 import randomnumbers;
 import atom;
 import framework;

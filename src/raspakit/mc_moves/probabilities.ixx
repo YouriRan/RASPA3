@@ -1,15 +1,23 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <cstddef>
-#include <map>
-#include <random>
+#include <unordered_map>
 #include <vector>
+#include <string>
+#pragma push_macro("__SSE3__")
+#undef __SSE3__
+#include <random>
+#pragma pop_macro("__SSE3__")
 #endif
 
 export module mc_moves_probabilities;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -22,9 +30,6 @@ export struct MCMoveProbabilities
   std::uint64_t versionNumber{2};
 
   bool operator==(MCMoveProbabilities const &) const = default;
-
-  // vector of unnormalized probabilities (not necessary due to std::discrete_distribution)
-  std::map<MoveTypes, double> probabilities;
 
   MCMoveProbabilities(double translationProbability = 0.0, double randomTranslationProbability = 0.0,
                       double rotationProbability = 0.0, double randomRotationProbability = 0.0,
@@ -42,11 +47,16 @@ export struct MCMoveProbabilities
   double getProbability(const MoveTypes &move) const { return probabilities.at(move); };
   void setProbability(const MoveTypes &move, double probability) { probabilities[move] = probability; };
 
-  const std::map<MoveTypes, double> normalizedMap() const;
+  const std::unordered_map<MoveTypes, double> normalizedMap() const;
   void removeRedundantMoves();
   MoveTypes sample(RandomNumber &random);
 
   void join(const MCMoveProbabilities &other);
+
+  // vector of unnormalized probabilities (not necessary due to std::discrete_distribution)
+  std::unordered_map<MoveTypes, double> probabilities{};
+
+  std::string repr();
 
   friend Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const MCMoveProbabilities &p);
   friend Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, MCMoveProbabilities &p);

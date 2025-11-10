@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <cstddef>
@@ -7,6 +11,7 @@ module;
 #include <iostream>
 #include <string>
 #include <vector>
+#include <exception>
 #endif
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
@@ -17,7 +22,7 @@ module;
 
 export module hdf5;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -33,6 +38,7 @@ import std;
  * {"dimensions", "(N, M)"} for a NxM matrix.
  *
  */
+
 export class HDF5Writer
 {
  public:
@@ -75,46 +81,7 @@ export class HDF5Writer
   }
 
   template <typename T>
-  void writeVector(const std::string& groupName, const std::string& datasetName, const std::vector<T>& data)
-  {
-    H5::Group group = file.openGroup(groupName.c_str());
-    H5::DataSet dataset = group.openDataSet(datasetName.c_str());
-    H5::DataSpace dataspace = dataset.getSpace();
-    H5::PredType datatype = getH5Type<T>();
-    dataset.write(data.data(), datatype);
-  }
-
-  template <>
-  void writeVector<bool>(const std::string& groupName, const std::string& datasetName, const std::vector<bool>& data)
-  {
-    H5::Group group = file.openGroup(groupName.c_str());
-    H5::DataSet dataset = group.openDataSet(datasetName.c_str());
-    H5::DataSpace dataspace = dataset.getSpace();
-    H5::PredType datatype = getH5Type<bool>();
-
-    std::vector<char> converted(data.size());
-    std::transform(data.begin(), data.end(), converted.begin(), [](bool b) { return static_cast<char>(b); });
-    dataset.write(converted.data(), datatype);
-  }
-
-  template <>
-  void writeVector<std::string>(const std::string& groupName, const std::string& datasetName,
-                                const std::vector<std::string>& data)
-  {
-    H5::Group group = file.openGroup(groupName.c_str());
-    H5::DataSet dataset = group.openDataSet(datasetName.c_str());
-    H5::DataSpace dataspace = dataset.getSpace();
-    H5::StrType strtype = dataset.getStrType();
-    size_t maxLength = strtype.getSize();
-
-    std::vector<char> buffer(data.size() * maxLength, '\0');
-    for (size_t i = 0; i < data.size(); ++i)
-    {
-      std::strncpy(&buffer[i * maxLength], data[i].c_str(), maxLength);
-    }
-
-    dataset.write(buffer.data(), strtype);
-  }
+  void writeVector(const std::string& groupName, const std::string& datasetName, const std::vector<T>& data);
 
   template <typename T>
   void writeSingleValue(const std::string& groupName, const std::string& datasetName,
@@ -187,7 +154,49 @@ export class HDF5Writer
     }
     else
     {
-      throw std::runtime_error("Unsupported data type");
+      //throw std::runtime_error("Unsupported data type");
     }
   }
 };
+
+template <typename T>
+void HDF5Writer::writeVector(const std::string& groupName, const std::string& datasetName, const std::vector<T>& data)
+{
+  H5::Group group = file.openGroup(groupName.c_str());
+  H5::DataSet dataset = group.openDataSet(datasetName.c_str());
+  H5::DataSpace dataspace = dataset.getSpace();
+  H5::PredType datatype = getH5Type<T>();
+  dataset.write(data.data(), datatype);
+}
+
+template <>
+void HDF5Writer::writeVector<bool>(const std::string& groupName, const std::string& datasetName, const std::vector<bool>& data)
+{
+  H5::Group group = file.openGroup(groupName.c_str());
+  H5::DataSet dataset = group.openDataSet(datasetName.c_str());
+  H5::DataSpace dataspace = dataset.getSpace();
+  H5::PredType datatype = getH5Type<bool>();
+
+  std::vector<char> converted(data.size());
+  std::transform(data.begin(), data.end(), converted.begin(), [](bool b) { return static_cast<char>(b); });
+  dataset.write(converted.data(), datatype);
+}
+
+template <>
+void HDF5Writer::writeVector<std::string>(const std::string& groupName, const std::string& datasetName,
+                              const std::vector<std::string>& data)
+{
+  H5::Group group = file.openGroup(groupName.c_str());
+  H5::DataSet dataset = group.openDataSet(datasetName.c_str());
+  H5::DataSpace dataspace = dataset.getSpace();
+  H5::StrType strtype = dataset.getStrType();
+  size_t maxLength = strtype.getSize();
+
+  std::vector<char> buffer(data.size() * maxLength, '\0');
+  for (size_t i = 0; i < data.size(); ++i)
+  {
+    std::strncpy(&buffer[i * maxLength], data[i].c_str(), maxLength);
+  }
+
+  dataset.write(buffer.data(), strtype);
+}

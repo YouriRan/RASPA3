@@ -1,5 +1,10 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#include "mdspanwrapper.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <cmath>
 #include <cstddef>
@@ -9,9 +14,8 @@ module;
 #include <numbers>
 #include <span>
 #include <vector>
-#if defined(__has_include) && __has_include(<mdspan>)
-#include <mdspan>
-#endif
+#include <array>
+#include "mdspanwrapper.h"
 #endif
 
 #if !defined(_WIN32)
@@ -20,7 +24,7 @@ module;
 
 module charge_equilibration_wilmer_snurr;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -29,9 +33,6 @@ import double3x3;
 import skelement;
 import atom;
 import simulationbox;
-#if !(defined(__has_include) && __has_include(<mdspan>))
-import mdspan;
-#endif
 
 extern "C"
 {

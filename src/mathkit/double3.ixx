@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -15,7 +19,7 @@ module;
 
 export module double3;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -278,7 +282,7 @@ export double3 clamp(double3 value, double3 low, double3 high)
                  std::clamp(value.z, low.z, high.z));
 }
 
-export template <>
+template <>
 struct std::formatter<double3> : std::formatter<std::string_view>
 {
   auto format(const double3& v, std::format_context& ctx) const

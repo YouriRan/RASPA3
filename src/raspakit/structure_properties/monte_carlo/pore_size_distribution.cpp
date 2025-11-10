@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <chrono>
@@ -9,18 +13,22 @@ module;
 #include <limits>
 #include <optional>
 #include <print>
-#include <random>
 #include <string>
 #include <vector>
+#pragma push_macro("__SSE3__")
+#undef __SSE3__
+#include <random>
+#pragma pop_macro("__SSE3__")
 #endif
 
 module mc_pore_size_distribution;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
 import double3;
+import double3x3;
 import randomnumbers;
 import framework;
 import forcefield;

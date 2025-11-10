@@ -75,12 +75,14 @@ cd examples/basic/1_mc_methane_in_box
 - tail-corrections for CFCMC
 - grids for rigid frameworks
 - writing and reading restart-files
+- external field interpolation grids
 
 # Experimental
-- flexible molecules
+- flexible molecules (CBMC)
 - partial insertion move
 
 # Todo-list
+- flexible molecules (MD)
 - zeo++-type calculations
 - flexible frameworks
 - reaction ensemble

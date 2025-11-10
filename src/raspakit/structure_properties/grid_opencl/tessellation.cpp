@@ -1,5 +1,10 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#include "mdspanwrapper.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <chrono>
@@ -12,6 +17,9 @@ module;
 #include <string>
 #include <tuple>
 #include <vector>
+#include "mdspanwrapper.h"
+#endif
+
 #define CL_TARGET_OPENCL_VERSION 120
 #ifdef __APPLE__
 #include <OpenCL/cl.h>
@@ -20,28 +28,22 @@ module;
 #else
 #include <CL/opencl.h>
 #endif
-#if defined(__has_include) && __has_include(<mdspan>)
-#include <mdspan>
+
+#ifdef USE_STD_IMPORT
+#define CL_TARGET_OPENCL_VERSION 120
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#elif _WIN32
+#include <CL/cl.h>
+#else
+#include <CL/opencl.h>
 #endif
 #endif
 
-#ifndef USE_LEGACY_HEADERS
-#define CL_TARGET_OPENCL_VERSION 120
-#ifdef __APPLE__
-#include <OpenCL/cl.h>
-#elif _WIN32
-#include <CL/cl.h>
-#else
-#include <CL/opencl.h>
-#endif
-#if defined(__has_include) && __has_include(<mdspan>)
-#include <mdspan>
-#endif
-#endif
 
 module tessellation;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -59,7 +61,7 @@ import component;
 import system;
 import units;
 #if !(defined(__has_include) && __has_include(<mdspan>))
-import mdspan;
+//import mdspan;
 #endif
 
 Tessellation::Tessellation(int3 grid_size) : grid_size(grid_size)

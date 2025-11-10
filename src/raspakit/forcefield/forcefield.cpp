@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -32,7 +36,7 @@ module;
 
 module forcefield;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -78,6 +82,34 @@ int3 parseInt3(const std::string& item, auto json)
   throw std::runtime_error(
       std::format("[Input reader]: key '{}', value {} should be array of 3 integer  numbers\n", item, json.dump()));
 }
+
+double3 parseDouble3(const std::string& item, auto json)
+{
+  if (json.is_array())
+  {
+    if (json.size() != 3)
+    {
+      throw std::runtime_error(std::format(
+          "[Input reader]: key '{}', value {} should be array of 3 floatng point numbers\n", item, json.dump()));
+    }
+    double3 value{};
+    try
+    {
+      value.x = json[0].template get<double>();
+      value.y = json[1].template get<double>();
+      value.z = json[2].template get<double>();
+      return value;
+    }
+    catch (nlohmann::json::exception& ex)
+    {
+      throw std::runtime_error(std::format(
+          "[Input reader]: key '{}', value {} should be array of 3 floating point numbers\n", item, json.dump()));
+    }
+  }
+  throw std::runtime_error(std::format(
+      "[Input reader]: key '{}', value {} should be array of 3 floating point numbers\n", item, json.dump()));
+}
+
 
 ForceField::ForceField(std::vector<PseudoAtom> pseudoAtoms, std::vector<VDWParameters> selfInteractions,
                        MixingRule mixingRule, double cutOffFrameworkVDW, double cutOffMoleculeVDW, double cutOffCoulomb,
@@ -664,10 +696,75 @@ ForceField::ForceField(std::string filePath)
   {
     numberOfCoulombGridPoints = parseInt3("NumberOfCoulombGridPoints", parsed_data["NumberOfCoulombGridPoints"]);
   }
+  if (parsed_data.contains("NumberOfExternalFieldGridPoints"))
+  {
+    numberOfExternalFieldGridPoints = parseInt3("NumberOfExternalFieldGridPoints", parsed_data["NumberOfExternalFieldGridPoints"]);
+  }
 
   if (parsed_data.contains("NumberOfGridTestPoints"))
   {
     numberOfGridTestPoints = parsed_data.value("NumberOfGridTestPoints", parsed_data["NumberOfGridTestPoints"]);
+  }
+
+  if (parsed_data.contains("ExternalFieldGridFileName"))
+  {
+    externalFieldGridFileName = parsed_data["ExternalFieldGridFileName"].get<std::string>();
+  }
+
+  if (parsed_data.contains("WriteExternalFieldInterpolationGrid"))
+  {
+    writeExternalFieldInterpolationGrid = parsed_data["WriteExternalFieldInterpolationGrid"].get<bool>();
+  }
+
+  if (parsed_data.contains("ExternalFieldPotentialEnergySurface"))
+  {
+    std::string potentialEnergySurfaceString = parsed_data["ExternalFieldPotentialEnergySurface"].get<std::string>();
+
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "GridFile"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::GridFile;
+    }
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "SecondOrderPolynomialTestFunction"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::SecondOrderPolynomialTestFunction;
+    }
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "ThirdOrderPolynomialTestFunction"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::ThirdOrderPolynomialTestFunction;
+    }
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "FourthOrderPolynomialTestFunction"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::FourthOrderPolynomialTestFunction;
+    }
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "FifthOrderPolynomialTestFunction"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::FifthOrderPolynomialTestFunction;
+    }
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "SixthOrderPolynomialTestFunction"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::SixthOrderPolynomialTestFunction;
+    }
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "ExponentialNonPolynomialTestFunction"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::ExponentialNonPolynomialTestFunction;
+    }
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "MullerBrown"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::MullerBrown;
+    }
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "Eckhardt"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::Eckhardt;
+    }
+    if (caseInSensStringCompare(potentialEnergySurfaceString, "GonzalezSchlegel"))
+    {
+      potentialEnergySurfaceType = PotentialEnergySurfaceType::GonzalezSchlegel;
+    }
+  }
+
+  if (parsed_data.contains("ExternalPotentialEnergySurfaceOrigin"))
+  {
+    potentialEnergySurfaceOrigin = parseDouble3("ExternalPotentialEnergySurfaceOrigin", parsed_data["ExternalPotentialEnergySurfaceOrigin"]);
   }
 
   if (parsed_data.contains("InterpolationScheme"))
@@ -804,8 +901,11 @@ void ForceField::preComputeTailCorrection()
 
       if (tailCorrections[i * numberOfPseudoAtoms + j])
       {
-        data[i * numberOfPseudoAtoms + j].tailCorrectionEnergy = Potentials::potentialCorrectionVDW(*this, i, j);
-        data[i * numberOfPseudoAtoms + j].tailCorrectionPressure = Potentials::potentialCorrectionPressure(*this, i, j);
+        double cut_off_vdw = cutOffVDW(i, j);
+        VDWParameters::Type potentialType = data[i * numberOfPseudoAtoms + j].type;
+        double4 parameters = data[i * numberOfPseudoAtoms + j].parameters;
+        data[i * numberOfPseudoAtoms + j].tailCorrectionEnergy = Potentials::potentialCorrectionVDW(potentialType, parameters, cut_off_vdw, i, j);
+        data[i * numberOfPseudoAtoms + j].tailCorrectionPressure = Potentials::potentialCorrectionPressure(potentialType, parameters, cut_off_vdw, i, j);
       }
     }
   }
@@ -1211,7 +1311,6 @@ Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const ForceF
   archive << f.computePolarization;
   archive << f.omitInterPolarization;
 
-  archive << f.hasExternalField;
   archive << f.potentialEnergySurfaceType;
   archive << f.potentialEnergySurfaceOrigin;
 
@@ -1222,6 +1321,12 @@ Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const ForceF
   archive << f.numberOfCoulombGridPoints;
   archive << f.numberOfGridTestPoints;
   archive << f.interpolationScheme;
+  archive << f.writeFrameworkInterpolationGrids;
+
+  archive << f.useExternalFieldGrid;
+  archive << f.externalFieldGridFileName;
+  archive << f.numberOfExternalFieldGridPoints;
+  archive << f.writeExternalFieldInterpolationGrid;
 
 #if DEBUG_ARCHIVE
   archive << static_cast<std::uint64_t>(0x6f6b6179);  // magic number 'okay' in hex
@@ -1280,7 +1385,6 @@ Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, ForceField& 
   archive >> f.computePolarization;
   archive >> f.omitInterPolarization;
 
-  archive >> f.hasExternalField;
   archive >> f.potentialEnergySurfaceType;
   archive >> f.potentialEnergySurfaceOrigin;
 
@@ -1291,6 +1395,12 @@ Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, ForceField& 
   archive >> f.numberOfCoulombGridPoints;
   archive >> f.numberOfGridTestPoints;
   archive >> f.interpolationScheme;
+  archive >> f.writeFrameworkInterpolationGrids;
+
+  archive >> f.useExternalFieldGrid;
+  archive >> f.externalFieldGridFileName;
+  archive >> f.numberOfExternalFieldGridPoints;
+  archive >> f.writeExternalFieldInterpolationGrid;
 
 #if DEBUG_ARCHIVE
   std::uint64_t magicNumber;
@@ -1360,7 +1470,14 @@ const std::set<std::string, ForceField::InsensitiveCompare> ForceField::options 
                                                                                    "UseInterpolationGrids",
                                                                                    "SpacingVDWGrid",
                                                                                    "SpacingCoulombGrid",
+                                                                                   "NumberOfVDWGridPoints",
                                                                                    "NumberOfGridTestPoints",
+                                                                                   "ExternalFieldGridFileName",
+                                                                                   "NumberOfExternalFieldGridPoints",
+                                                                                   "UseExternalFieldGrid",
+                                                                                   "ExternalFieldPotentialEnergySurface",
+                                                                                   "ExternalPotentialEnergySurfaceOrigin",
+                                                                                   "WriteExternalFieldInterpolationGrid",
                                                                                    "InterpolationScheme"};
 
 void ForceField::validateInput(const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)

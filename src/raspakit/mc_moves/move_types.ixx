@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <cstddef>
 #include <map>
@@ -9,7 +13,7 @@ module;
 
 export module mc_moves_move_types;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -40,7 +44,7 @@ export enum class MoveTypes : std::size_t {
   Count
 };
 
-export std::unordered_set<MoveTypes> componentMoves = {MoveTypes::Translation,        MoveTypes::RandomTranslation,
+export inline std::unordered_set<MoveTypes> componentMoves = {MoveTypes::Translation,        MoveTypes::RandomTranslation,
                                                        MoveTypes::Rotation,           MoveTypes::RandomRotation,
                                                        MoveTypes::ReinsertionCBMC,    MoveTypes::PartialReinsertionCBMC,
                                                        MoveTypes::IdentityChangeCBMC, MoveTypes::Swap,
@@ -51,12 +55,12 @@ export std::unordered_set<MoveTypes> componentMoves = {MoveTypes::Translation,  
 
 export std::unordered_set<MoveTypes> systemMoves = {MoveTypes::VolumeChange, MoveTypes::HybridMC, MoveTypes::VolumeNCMC};
 
-export std::unordered_set<MoveTypes> crossSystemMoves = {MoveTypes::GibbsVolume, MoveTypes::GibbsSwapCBMC,
+export inline std::unordered_set<MoveTypes> crossSystemMoves = {MoveTypes::GibbsVolume, MoveTypes::GibbsSwapCBMC,
                                                          MoveTypes::GibbsSwapCFCMC, MoveTypes::ParallelTempering};
 
-export std::unordered_set<MoveTypes> groupMoves = {};
+export inline std::unordered_set<MoveTypes> groupMoves = {};
 
-export std::map<MoveTypes, std::string> moveNames = {
+export inline std::map<MoveTypes, std::string> moveNames = {
     {MoveTypes::Translation, "Translation"},
     {MoveTypes::RandomTranslation, "Random translation"},
     {MoveTypes::Rotation, "Rotation"},

@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <cmath>
@@ -15,7 +19,7 @@ module;
 
 module interactions_intermolecular;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -261,8 +265,6 @@ RunningEnergy Interactions::computeInterMolecularTailEnergy(const ForceField &fo
   if (forceField.omitInterInteractions) return energySum;
 
   double preFactor = 2.0 * std::numbers::pi / simulationBox.volume;
-
-  if (moleculeAtoms.empty()) return energySum;
 
   for (std::span<const Atom>::iterator it1 = moleculeAtoms.begin(); it1 != moleculeAtoms.end(); ++it1)
   {

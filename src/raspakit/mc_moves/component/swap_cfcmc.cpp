@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -18,7 +22,7 @@ module;
 
 module mc_moves_swap_cfcmc;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -106,7 +110,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     // Compute external field energy contribution
     time_begin = std::chrono::system_clock::now();
     std::optional<RunningEnergy> externalFieldDifferenceStep1 = Interactions::computeExternalFieldEnergyDifference(
-        system.hasExternalField, system.forceField, system.simulationBox, fractionalMolecule, oldFractionalMolecule);
+        system.hasExternalField, system.forceField, system.simulationBox, 
+        system.externalFieldInterpolationGrid, fractionalMolecule, oldFractionalMolecule);
     time_end = std::chrono::system_clock::now();
     component.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
     system.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
@@ -207,7 +212,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     // Compute external field energy contribution
     time_begin = std::chrono::system_clock::now();
     std::optional<RunningEnergy> externalFieldDifferenceStep2 = Interactions::computeExternalFieldEnergyDifference(
-        system.hasExternalField, system.forceField, system.simulationBox, trialMolecule.second, {});
+        system.hasExternalField, system.forceField, system.simulationBox,
+        system.externalFieldInterpolationGrid, trialMolecule.second, {});
     time_end = std::chrono::system_clock::now();
     component.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
     system.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
@@ -365,7 +371,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       // Compute external field energy contribution
       time_begin = std::chrono::system_clock::now();
       std::optional<RunningEnergy> externalFieldDifferenceStep1 = Interactions::computeExternalFieldEnergyDifference(
-          system.hasExternalField, system.forceField, system.simulationBox, fractionalMolecule, oldFractionalMolecule);
+          system.hasExternalField, system.forceField, system.simulationBox, 
+          system.externalFieldInterpolationGrid, fractionalMolecule, oldFractionalMolecule);
       time_end = std::chrono::system_clock::now();
       component.mc_moves_cputime[move]["Deletion-ExternalField"] += (time_end - time_begin);
       system.mc_moves_cputime[move]["Deletion-ExternalField"] += (time_end - time_begin);
@@ -452,7 +459,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       // Compute external field energy contribution
       time_begin = std::chrono::system_clock::now();
       std::optional<RunningEnergy> externalFieldDifferenceStep2 = Interactions::computeExternalFieldEnergyDifference(
-          system.hasExternalField, system.forceField, system.simulationBox, newFractionalMolecule,
+          system.hasExternalField, system.forceField, system.simulationBox, 
+          system.externalFieldInterpolationGrid, newFractionalMolecule,
           savedFractionalMolecule);
       time_end = std::chrono::system_clock::now();
       component.mc_moves_cputime[move]["Deletion-ExternalField"] += (time_end - time_begin);
@@ -600,7 +608,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     // Compute external field energy contribution
     time_begin = std::chrono::system_clock::now();
     std::optional<RunningEnergy> externalFieldEnergyDifference = Interactions::computeExternalFieldEnergyDifference(
-        system.hasExternalField, system.forceField, system.simulationBox, trialPositions, molecule);
+        system.hasExternalField, system.forceField, system.simulationBox, 
+        system.externalFieldInterpolationGrid, trialPositions, molecule);
     time_end = std::chrono::system_clock::now();
     if (insertionDisabled || deletionDisabled)
     {

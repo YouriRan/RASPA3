@@ -1,3 +1,7 @@
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <bitset>
 #include <complex>
@@ -17,11 +21,11 @@
 #include <vector>
 #endif
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 #include <locale.h>
 #endif
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -30,10 +34,6 @@ import threadpool;
 import input_reader;
 import monte_carlo;
 import monte_carlo_transition_matrix;
-
-#ifndef USE_LEGACY_HEADERS
-import std;
-#endif
 
 import archive;
 import threadpool;
@@ -41,8 +41,6 @@ import input_reader;
 import monte_carlo;
 import monte_carlo_transition_matrix;
 import molecular_dynamics;
-import breakthrough;
-import breakthrough_simulation;
 import mixture_prediction_simulation;
 import isotherm_fitting_simulation;
 import multi_site_isotherm;

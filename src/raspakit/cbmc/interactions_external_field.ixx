@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <cmath>
@@ -16,7 +20,7 @@ module;
 
 export module cbmc_interactions_external_field;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -37,12 +41,14 @@ import energy_status_inter;
 import running_energy;
 import units;
 import threadpool;
+import interpolation_energy_grid;
 
 export namespace CBMC
 {
 [[nodiscard]] std::optional<RunningEnergy> computeExternalFieldEnergy(bool hasExternalField,
-                                                                      const ForceField &forceField,
-                                                                      const SimulationBox &simulationBox,
-                                                                      double cutOffVDW, double cutOffCoulomb,
-                                                                      std::span<Atom> atoms) noexcept;
+       const ForceField &forceField,
+       const SimulationBox &simulationBox,
+       const std::optional<InterpolationEnergyGrid> &externalFieldInterpolationGrid,
+       double cutOffVDW, double cutOffCoulomb,
+       std::span<Atom> atoms, std::make_signed_t<std::size_t> skip = -1) noexcept;
 }

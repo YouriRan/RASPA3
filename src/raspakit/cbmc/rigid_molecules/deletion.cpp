@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <cmath>
@@ -14,7 +18,7 @@ module;
 
 module cbmc_rigid_deletion;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -43,6 +47,7 @@ import interpolation_energy_grid;
 [[nodiscard]] ChainRetraceData CBMC::retraceRigidMoleculeChainDeletion(
     RandomNumber &random, const Component &component, bool hasExternalField, const ForceField &forceField,
     const SimulationBox &simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>> &interpolationGrids,
+    const std::optional<InterpolationEnergyGrid> &externalFieldInterpolationGrid,
     const std::optional<Framework> &framework, std::span<const Atom> frameworkAtomData,
     std::span<const Atom> moleculeAtomData, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
     double cutOffCoulomb, std::span<Atom> molecule_atoms) noexcept
@@ -57,7 +62,8 @@ import interpolation_energy_grid;
 
   const std::vector<std::pair<std::vector<Atom>, RunningEnergy>> externalEnergies =
       CBMC::computeExternalNonOverlappingEnergies(component, hasExternalField, forceField, simulationBox,
-                                                  interpolationGrids, framework, frameworkAtomData, moleculeAtomData,
+                                                  interpolationGrids, externalFieldInterpolationGrid,
+                                                  framework, frameworkAtomData, moleculeAtomData,
                                                   cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, trialPositions,
                                                   std::make_signed_t<std::size_t>(component.startingBead));
 

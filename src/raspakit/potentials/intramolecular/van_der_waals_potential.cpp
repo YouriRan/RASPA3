@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -17,7 +21,7 @@ module;
 
 module van_der_waals_potential;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -26,8 +30,8 @@ import randomnumbers;
 import double3;
 
 VanDerWaalsPotential::VanDerWaalsPotential(std::array<std::size_t, 2> identifiers, VanDerWaalsType type,
-                                           std::vector<double> vector_parameters, double shift, double scaling)
-    : identifiers(identifiers), type(type), shift(shift), scaling(scaling)
+                                           std::vector<double> vector_parameters, double scaling)
+    : identifiers(identifiers), type(type), scaling(scaling)
 {
   for (std::size_t i = 0; i < std::min(vector_parameters.size(), maximumNumberOfVanDerWaalsParameters); ++i)
   {
@@ -46,9 +50,8 @@ std::string VanDerWaalsPotential::print() const
   switch (type)
   {
     case VanDerWaalsType::LennardJones:
-      return std::format("{} - {} : LENNARD_JONES p_0/k_B={:g} [K], p_1={:g} [Å], shift/k_B={:g}\n", identifiers[0],
-                         identifiers[1], parameters[0] * Units::EnergyToKelvin, parameters[1],
-                         shift * Units::EnergyToKelvin);
+      return std::format("{} - {} : LENNARD_JONES p_0/k_B={:g} [K], p_1={:g} [Å], scaling/k_B={:g}\n", identifiers[0],
+                         identifiers[1], parameters[0] * Units::EnergyToKelvin, parameters[1], scaling);
   }
 }
 
@@ -69,7 +72,7 @@ double VanDerWaalsPotential::calculateEnergy(const double3 &posA, const double3 
       // p_1     [Å]
       rri = (parameters[1] * parameters[1]) / rr;
       temp = rri * rri * rri;
-      return 4.0 * parameters[0] * (temp * (temp - 1.0)) - shift;
+      return scaling * 4.0 * parameters[0] * (temp * (temp - 1.0));
   }
 }
 
@@ -79,7 +82,6 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const VanDer
 
   archive << b.type;
   archive << b.identifiers;
-  archive << b.shift;
   archive << b.scaling;
   archive << b.parameters;
 
@@ -103,7 +105,6 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, VanDerWaalsP
 
   archive >> b.type;
   archive >> b.identifiers;
-  archive >> b.shift;
   archive >> b.scaling;
   archive >> b.parameters;
 

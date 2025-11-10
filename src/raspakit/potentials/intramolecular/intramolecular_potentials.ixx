@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <cmath>
 #include <cstddef>
@@ -16,7 +20,7 @@ module;
 
 export module intra_molecular_potentials;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -99,6 +103,10 @@ struct IntraMolecularPotentials
                                             const Potentials::IntraMolecularPotentials& p);
   friend Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, Potentials::IntraMolecularPotentials& p);
 };
+
+  Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive,
+                                          const Potentials::IntraMolecularPotentials& p);
+  Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, Potentials::IntraMolecularPotentials& p);
 }  // namespace Potentials
 
 /*

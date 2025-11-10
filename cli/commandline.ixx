@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <bitset>
 #include <complex>
@@ -21,7 +25,7 @@ module;
 
 export module commandline;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -32,8 +36,6 @@ import forcefield;
 import monte_carlo;
 import monte_carlo_transition_matrix;
 import molecular_dynamics;
-import breakthrough;
-import breakthrough_simulation;
 import mixture_prediction_simulation;
 import isotherm_fitting_simulation;
 import multi_site_isotherm;

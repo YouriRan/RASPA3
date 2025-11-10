@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <array>
 #include <cmath>
@@ -15,7 +19,7 @@ module;
 
 export module coulomb_potential;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -51,18 +55,18 @@ export struct CoulombPotential
 
   std::array<std::size_t, 2> identifiers;  ///< Identifiers of the two particles forming the Coulomb.
   CoulombType type;                        ///< The type of Coulomb potential.
-  double scaling;
-  std::array<double, maximumNumberOfCoulombParameters>
-      parameters;  ///< Parameters associated with the Coulomb potential.
+  double chargeA{};
+  double chargeB{};
+  double scaling{1.0};
 
   /**
    * \brief Default constructor for CoulombPotential.
    *
    * Initializes a CoulombPotential object with Undefined Coulomb type and zeroed Coulomb IDs.
    */
-  CoulombPotential() : identifiers({0, 0}), type(CoulombType::Coulomb), scaling(1.0) {}
+  CoulombPotential() : identifiers({0, 0}), type(CoulombType::Coulomb), chargeA(0.0), chargeB(0.0), scaling(1.0) {}
 
-  CoulombPotential(std::array<std::size_t, 2> identifiers, CoulombType type, std::vector<double> vector_parameters,
+  CoulombPotential(std::array<std::size_t, 2> identifiers, CoulombType type, double chargeA, double chargeB,
                    double scaling);
 
   /**

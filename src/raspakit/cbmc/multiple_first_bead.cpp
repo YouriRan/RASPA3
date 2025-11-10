@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <cmath>
@@ -16,7 +20,7 @@ module;
 
 module cbmc_multiple_first_bead;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -35,6 +39,7 @@ import interpolation_energy_grid;
 [[nodiscard]] std::optional<FirstBeadData> CBMC::growMoleculeMultipleFirstBeadSwapInsertion(
     RandomNumber& random, const Component& component, bool hasExternalField, const ForceField& forceField,
     const SimulationBox& simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
+    const std::optional<InterpolationEnergyGrid> &externalFieldInterpolationGrid,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
     double cutOffCoulomb, const Atom& atom) noexcept
@@ -46,7 +51,8 @@ import interpolation_energy_grid;
                 [&](Atom& a) { a.position = simulationBox.randomPosition(random); });
 
   const std::vector<std::pair<Atom, RunningEnergy>> externalEnergies = computeExternalNonOverlappingEnergies(
-      component, hasExternalField, forceField, simulationBox, interpolationGrids, framework, frameworkAtoms,
+      component, hasExternalField, forceField, simulationBox, interpolationGrids, 
+      externalFieldInterpolationGrid, framework, frameworkAtoms,
       moleculeAtoms, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, trialPositions);
 
   // if all positions over lap return failure
@@ -71,6 +77,7 @@ import interpolation_energy_grid;
 [[nodiscard]] FirstBeadData CBMC::retraceMultipleFirstBeadSwapDeletion(
     RandomNumber& random, const Component& component, bool hasExternalField, const ForceField& forceField,
     const SimulationBox& simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
+    const std::optional<InterpolationEnergyGrid> &externalFieldInterpolationGrid,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
     double cutOffCoulomb, const Atom atom) noexcept
@@ -83,7 +90,8 @@ import interpolation_energy_grid;
                 [&](Atom& a) { a.position = simulationBox.randomPosition(random); });
 
   const std::vector<std::pair<Atom, RunningEnergy>> externalEnergies = computeExternalNonOverlappingEnergies(
-      component, hasExternalField, forceField, simulationBox, interpolationGrids, framework, frameworkAtoms,
+      component, hasExternalField, forceField, simulationBox, interpolationGrids, externalFieldInterpolationGrid,
+      framework, frameworkAtoms,
       moleculeAtoms, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, trialPositions);
 
   std::vector<double> logBoltmannFactors{};
@@ -101,6 +109,7 @@ import interpolation_energy_grid;
 [[nodiscard]] std::optional<FirstBeadData> CBMC::growMultipleFirstBeadReinsertion(
     RandomNumber& random, const Component& component, bool hasExternalField, const ForceField& forceField,
     const SimulationBox& simulationBox, const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
+    const std::optional<InterpolationEnergyGrid> &externalFieldInterpolationGrid,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
     double cutOffCoulomb, const Atom& atom) noexcept
@@ -110,7 +119,8 @@ import interpolation_energy_grid;
                 [&](Atom& a) { a.position = simulationBox.randomPosition(random); });
 
   const std::vector<std::pair<Atom, RunningEnergy>> externalEnergies = computeExternalNonOverlappingEnergies(
-      component, hasExternalField, forceField, simulationBox, interpolationGrids, framework, frameworkAtoms,
+      component, hasExternalField, forceField, simulationBox, interpolationGrids, 
+      externalFieldInterpolationGrid, framework, frameworkAtoms,
       moleculeAtoms, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, trialPositions);
 
   if (externalEnergies.empty()) return std::nullopt;
@@ -138,6 +148,7 @@ import interpolation_energy_grid;
     [[maybe_unused]] RandomNumber& random, const Component& component, bool hasExternalField,
     const ForceField& forceField, const SimulationBox& simulationBox,
     const std::vector<std::optional<InterpolationEnergyGrid>>& interpolationGrids,
+    const std::optional<InterpolationEnergyGrid> &externalFieldInterpolationGrid,
     const std::optional<Framework>& framework, std::span<const Atom> frameworkAtoms,
     std::span<const Atom> moleculeAtoms, double beta, double cutOffFrameworkVDW, double cutOffMoleculeVDW,
     double cutOffCoulomb, const Atom& atom, double storedR)
@@ -145,7 +156,7 @@ import interpolation_energy_grid;
   std::vector<Atom> trialPositions({atom});
 
   const std::vector<std::pair<Atom, RunningEnergy>> externalEnergies = computeExternalNonOverlappingEnergies(
-      component, hasExternalField, forceField, simulationBox, interpolationGrids, framework, frameworkAtoms,
+      component, hasExternalField, forceField, simulationBox, interpolationGrids, externalFieldInterpolationGrid, framework, frameworkAtoms,
       moleculeAtoms, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, trialPositions);
   if (externalEnergies.empty())
   {

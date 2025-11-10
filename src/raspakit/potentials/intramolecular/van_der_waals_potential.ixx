@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <array>
 #include <cmath>
@@ -15,7 +19,7 @@ module;
 
 export module van_der_waals_potential;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -52,7 +56,6 @@ export struct VanDerWaalsPotential
 
   std::array<std::size_t, 2> identifiers;  ///< Identifiers of the two particles forming the vanDerWaals.
   VanDerWaalsType type;                    ///< The type of vanDerWaals potential.
-  double shift;
   double scaling;
   std::array<double, maximumNumberOfVanDerWaalsParameters>
       parameters;  ///< Parameters associated with the vanDerWaals potential.
@@ -62,10 +65,10 @@ export struct VanDerWaalsPotential
    *
    * Initializes a vanDerWaalsPotential object with Undefined vanDerWaals type and zeroed vanDerWaals IDs.
    */
-  VanDerWaalsPotential() : identifiers({0, 0}), type(VanDerWaalsType::LennardJones), shift(0.0), scaling(1.0) {}
+  VanDerWaalsPotential() : identifiers({0, 0}), type(VanDerWaalsType::LennardJones), scaling(1.0) {}
 
   VanDerWaalsPotential(std::array<std::size_t, 2> identifiers, VanDerWaalsType type,
-                       std::vector<double> vector_parameters, double shift, double scaling);
+                       std::vector<double> vector_parameters, double scaling);
 
   /**
    * \brief Constructs a vanDerWaalsPotential with specified type and vanDerWaals IDs.

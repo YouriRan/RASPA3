@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -16,7 +20,7 @@ module;
 
 module mc_moves_rotation;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -81,7 +85,8 @@ std::optional<RunningEnergy> MC_Moves::rotationMove(RandomNumber &random, System
   // compute external field energy contribution
   time_begin = std::chrono::system_clock::now();
   std::optional<RunningEnergy> externalFieldMolecule = Interactions::computeExternalFieldEnergyDifference(
-      system.hasExternalField, system.forceField, system.simulationBox, trialMolecule.second, molecule_atoms);
+      system.hasExternalField, system.forceField, system.simulationBox, 
+      system.externalFieldInterpolationGrid, trialMolecule.second, molecule_atoms);
   time_end = std::chrono::system_clock::now();
   component.mc_moves_cputime[move]["ExternalField-Molecule"] += (time_end - time_begin);
   system.mc_moves_cputime[move]["ExternalField-Molecule"] += (time_end - time_begin);

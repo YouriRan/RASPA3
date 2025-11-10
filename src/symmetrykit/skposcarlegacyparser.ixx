@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <cstddef>
 #include <memory>
@@ -9,7 +13,7 @@ module;
 
 export module skposcarlegacyparser;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -24,6 +28,7 @@ export class SKPOSCARLegacyParser : public SKParser
  public:
   SKPOSCARLegacyParser(const std::string &content, bool onlyAsymmetricUnitCell = false, bool asMolecule = false,
                        CharacterSet charactersToBeSkipped = CharacterSet::whitespaceAndNewlineCharacterSet());
+  virtual ~SKPOSCARLegacyParser() {};
   void startParsing() noexcept(false) override final;
 
  private:

@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -13,7 +17,7 @@ module;
 #include <functional>
 #include <iostream>
 #include <iterator>
-#include <map>
+#include <unordered_map>
 #include <numeric>
 #include <optional>
 #include <ostream>
@@ -33,7 +37,7 @@ module;
 
 module component;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -148,7 +152,7 @@ Component::Component(std::size_t componentId, const ForceField &forceField, std:
 
   if (!intraMolecularPotentials.bonds.empty())
   {
-    rigid = true;
+    rigid = false;
     growType = Component::GrowType::Flexible;
   }
 }
@@ -352,8 +356,6 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
     netCharge += atom.charge;
   }
 
-  computeRigidProperties();
-
   if (parsed_data.contains("Type"))
   {
     if (!parsed_data["Type"].is_string())
@@ -374,6 +376,8 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
     }
   }
 
+  computeRigidProperties();
+
   connectivityTable = readConnectivityTable(definedAtoms.size(), parsed_data);
   if (growType == GrowType::Flexible)
   {
@@ -381,7 +385,7 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
     intraMolecularPotentials.bends = readBendPotentials(forceField, parsed_data);
     intraMolecularPotentials.torsions = readTorsionPotentials(forceField, parsed_data);
     intraMolecularPotentials.vanDerWaals = readVanDerWaalsPotentials(forceField, parsed_data);
-    // intraMolecularPotentials.coulombs = readCoulombPotentials(forceField, parsed_data);
+    intraMolecularPotentials.coulombs = readCoulombPotentials(forceField, parsed_data);
 
     partialReinsertionFixedAtoms = readPartialReinsertionFixedAtoms(parsed_data);
   }
@@ -492,13 +496,22 @@ void Component::computeRigidProperties()
   if (inertiaVector.y / rotall < 1.0e-5) ++index;
   if (inertiaVector.z / rotall < 1.0e-5) ++index;
 
-  translationalDegreesOfFreedom = 3;
-  rotationalDegreesOfFreedom = 3;
-  if (inertiaVector.x / rotall < 1.0e-5) --rotationalDegreesOfFreedom;
-  if (inertiaVector.y / rotall < 1.0e-5) --rotationalDegreesOfFreedom;
-  if (inertiaVector.z / rotall < 1.0e-5) --rotationalDegreesOfFreedom;
+  if(rigid)
+  {
+    translationalDegreesOfFreedom = 3;
+    rotationalDegreesOfFreedom = 3;
+    if (inertiaVector.x / rotall < 1.0e-5) --rotationalDegreesOfFreedom;
+    if (inertiaVector.y / rotall < 1.0e-5) --rotationalDegreesOfFreedom;
+    if (inertiaVector.z / rotall < 1.0e-5) --rotationalDegreesOfFreedom;
 
-  shapeType = Component::Shape{index};
+    shapeType = Component::Shape{index};
+  }
+  else
+  {
+    translationalDegreesOfFreedom = 3 * definedAtoms.size();
+    rotationalDegreesOfFreedom = 0;
+    shapeType = Component::Shape::NonLinear;
+  }
 }
 
 std::vector<Atom> Component::rotatePositions(const simd_quatd &q) const
@@ -595,7 +608,7 @@ std::string Component::printStatus(const ForceField &forceField, double inputPre
   std::print(stream, "    Net-charge:      {:12.8f} [e]\n", netCharge);
   std::print(stream, "\n");
 
-  const std::map<MoveTypes, double> normalizedProbabilities = mc_moves_probabilities.normalizedMap();
+  const std::unordered_map<MoveTypes, double> normalizedProbabilities = mc_moves_probabilities.normalizedMap();
   std::print(stream, "    Move probabilities:\n");
   for (auto &[moveType, probability] : normalizedProbabilities)
   {
@@ -826,7 +839,7 @@ nlohmann::json Component::jsonStatus() const
   }
 
   nlohmann::json moves;
-  std::map<MoveTypes, double> normalizedProbabilities = mc_moves_probabilities.normalizedMap();
+  std::unordered_map<MoveTypes, double> normalizedProbabilities = mc_moves_probabilities.normalizedMap();
   for (auto &[moveType, probability] : normalizedProbabilities)
   {
     moves[moveNames[moveType]] = probability;
@@ -1365,6 +1378,37 @@ std::vector<VanDerWaalsPotential> Component::readVanDerWaalsPotentials(
 {
   std::vector<VanDerWaalsPotential> van_der_waals_potentials{};
 
+  if (parsed_data.contains("Intra14VanDerWaalsScalingValue"))
+  {
+    if(parsed_data["Intra14VanDerWaalsScalingValue"].is_number_float())
+    {
+      double scaling = parsed_data["Intra14VanDerWaalsScalingValue"].get<double>();
+
+      if(scaling > 0.0)
+      {
+        std::vector<std::array<std::size_t, 4>> found_14_van_der_waals = connectivityTable.findAllTorsions();
+        for (std::array<std::size_t, 4> &found_14_van_der_waal : found_14_van_der_waals)
+        {
+          std::size_t A = found_14_van_der_waal[0];
+          std::size_t B = found_14_van_der_waal[3];
+          std::size_t typeA = static_cast<std::size_t>(atoms[A].type);
+          std::size_t typeB = static_cast<std::size_t>(atoms[B].type);
+          
+          [[maybe_unused]] VDWParameters::Type potentialType = forceField(typeA, typeB).type;
+          double4 parameters = forceField(typeA, typeB).parameters;
+          double shift = forceField(typeA, typeB).shift;
+
+          // FIX: unit conversion
+          VanDerWaalsPotential potential = VanDerWaalsPotential(
+              {A, B}, VanDerWaalsType::LennardJones,
+              {parameters.x * Units::EnergyToKelvin, parameters.y, parameters.z, parameters.w}, scaling);
+
+          van_der_waals_potentials.push_back(potential);
+        }
+      }
+    }
+  }
+
   std::vector<std::array<std::size_t, 2>> found_van_der_waals = connectivityTable.findAllVanDerWaals();
 
   for (std::array<std::size_t, 2> &found_van_der_waal : found_van_der_waals)
@@ -1376,12 +1420,11 @@ std::vector<VanDerWaalsPotential> Component::readVanDerWaalsPotentials(
 
     [[maybe_unused]] VDWParameters::Type potentialType = forceField(typeA, typeB).type;
     double4 parameters = forceField(typeA, typeB).parameters;
-    double shift = forceField(typeA, typeB).shift;
 
     // FIX: unit conversion
     VanDerWaalsPotential potential = VanDerWaalsPotential(
         {A, B}, VanDerWaalsType::LennardJones,
-        {parameters.x * Units::EnergyToKelvin, parameters.y, parameters.z, parameters.w}, 0.0, 1.0);
+        {parameters.x * Units::EnergyToKelvin, parameters.y, parameters.z, parameters.w}, 1.0);
 
     van_der_waals_potentials.push_back(potential);
   }
@@ -1394,20 +1437,42 @@ std::vector<CoulombPotential> Component::readCoulombPotentials(
 {
   std::vector<CoulombPotential> coulomb_potentials{};
 
+  if(!forceField.useCharge) return coulomb_potentials;
+
+  if (parsed_data.contains("Intra14ChargeChargeScalingValue"))
+  {
+    if(parsed_data["Intra14ChargeChargeScalingValue"].is_number_float())
+    {
+      double scaling = parsed_data["Intra14ChargeChargeScalingValue"].get<double>();
+
+      if(scaling > 0.0)
+      {
+        std::vector<std::array<std::size_t, 4>> found_14_coulombs = connectivityTable.findAllTorsions();
+        for (std::array<std::size_t, 4> &found_14_coulomb : found_14_coulombs)
+        {
+          std::size_t A = found_14_coulomb[0];
+          std::size_t B = found_14_coulomb[3];
+          double chargeA = atoms[A].charge;
+          double chargeB = atoms[B].charge;
+          
+          CoulombPotential potential = CoulombPotential({A, B}, CoulombType::Coulomb, chargeA, chargeB, scaling);
+
+          coulomb_potentials.push_back(potential);
+        }
+      }
+    }
+  }
+
   std::vector<std::array<std::size_t, 2>> found_coulombs = connectivityTable.findAllVanDerWaals();
 
   for (std::array<std::size_t, 2> &found_coulomb : found_coulombs)
   {
     std::size_t A = found_coulomb[0];
     std::size_t B = found_coulomb[1];
-    std::size_t typeA = static_cast<std::size_t>(atoms[A].type);
-    std::size_t typeB = static_cast<std::size_t>(atoms[B].type);
+    double chargeA = atoms[A].charge;
+    double chargeB = atoms[B].charge;
 
-    [[maybe_unused]] VDWParameters::Type potentialType = forceField(typeA, typeB).type;
-    double4 parameters = forceField(typeA, typeB).parameters;
-    double shift = forceField(typeA, typeB).shift;
-
-    CoulombPotential potential = CoulombPotential({A, B}, CoulombType::Coulomb);
+    CoulombPotential potential = CoulombPotential({A, B}, CoulombType::Coulomb, chargeA, chargeB, 1.0);
 
     coulomb_potentials.push_back(potential);
   }

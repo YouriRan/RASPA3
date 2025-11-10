@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <array>
 #include <cmath>
@@ -18,7 +22,7 @@ module;
 
 export module double3x3;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -471,7 +475,7 @@ export inline double3x3 sqrt(const double3x3& b)
   return r;
 }
 
-export template <>
+template <>
 struct std::formatter<double3x3> : std::formatter<std::string_view>
 {
   auto format(const double3x3& v, std::format_context& ctx) const

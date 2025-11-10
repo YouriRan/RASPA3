@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -27,7 +31,7 @@ module;
 
 module molecular_dynamics;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -138,7 +142,8 @@ void MolecularDynamics::createInterpolationGrids()
   {
     std::ostream stream(streams[system.systemId].rdbuf());
 
-    system.createInterpolationGrids(stream);
+    system.createExternalFieldInterpolationGrid(stream);
+    system.createFrameworkInterpolationGrids(stream);
   }
 }
 

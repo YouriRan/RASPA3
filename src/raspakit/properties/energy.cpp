@@ -1,25 +1,33 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
 #include <complex>
 #include <cstddef>
 #include <exception>
+#include <numbers>
 #include <format>
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <print>
-#include <random>
 #include <source_location>
 #include <sstream>
 #include <vector>
+#pragma push_macro("__SSE3__")
+#undef __SSE3__
+#include <random>
+#pragma pop_macro("__SSE3__")
 #endif
 
 module property_energy;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 

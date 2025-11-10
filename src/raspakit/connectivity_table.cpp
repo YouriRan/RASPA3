@@ -1,5 +1,10 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#include "mdspanwrapper.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -17,21 +22,19 @@ module;
 #include <tuple>
 #include <utility>
 #include <vector>
-#if defined(__has_include) && __has_include(<mdspan>)
-#include <mdspan>
-#endif
+#include "mdspanwrapper.h"
 #endif
 
 module connectivity_table;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
 import archive;
 import stringutils;
 #if !(defined(__has_include) && __has_include(<mdspan>))
-import mdspan;
+//import mdspan;
 #endif
 
 #ifdef BLAS_ILP64

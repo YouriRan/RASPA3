@@ -1,3 +1,7 @@
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <complex>
 #include <cstddef>
@@ -14,7 +18,7 @@
 #include <vector>
 #endif
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 #include <locale.h>
 import std;
 #endif
@@ -25,8 +29,8 @@ import input_reader;
 import monte_carlo;
 import monte_carlo_transition_matrix;
 import molecular_dynamics;
-import breakthrough;
-import breakthrough_simulation;
+//import breakthrough;
+//import breakthrough_simulation;
 import mixture_prediction_simulation;
 import isotherm_fitting_simulation;
 import multi_site_isotherm;
@@ -124,8 +128,8 @@ int main(int argc, char* argv[])
       }
       case InputReader::SimulationType::Breakthrough:
       {
-        BreakthroughSimulation breakthrough(inputReader);
-        breakthrough.run();
+        //BreakthroughSimulation breakthrough(inputReader);
+        //breakthrough.run();
         break;
       }
       case InputReader::SimulationType::MixturePrediction:

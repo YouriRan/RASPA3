@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <cctype>
 #include <cmath>
@@ -13,7 +17,7 @@ module;
 
 export module int3;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -91,6 +95,7 @@ export union int3
 
   friend Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const int3& vec);
   friend Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, int3& vec);
+
 };
 
 export inline int3 operator+(int3 lhs, const int3& rhs) { return int3(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z); }
@@ -108,7 +113,7 @@ export inline bool operator<(const int3 lhs, const int3 rhs)
   return std::tie(lhs.x, lhs.y, lhs.z) < std::tie(rhs.x, rhs.y, rhs.z);
 }
 
-export template <>
+template <>
 struct std::formatter<int3> : std::formatter<std::string_view>
 {
   auto format(const int3& v, std::format_context& ctx) const

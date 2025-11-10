@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <cmath>
 #include <cstddef>
@@ -15,7 +19,7 @@ export module double4;
 //     import <immintrin.h>;
 // #endif
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -109,7 +113,7 @@ export inline double4 sqrt(const double4& a)
   return double4(std::sqrt(a.x), std::sqrt(a.y), std::sqrt(a.z), std::sqrt(a.w));
 }
 
-export template <>
+template <>
 struct std::formatter<double4> : std::formatter<std::string_view>
 {
   auto format(const double4& v, std::format_context& ctx) const

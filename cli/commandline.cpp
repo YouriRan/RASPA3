@@ -1,5 +1,10 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#include "mdspanwrapper.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <bitset>
 #include <complex>
@@ -19,19 +24,18 @@ module;
 #include <span>
 #include <string_view>
 #include <vector>
-#if defined(__has_include) && __has_include(<mdspan>)
-#include <mdspan>
-#endif
+#include "mdspanwrapper.h"
 #endif
 
 module commandline;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
 import archive;
 import int3;
+import double3;
 import threadpool;
 import hdf5;
 import input_reader;
@@ -56,7 +60,7 @@ import pore_size_distribution_ban_vlugt;
 import libtorch_test;
 #endif
 #if !(defined(__has_include) && __has_include(<mdspan>))
-import mdspan;
+//import mdspan;
 #endif
 
 ForceField CommandLine::defaultForceFieldZeolite(double rc, bool shifted, bool tailCorrections, bool useEwald)
@@ -463,9 +467,10 @@ void CommandLine::run(int argc, char *argv[])
                       (gridType == ForceField::InterpolationGridType::LennardJones) ? "LennardJones" : "Ewald"));
       for (std::size_t pseudoAtomIdx : pseudoAtomsGrid)
       {
-        InterpolationEnergyGrid grid(framework.simulationBox, gridSize, order);
+        InterpolationEnergyGrid grid(framework.simulationBox, double3{},
+                                     gridSize, order);
         std::ostream nullStream{nullptr};
-        grid.makeInterpolationGrid(nullStream, gridType, forceField.value(), framework,
+        grid.makeFrameworkInterpolationGrid(nullStream, gridType, forceField.value(), framework,
                                    (gridType == ForceField::InterpolationGridType::LennardJones)
                                        ? forceField->cutOffFrameworkVDW
                                        : forceField->cutOffCoulomb,

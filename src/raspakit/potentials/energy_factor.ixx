@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <cmath>
 #include <cstddef>
@@ -8,7 +12,7 @@ module;
 
 export module energy_factor;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -61,7 +65,11 @@ struct EnergyFactor
 
   friend Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const Potentials::EnergyFactor& e);
   friend Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, Potentials::EnergyFactor& e);
+
 };
+
+Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const Potentials::EnergyFactor& e);
+Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, Potentials::EnergyFactor& e);
 
 inline EnergyFactor operator+(const EnergyFactor& a, const EnergyFactor& b)
 {

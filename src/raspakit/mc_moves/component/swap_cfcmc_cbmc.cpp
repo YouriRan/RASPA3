@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <algorithm>
 #include <array>
@@ -18,7 +22,7 @@ module;
 
 module mc_moves_swap_cfcmc_cbmc;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -132,7 +136,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
     // Compute external field energy contribution
     time_begin = std::chrono::system_clock::now();
     std::optional<RunningEnergy> externalFieldDifference = Interactions::computeExternalFieldEnergyDifference(
-        system.hasExternalField, system.forceField, system.simulationBox, fractionalMolecule, oldFractionalMolecule);
+        system.hasExternalField, system.forceField, system.simulationBox, 
+        system.externalFieldInterpolationGrid, fractionalMolecule, oldFractionalMolecule);
     time_end = std::chrono::system_clock::now();
     component.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
     system.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
@@ -204,7 +209,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
 
     time_begin = std::chrono::system_clock::now();
     std::optional<ChainGrowData> growData = CBMC::growMoleculeSwapInsertion(
-        random, component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+        random, component, system.hasExternalField, system.forceField, system.simulationBox, 
+        system.interpolationGrids, system.externalFieldInterpolationGrid,
         system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(), system.beta, growType,
         cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, newMolecule, newLambda,
         system.components[selectedComponent].lambdaGC.computeDUdlambda, true);
@@ -344,7 +350,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
       time_begin = std::chrono::system_clock::now();
       ChainRetraceData retraceData = CBMC::retraceMoleculeSwapDeletion(
           random, component, system.hasExternalField, system.forceField, system.simulationBox,
-          system.interpolationGrids, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
+          system.interpolationGrids, system.externalFieldInterpolationGrid, system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
           system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, fractionalMolecule);
       time_end = std::chrono::system_clock::now();
       component.mc_moves_cputime[move]["Deletion-NonEwald"] += (time_end - time_begin);
@@ -415,7 +421,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
       // Compute external field energy contribution
       time_begin = std::chrono::system_clock::now();
       std::optional<RunningEnergy> externalFieldDifference = Interactions::computeExternalFieldEnergyDifference(
-          system.hasExternalField, system.forceField, system.simulationBox, newFractionalMolecule,
+          system.hasExternalField, system.forceField, system.simulationBox, 
+          system.externalFieldInterpolationGrid, newFractionalMolecule,
           savedFractionalMolecule);
       time_end = std::chrono::system_clock::now();
       component.mc_moves_cputime[move]["Deletion-ExternalField"] += (time_end - time_begin);
@@ -570,7 +577,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC_CBMC(R
     // Compute external field energy difference
     time_begin = std::chrono::system_clock::now();
     std::optional<RunningEnergy> externalFieldEnergyDifference = Interactions::computeExternalFieldEnergyDifference(
-        system.hasExternalField, system.forceField, system.simulationBox, trialPositions, molecule);
+        system.hasExternalField, system.forceField, system.simulationBox, 
+        system.externalFieldInterpolationGrid, trialPositions, molecule);
     time_end = std::chrono::system_clock::now();
     if (insertionDisabled || deletionDisabled)
     {

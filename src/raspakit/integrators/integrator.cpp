@@ -1,5 +1,9 @@
 module;
 
+#ifdef USE_PRECOMPILED_HEADERS
+#include "pch.h"
+#endif
+
 #ifdef USE_LEGACY_HEADERS
 #include <chrono>
 #include <complex>
@@ -12,7 +16,7 @@ module;
 
 module integrators;
 
-#ifndef USE_LEGACY_HEADERS
+#ifdef USE_STD_IMPORT
 import std;
 #endif
 
@@ -41,8 +45,8 @@ RunningEnergy Integrators::velocityVerlet(
   if (thermostat.has_value())
   {
     // Adjust velocities using Nose-Hoover thermostat
-    double UKineticTranslation = computeTranslationalKineticEnergy(moleculeData);
-    double UKineticRotation = computeRotationalKineticEnergy(moleculeData, components);
+    double UKineticTranslation = Integrators::computeTranslationalKineticEnergy(moleculeData);
+    double UKineticRotation = Integrators::computeRotationalKineticEnergy(moleculeData, components);
     std::pair<double, double> scaling = thermostat->NoseHooverNVT(UKineticTranslation, UKineticRotation);
     scaleVelocities(moleculeData, scaling);
   }
