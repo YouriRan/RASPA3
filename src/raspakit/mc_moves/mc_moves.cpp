@@ -429,6 +429,19 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
+        case MoveTypes::SwapNCMC:
+    {
+      std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
+
+      const auto [energyDifference, Pacc] =
+          MC_Moves::swapNCMC(random, selectedSystem, selectedComponent, selectedMolecule);
+      if (energyDifference)
+      {
+        selectedSystem.runningEnergies += energyDifference.value();
+      }
+      selectedSystem.tmmc.updateMatrix(Pacc, oldN);
+      break;
+    }
     case MoveTypes::Count:
     {
       throw std::runtime_error("Move count called, invalid sampling of move probabilities");
@@ -1276,6 +1289,19 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       if (energy.has_value())
       {
         selectedSystem.runningEnergies = energy.value();
+      }
+      selectedSystem.tmmc.updateMatrix(Pacc, oldN);
+      break;
+    }
+        case MoveTypes::SwapNCMC:
+    {
+      std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
+
+      const auto [energyDifference, Pacc] =
+          MC_Moves::swapNCMC(random, selectedSystem, selectedComponent, selectedMolecule);
+      if (energyDifference)
+      {
+        selectedSystem.runningEnergies += energyDifference.value();
       }
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;

@@ -133,7 +133,7 @@ export struct ForceField
 
   std::size_t numberOfTrialDirections{ 10 };
   std::size_t numberOfTorsionTrialDirections{ 100 };
-  std::size_t numberOfFirstBeadPositions{ 1 };
+  std::size_t numberOfFirstBeadPositions{ 10 };
   std::size_t numberOfTrialMovesPerOpenBead{ 150 };
   double minimumRosenbluthFactor{ 1e-150 };  ///< Minimum allowed Rosenbluth factor.
 

@@ -1564,7 +1564,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           }
 
           systems[systemId].propertySoap = PropertySoap(
-              soapPowerSpectrumSampleEvery, soapPowerSpectrumWriteOutputEvery, 100, soapPowerSpectrumCutOff,
+              soapPowerSpectrumSampleEvery, soapPowerSpectrumWriteOutputEvery, 0, soapPowerSpectrumCutOff,
               soapPowerSpectrumSmoothingWidth, soapPowerSpectrumGaussianWidth,
               soapPowerSpectrumNumberOfRadialBasisFunctions, soapPowerSpectrumNumberOfAngularBasisFunctions);
         }

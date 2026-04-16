@@ -1,4 +1,5 @@
 # Windows Store app package directories and files
+examples
 /iraspa/windowsstore/Images/
 /iraspa/windowsstore/iraspa/
 AppPackages/
