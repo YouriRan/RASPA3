@@ -1,23 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <cstddef>
-#include <cstdlib>
-#include <memory>
-#include <numbers>
-#include <tuple>
-#include <vector>
-#endif
-
 module skparser;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import double3;
 import skstructure;
@@ -51,7 +36,7 @@ std::vector<std::tuple<double3, std::size_t, double>> SKParser::firstTestFrame()
       for (const std::shared_ptr<SKAsymmetricAtom>& atom : structure->atoms)
       {
         std::tuple<double3, std::size_t, double> atomTuple = std::make_tuple<double3, std::size_t, double>(
-            atom->position(), static_cast<std::size_t>(atom->elementIdentifier()), 1.0);
+            atom->position(), atom->elementIdentifier(), 1.0);
         atoms.push_back(atomTuple);
       }
     }

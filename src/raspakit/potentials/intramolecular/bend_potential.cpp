@@ -1,31 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <exception>
-#include <fstream>
-#include <map>
-#include <numbers>
-#include <optional>
-#include <print>
-#include <source_location>
-#include <tuple>
-#include <utility>
-#endif
-
 module bend_potential;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import randomnumbers;
@@ -497,8 +474,12 @@ std::tuple<double, std::array<double3, 3>, double3x3> BendPotential::potentialEn
   switch (type)
   {
     case BendType::Fixed:
+      U = 0.0;
+      DF = 0.0;
       break;
     case BendType::Rigid:
+      U = 0.0;
+      DF = 0.0;
       break;
     case BendType::Harmonic:
       // (1/2)p_0*(theta-p_1)^2
@@ -514,6 +495,7 @@ std::tuple<double, std::array<double3, 3>, double3x3> BendPotential::potentialEn
       // p_0/k_B [K/rad^2]
       // p_1     [degrees]
       U = 0.5 * parameters[0] * (theta - parameters[1]) * (theta - parameters[1]);
+      DF = 0.0;
       break;
     case BendType::Quartic:
       // (1/2)p_0*(theta-p_1)^2+(1/3)*p_2*(theta-p_1)^3+(1/4)*p_2*(theta-p_1)^4
@@ -526,6 +508,7 @@ std::tuple<double, std::array<double3, 3>, double3x3> BendPotential::potentialEn
       temp2 = temp * temp;
       U = 0.5 * parameters[0] * temp2 + (1.0 / 3.0) * parameters[2] * temp * temp2 +
           0.25 * parameters[3] * temp2 * temp2;
+      DF = 0.0;
       break;
     case BendType::CFF_Quartic:
       // p_0*(theta-p_1)^2+p_2*(theta-p_1)^3+p_3*(theta-p_1)^4
@@ -537,6 +520,7 @@ std::tuple<double, std::array<double3, 3>, double3x3> BendPotential::potentialEn
       temp = theta - parameters[1];
       temp2 = temp * temp;
       U = parameters[0] * temp2 + parameters[2] * temp * temp2 + parameters[3] * temp2 * temp2;
+      DF = 0.0;
       break;
     case BendType::HarmonicCosine:
       // (1/2)*p_0*(cos(theta)-cos(p_1))^2
@@ -546,6 +530,7 @@ std::tuple<double, std::array<double3, 3>, double3x3> BendPotential::potentialEn
       temp = cos_theta - parameters[1];
       temp2 = temp * temp;
       U = 0.5 * parameters[0] * temp2;
+      DF = 0.0;
       break;
     case BendType::Cosine:
       // p_0*(1+cos(p_1*theta-p_2))
@@ -555,12 +540,14 @@ std::tuple<double, std::array<double3, 3>, double3x3> BendPotential::potentialEn
       // p_2     [degrees]
       temp = parameters[1] * theta - parameters[2];
       U = parameters[0] * (1.0 + std::cos(temp));
+      DF = 0.0;
       break;
     case BendType::Tafipolsky:
       // 0.5*p_0*(1+cos(theta))*(1+cos(2*theta))
       // ===============================================
       // p_0/k_B [K]
       U = 0.5 * parameters[0] * (1.0 + std::cos(theta)) * (1.0 + std::cos(2.0 * theta));
+      DF = 0.0;
       break;
     case BendType::MM3:
     case BendType::MM3_inplane:
@@ -572,6 +559,7 @@ std::tuple<double, std::array<double3, 3>, double3x3> BendPotential::potentialEn
       temp2 = temp * temp;
       U = parameters[0] * temp2 *
           (1.0 - 0.014 * temp + 5.6e-5 * temp2 - 7.0e-7 * temp * temp2 + 2.2e-8 * temp2 * temp2);
+      DF = 0.0;
       break;
     default:
       std::unreachable();

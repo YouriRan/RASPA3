@@ -1,33 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <complex>
-#include <cstddef>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <numeric>
-#include <optional>
-#include <ostream>
-#include <span>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#endif
-
 export module system;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import double3;
@@ -66,6 +41,8 @@ import property_msd;
 import property_autocorrelation;
 import property_vacf;
 import property_soap;
+import property_number_of_molecules_evolution;
+import property_volume_evolution;
 import multi_site_isotherm;
 import pressure_range;
 import units;
@@ -121,11 +98,11 @@ export struct System
    * \param systemProbabilities The move probabilities for the Monte Carlo simulation.
    * \param sampleMoviesEvery Interval in which movies are written to PDB.
    */
-  System(std::size_t id, ForceField forcefield, std::optional<SimulationBox> box, double T, std::optional<double> P,
-         double heliumVoidFraction, std::optional<Framework> framework, std::vector<Component> components,
-         std::vector<std::vector<double3>> initialPositions, std::vector<std::size_t> initialNumberOfMolecules,
-         std::size_t numberOfBlocks, const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
-         std::optional<std::size_t> sampleMoviesEvery = std::nullopt);
+  System(std::size_t id, ForceField forcefield, std::optional<SimulationBox> box, bool hasExternalField, double T,
+         std::optional<double> P, double heliumVoidFraction, std::optional<Framework> framework,
+         std::vector<Component> components, std::vector<std::vector<double3>> initialPositions,
+         std::vector<std::size_t> initialNumberOfMolecules, std::size_t numberOfBlocks,
+         const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities());
 
   System(std::size_t id, double T, std::optional<double> P, double heliumVoidFraction,
          std::optional<Framework> framework, std::vector<Component> components);
@@ -180,7 +157,7 @@ export struct System
   std::vector<double> idealGasEnergiesPerComponent{};
 
   ForceField forceField;
-  bool hasExternalField{ true };
+  bool hasExternalField{true};
 
   std::vector<std::vector<std::size_t>> numberOfPseudoAtoms;
   std::vector<std::size_t> totalNumberOfPseudoAtoms;
@@ -262,6 +239,9 @@ export struct System
   std::optional<WriteLammpsData> writeLammpsData;
   std::optional<PropertySoap> propertySoap;
   std::map<std::string, PropertyAutocorrelation> propertyAutocorrelation;
+
+  std::optional<PropertyNumberOfMoleculesEvolution> propertyNumberOfMoleculesEvolution;
+  std::optional<PropertyVolumeEvolution> propertyVolumeEvolution;
 
   // Breakthrough settings
   std::size_t columnNumberOfGridPoints{100};
@@ -417,6 +397,7 @@ export struct System
   bool insideBlockedPockets(const Component &component, std::span<const Atom> molecule_atoms) const;
 
   void sampleProperties(std::size_t currentBlock, std::size_t currentCycle);
+  void samplePropertiesEvolution(std::size_t absoluteCurrentCycle);
 
   void writeCPUTimeStatistics(std::ostream &stream) const;
 
@@ -426,7 +407,7 @@ export struct System
 
   void writeComponentFittingStatus(std::ostream &stream, const std::vector<std::pair<double, double>> &rawData) const;
 
-  void createExternalFieldInterpolationGrid(std::ostream& stream);
+  void createExternalFieldInterpolationGrid(std::ostream &stream);
   void createFrameworkInterpolationGrids(std::ostream &stream);
 
   friend Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const System &s);

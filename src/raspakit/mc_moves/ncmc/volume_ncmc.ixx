@@ -31,5 +31,5 @@ export namespace MC_Moves
  * \param system The simulation system to modify.
  * \return The new total energy if the move is accepted; std::nullopt otherwise.
  */
-std::optional<RunningEnergy> volumeMoveNCMC(RandomNumber &random, System &system);
+std::optional<RunningEnergy> volumeMoveNCMC(RandomNumber& random, System& system);
 }  // namespace MC_Moves

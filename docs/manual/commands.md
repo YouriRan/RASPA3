@@ -10,10 +10,12 @@
   * [Simulation duration](#simulation-duration)
   * [Restart and crash-recovery](#restart-and-crash-recovery)
   * [Printing options](#printing-options)
+  * [Parameter tuning](#parameter-tuning)
+  * [Systems & Components](#systems-components)
 * [System options](#system-options)
   * [Operating conditions and thermostat/barostat-parameters](#operating-conditions-and-thermostatbarostat-parameters)
   * [Box/Framework options](#boxframework-options)
-  * [Force field definitions](#force-field-definitions)
+  * [Force field definition](#force-field-definition)
   * [System `MC`-moves](#system-mc-moves)
   * [Molecular dynamics parameters](#molecular-dynamics-parameters)
   * [Options to measure properties](#options-to-measure-properties)
@@ -24,14 +26,15 @@
     * [Radial Distribution Function (RDF) conventional](#radial-distribution-function-rdf-conventional)
     * [Mean-Squared Displacement (MSD) order-N](#mean-squared-displacement-msd-order-n)
     * [Density grids](#density-grids)
+* [Force field options](#force-field-options)
 * [Component options](#component-options)
   * [Component properties](#component-properties)
-  * [Component **`MC`**-moves](#component-mc-moves)
+  * [Component `MC`-moves](#component-mc-moves)
 <!-- TOC -->
 
 ----------------------------------------------------------------------------------
 
-## Input sections
+## Input sections <a name="input-sections"></a>
 
 ```json
 {
@@ -71,9 +74,9 @@
 
 ----------------------------------------------------------------------------------
 
-## General options
+## General options <a name="general-options"></a>
 
-### Simulation types
+### Simulation types <a name="simulation-types"></a>
 
 -   `"SimulationType" : "MonteCarlo"`
     Starts the Monte Carlo part of `RASPA`. The particular ensemble is
@@ -84,7 +87,7 @@
     Starts the Molecular Dynamics part of `RASPA`. The ensemble must be
     explicitly specified.
 
-### Simulation duration
+### Simulation duration <a name="simulation-duration"></a>
 
 -   `"NumberOfCycles" : integer`
     The number of cycles for the production run. For Monte Carlo a cycle
@@ -107,7 +110,7 @@
     the equilibration-phase is used to measure the biasing factors, using
     Wang-Landau estimation.
 
-### Restart and crash-recovery
+### Restart and crash-recovery <a name="restart-and-crash-recovery"></a>
 
 -   `"RestartFile" : boolean`
     Reads the positions, velocities, and force from the directory
@@ -129,14 +132,14 @@
     The output frequency (i.e. every `int` cycles) of writing the
     crash-recovery file.
 
-### Printing options
+### Printing options  <a name="printing-options"></a>
 
 -   `"PrintEvery" : integer`
     Prints the loadings (when a framework is present) and energies every
     `int` cycles. For MD information like energy conservation and
     stress are printed.
 
-### Parameter tuning
+### Parameter tuning  <a name="parameter-tuning"></a>
 
 -   `"RescaleWangLandauEvery" : integer`
     Determines the frequency of updates for optimizing the λ parameter in
@@ -149,7 +152,7 @@
     Translation, the maximum displacement is optimized, for rotation the
     maximum angle, for hybrid MC the maximum timestep etc.
 
-### Systems & Components
+### Systems & Components <a name="systems-components"></a>
 
 -   `"Systems" : list`
     List of system settings, each containing a dictionary with possible
@@ -163,9 +166,9 @@
 
 ----------------------------------------------------------------------------------
 
-## System options
+## System options <a name="system-options"></a>
 
-### Operating conditions and thermostat/barostat-parameters
+### Operating conditions and thermostat/barostat-parameters  <a name="operating-conditions-and-thermostatbarostat-parameters"></a>
 
 -   `"ExternalTemperature" : floating-point-number`
     The external temperature in Kelvin for the system. From this, the system
@@ -184,7 +187,7 @@
     The time scale on which the system thermostat evolves. Default:
     `0.15`
 
-### Box/Framework options
+### Box/Framework options  <a name="boxframework-options"></a>
 
 -   `"Type" : string`
     Sets the system type. The type string can be:
@@ -238,7 +241,7 @@
         scheme of Wilmer and Snurr. The charges are symmetrized over the
         asymmetric atoms.
 
-### Force field definitions
+### Force field definition  <a name="force-field-definition"></a>
 
 -   `"ForceField" : string`
     Reads in the force field file `string.json`, Note that if this file
@@ -246,6 +249,233 @@
     of:
 
         ${RASPA_DIR}/simulations/share/raspa3/forcefield/string/force_field.json
+
+
+### System `MC`-moves  <a name="system-mc-moves"></a>
+
+-   `"VolumeChangeProbability" : floating-point-number`
+    The probability per cycle to attempt a volume-change. Rigid
+    molecules are scaled by center-of-mass, while flexible molecules and
+    the framework is atomically scaled.
+
+-   `"GibbVolumeChangeProbability" : floating-point-number`
+    The probability per cycle to attempt a Gibbs volume-change `MC` move
+    during a Gibbs ensemble simulation. The total volume of the two
+    boxes (usually one for the gas phase, one for the liquid phase)
+    remains constant, but the individual volume of the boxes are
+    changed. The volumes are changed by a random change in
+    $\ln(V_I/V_{II})$.
+
+-   `"GibbVolumeChangeProbability" : floating-point-number`
+    The probability per cycle to attempt a Hybrid MC move. A hybrid MC
+    move propagates the Hamiltonian via a short Molecular Dynamics
+    simulation and accepts the new state based on the drift.
+
+### Molecular dynamics parameters  <a name="molecular-dynamics-parameters"></a>
+
+-   `"TimeStep" : floating-point-number`
+    The time step in picoseconds for `MD` integration. Default value:
+    `0.0005`
+
+-   `"Ensemble" : string`
+    Sets the ensemble. The ensemble string can be:
+
+    -   `"NVE"`\
+        The micro canonical ensemble, the number of particle $N$, the
+        volume $V$, and the energy $E$ are constant.
+
+    -   `"NVT"`\
+        The canonical ensemble, the number of particle $N$, the volume
+        $V$, and the average temperature $\left\langle T\right\rangle$
+        are constant. Instantaneous values for the temperature are
+        fluctuating.
+
+### Options to measure properties  <a name="options-to-measure-properties"></a>
+
+#### Output pdb-movies  <a name="output-pdb-movies"></a>
+
+`"OutputPDBMovie" : boolean`
+
+Sets whether or not to output simulation snapshots to pdb movies.
+Output is written to the directory `movies`.
+
+-   `"SampleMovieEvery" : integer`
+    Sample the movie every `int` cycles. Default: `1`
+
+#### Histogram of the energy  <a name="histogram-of-the-energy"></a>
+
+
+`"ComputeEnergyHistogram" : boolean`
+
+
+Sets whether or not to compute a histogram of the energy for the current
+system. For example, during adsorption it keeps track of the total
+energy, the VDW energy, the Coulombic energy, and the polarization
+energy.\
+Output is written to the directory `energy_histogram`.
+
+-   `"SampleEnergyHistogramEvery" : integer`
+    Sample the energy histogram of the system every `int` cycles.
+    Default: `1`
+
+-   `"WriteEnergyHistogramEvery" : integer`
+    Writes the energy histogram of the system every `int` cycles.
+    Default: `5000`
+
+-   `"NumberOfBinsEnergyHistogram" : integer`
+    Sets the number of elements of the histogram. Default: `128`
+
+-   `"LowerLimitEnergyHistogram" : floating-point-number`
+    The lower limit of the histogram. Default: `-5000`
+
+-   `"UpperLimitEnergyHistogram" : floating-point-number`
+    The upper limit of the histogram. Default: `1000`
+
+#### Histogram of the number of molecules  <a name="histogram-of-the-number-of-molecules"></a>
+
+
+`"ComputeNumberOfMoleculesHistogram" : boolean`
+
+
+Sets whether or not to compute the histograms of the number of molecules
+for the current system. In open ensembles the number of molecules
+fluctuates.\
+Output is written to the directory `number_of_molecules_histogram`.
+
+-   `"SampleNumberOfMoleculesHistogramEvery" : integer`
+    Sample the histogram every `int` cycles. Default: `1`
+
+-   `"WriteNumberOfMoleculesHistogramEvery" : integer`
+    Output the histogram every `int` cycles. Default: `5000`
+
+-   `"LowerLimitNumberOfMoleculesHistogram" : floating-point-number`
+    The lower limit of the histograms. Default: `0`
+
+-   `"UpperLimitNumberOfMoleculesHistogram" : floating-point-number`
+    The upper limit of the histograms. Default: `200`
+
+#### Radial Distribution Function (RDF) force-based  <a name="radial-distribution-function-rdf-force-based"></a>
+
+
+`"ComputeRDF" : boolean`
+
+
+Sets whether or not to compute the radial distribution function (RDF).\
+Output is written to the directory `rdf`.
+
+-   `"SampleRDFEvery" : integer`
+    Sample the rdf every `int` cycles. Default: `10`
+
+-   `"WriteRDFEvery" : integer`
+    Output the rdf every `int` cycles. Default: `5000`
+
+-   `"NumberOfBinsRDF" : integer`
+    Sets the number of elements of the rdf. Default: `128`
+
+-   `"UpperLimitRDF" : floating-point-number`
+    The upper limit of the rdf. Default: `15.0`
+
+#### Radial Distribution Function (RDF) conventional  <a name="radial-distribution-function-rdf-conventional"></a>
+
+
+`"ComputeConventionalRDF" : boolean`
+
+
+Sets whether or not to compute the radial distribution function (RDF).
+Output is written to the directory `conventional_rdf`.
+
+-   `"SampleConventionalRDFEvery" : integer`
+    Sample the rdf every `int` cycles. Default: `10`
+
+-   `"WriteConventionalRDFEvery" : integer`
+    Output the rdf every `int` cycles. Default: `5000`
+
+-   `"NumberOfBinsConventionalRDF" : integer`
+    Sets the number of elements of the rdf. Default: `128`
+
+-   `"UpperLimitConventionalRDF" : floating-point-number`
+    The upper limit of the rdf. Default: `15.0`
+
+#### Mean-Squared Displacement (MSD) order-N  <a name="mean-squared-displacement-msd-order-n"></a>
+
+
+`"ComputeMSD" : boolean`
+
+
+Sets whether or not to compute the mean-squared displacement (MSD).
+Output is written to the directory `msd`.
+
+-   `"SampleMSDEvery" : integer`
+    Sample the msd every `int` cycles. Default: `10`
+
+-   `"WriteMSDEvery" : integer`
+    Output the msd every `int` cycles. Default: `5000`
+
+-   `"NumberOfBlockElementsMSD" : integer`
+    The number of elements per block of the msd. Default: `25.0`
+
+#### Density grids  <a name="density-grids"></a>
+
+
+`"ComputeDensityGrid" : boolean`
+
+
+Sets whether or not to compute the density grids.
+Output is written to the directory `density_grids`.
+
+-   `"SampleDensityGridEvery" : integer`
+    Sample the density grids every `int` cycles. Default: `10`
+
+-   `"WriteDensityGridEvery" : integer`
+    Output the density grids every `int` cycles. Default: `5000`
+
+-   `"DensityGridSize" : [integer, integer, integer]`
+    Sets the size of the density grids. Default: `[128, 128, 128]`
+
+-   `"DensityGridBinning" : string`
+    Sets the binning strategy used to accumulate the density grids: 
+
+    -   `"Standard"`\ 
+        Uses conventional histogram binning, where each particle contributes fully to the voxel in which it resides. Default: `"Standard"`
+
+    -   `"Equitable"`\ 
+        Uses equitable binning, where each particle contributes fractionally to neighboring voxels based on its position. This produces smoother density grids and reduces discretization artifacts, especially for fine grids.
+
+-   `"DensityGridPseudoAtomsList" : [string, string, ...]`
+Restricts the density grid calculation to a subset of pseudo atoms belonging to a given component. When specified, separate density grids are generated for each listed pseudo atom type instead of a single combined grid for the component.
+If not specified, all pseudo atoms of the component are accumulated into a single density grid. This option is useful for resolving atom specific adsorption behaviour within a molecule, for example separating carbon and oxygen sites in CO<sub>2.
+
+----------------------------------------------------------------------------------
+
+## Force field options  <a name="force-field-options"></a>
+
+-   `"MixingRule" : string`
+    -   `"Lorentz-Berthelot"`
+        A combination rule using geometric mean for the strength-parameter and mean for the size-parameter. For Lennard-Jones:
+        \begin{equation}
+        \varepsilon_{ij}=\sqrt{\varepsilon_i \varepsilon_j}
+        \end{equation}
+        \begin{equation}
+        \sigma_{ij}=\frac{\sigma_i+\sigma_j}{2}
+        \end{equation}
+
+    -   `"Jorgensen"`
+        A combination rule using geometric means. For Lennard-Jones:
+        \begin{equation}
+        \varepsilon_{ij}=\sqrt{\varepsilon_i \varepsilon_j}
+        \end{equation}
+        \begin{equation}
+        \sigma_{ij}=\sqrt{\sigma_i \sigma_j}
+        \end{equation}
+
+-   `"TruncationMethod" : string`
+    -   `"truncated"` 
+        Truncates the potential at the cutoff.
+    -   `"shifted"` 
+        Truncates the potential at the cutoff and shifts the potential so that the potential energy become zero at the cutoff radius.
+
+-   `"TailCorrections" : boolean`
+    Whether or not to apply tailcorrections.
 
 -   `"CutOffFrameworkVDW" : floating-point-number`
     The cutoff of the Van der Waals potentials for framework-molecule
@@ -289,192 +519,37 @@
     -   `"Ewald"`
         Switches on the Ewald summation for the charge calculation.
 
-### System `MC`-moves
-
--   `"VolumeChangeProbability" : floating-point-number`
-    The probability per cycle to attempt a volume-change. Rigid
-    molecules are scaled by center-of-mass, while flexible molecules and
-    the framework is atomically scaled.
-
--   `"GibbVolumeChangeProbability" : floating-point-number`
-    The probability per cycle to attempt a Gibbs volume-change `MC` move
-    during a Gibbs ensemble simulation. The total volume of the two
-    boxes (usually one for the gas phase, one for the liquid phase)
-    remains constant, but the individual volume of the boxes are
-    changed. The volumes are changed by a random change in
-    $\ln(V_I/V_{II})$.
-
--   `"GibbVolumeChangeProbability" : floating-point-number`
-    The probability per cycle to attempt a Hybrid MC move. A hybrid MC
-    move propagates the Hamiltonian via a short Molecular Dynamics
-    simulation and accepts the new state based on the drift.
-
-### Molecular dynamics parameters
-
--   `"TimeStep" : floating-point-number`
-    The time step in picoseconds for `MD` integration. Default value:
-    `0.0005`
-
--   `"Ensemble" : string`
-    Sets the ensemble. The ensemble string can be:
-
-    -   `"NVE"`\
-        The micro canonical ensemble, the number of particle $N$, the
-        volume $V$, and the energy $E$ are constant.
-
-    -   `"NVT"`\
-        The canonical ensemble, the number of particle $N$, the volume
-        $V$, and the average temperature $\left\langle T\right\rangle$
-        are constant. Instantaneous values for the temperature are
-        fluctuating.
-
-### Options to measure properties
-
-#### Output pdb-movies
-
-`"OutputPDBMovie" : boolean`
-
-Sets whether or not to output simulation snapshots to pdb movies.
-Output is written to the directory `movies`.
-
--   `"SampleMovieEvery" : integer`
-    Sample the movie every `int` cycles. Default: `1`
-
-#### Histogram of the energy
-
-
-`"ComputeEnergyHistogram" : boolean`
-
-
-Sets whether or not to compute a histogram of the energy for the current
-system. For example, during adsorption it keeps track of the total
-energy, the VDW energy, the Coulombic energy, and the polarization
-energy.\
-Output is written to the directory `energy_histogram`.
-
--   `"SampleEnergyHistogramEvery" : integer`
-    Sample the energy histogram of the system every `int` cycles.
-    Default: `1`
-
--   `"WriteEnergyHistogramEvery" : integer`
-    Writes the energy histogram of the system every `int` cycles.
-    Default: `5000`
-
--   `"NumberOfBinsEnergyHistogram" : integer`
-    Sets the number of elements of the histogram. Default: `128`
-
--   `"LowerLimitEnergyHistogram" : floating-point-number`
-    The lower limit of the histogram. Default: `-5000`
-
--   `"UpperLimitEnergyHistogram" : floating-point-number`
-    The upper limit of the histogram. Default: `1000`
-
-#### Histogram of the number of molecules
-
-
-`"ComputeNumberOfMoleculesHistogram" : boolean`
-
-
-Sets whether or not to compute the histograms of the number of molecules
-for the current system. In open ensembles the number of molecules
-fluctuates.\
-Output is written to the directory `number_of_molecules_histogram`.
-
--   `"SampleNumberOfMoleculesHistogramEvery" : integer`
-    Sample the histogram every `int` cycles. Default: `1`
-
--   `"WriteNumberOfMoleculesHistogramEvery" : integer`
-    Output the histogram every `int` cycles. Default: `5000`
-
--   `"LowerLimitNumberOfMoleculesHistogram" : floating-point-number`
-    The lower limit of the histograms. Default: `0`
-
--   `"UpperLimitNumberOfMoleculesHistogram" : floating-point-number`
-    The upper limit of the histograms. Default: `200`
-
-#### Radial Distribution Function (RDF) force-based
-
-
-`"ComputeRDF" : boolean`
-
-
-Sets whether or not to compute the radial distribution function (RDF).\
-Output is written to the directory `rdf`.
-
--   `"SampleRDFEvery" : integer`
-    Sample the rdf every `int` cycles. Default: `10`
-
--   `"WriteRDFEvery" : integer`
-    Output the rdf every `int` cycles. Default: `5000`
-
--   `"NumberOfBinsRDF" : integer`
-    Sets the number of elements of the rdf. Default: `128`
-
--   `"UpperLimitRDF" : floating-point-number`
-    The upper limit of the rdf. Default: `15.0`
-
-#### Radial Distribution Function (RDF) conventional
-
-
-`"ComputeConventionalRDF" : boolean`
-
-
-Sets whether or not to compute the radial distribution function (RDF).
-Output is written to the directory `conventional_rdf`.
-
--   `"SampleConventionalRDFEvery" : integer`
-    Sample the rdf every `int` cycles. Default: `10`
-
--   `"WriteConventionalRDFEvery" : integer`
-    Output the rdf every `int` cycles. Default: `5000`
-
--   `"NumberOfBinsConventionalRDF" : integer`
-    Sets the number of elements of the rdf. Default: `128`
-
--   `"UpperLimitConventionalRDF" : floating-point-number`
-    The upper limit of the rdf. Default: `15.0`
-
-#### Mean-Squared Displacement (MSD) order-N
-
-
-`"ComputeMSD" : boolean`
-
-
-Sets whether or not to compute the mean-squared displacement (MSD).
-Output is written to the directory `msd`.
-
--   `"SampleMSDEvery" : integer`
-    Sample the msd every `int` cycles. Default: `10`
-
--   `"WriteMSDEvery" : integer`
-    Output the msd every `int` cycles. Default: `5000`
-
--   `"NumberOfBlockElementsMSD" : integer`
-    The number of elements per block of the msd. Default: `25.0`
-
-#### Density grids
-
-
-`"ComputeDensityGrid" : boolean`
-
-
-Sets whether or not to compute the density grids.
-Output is written to the directory `density_grids`.
-
--   `"SampleDensityGridEvery" : integer`
-    Sample the density grids every `int` cycles. Default: `10`
-
--   `"WriteDensityGridEvery" : integer`
-    Output the density grids every `int` cycles. Default: `5000`
-
--   `"DensityGridSize" : [integer, integer, integer]`
-    Sets the size of the density grids. Default: `[128, 128, 128]`
+-   `"PseudoAtoms" : list` <br>
+    List of pseudo-atoms with
+    - `"name" : string`
+    - `"framework" : boolean`
+    - `"print_to_output" : boolean`
+    - `"element" : string`
+    - `"print_as" : string`
+    - `"mass" : floating-point-number`
+    - `"charge" :  floating-point-number`
+    - `"source" : string`
+
+
+-   `"SelfInteractions" : list` <br>
+    List of self-interactions with
+    - `"name" : string`
+    - `"type" : string`
+    - `"parameters" : [floating-point-number]`
+    - `"source" : string`
+
+-   `"BinaryInteractions" : []` <br>
+    List of binary-interactions with
+    - `"names": [string, string]`
+    - `"type": string`
+    - `"parameters": [floating-point-number]`
+    - `"source": string`
 
 ----------------------------------------------------------------------------------
 
-## Component options
+## Component options  <a name="component-options"></a>
 
-### Component properties
+### Component properties  <a name="component-properties"></a>
 
 -   `"Name" : string`
     The descriptive name of the component.
@@ -541,7 +616,7 @@ Output is written to the directory `density_grids`.
     Boolean switch to determine whether to do a thermodynamic integration
     over dU/dλ for the fractional component.
 
-### Component **`MC`**-moves
+### Component `MC`-moves  <a name="component-mc-moves"></a>
 
 -   `"TranslationProbability" : floating-point-number`
     The relative probability to attempt a translation move for the

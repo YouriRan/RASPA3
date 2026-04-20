@@ -1,39 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <complex>
-#include <cstddef>
-#include <exception>
-#include <filesystem>
-#include <fstream>
-#include <ios>
-#include <iostream>
-#include <map>
-#include <numeric>
-#include <optional>
-#include <print>
-#include <ranges>
-#include <source_location>
-#include <span>
-#include <sstream>
-#include <string>
-#include <tuple>
-#include <utility>
-#include <vector>
-#endif
-
 module monte_carlo;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import stringutils;
 import hardware_info;
@@ -98,10 +67,10 @@ MonteCarlo::MonteCarlo(InputReader& reader) noexcept
 MonteCarlo::MonteCarlo(std::size_t numberOfCycles, std::size_t numberOfInitializationCycles,
                        std::size_t numberOfEquilibrationCycles, std::size_t printEvery,
                        std::size_t writeBinaryRestartEvery, std::size_t rescaleWangLandauEvery,
-                       std::size_t optimizeMCMovesEvery, std::vector<System>& systems, RandomNumber& randomSeed,
-                       std::size_t numberOfBlocks, bool outputToFiles)
+                       std::size_t optimizeMCMovesEvery, std::vector<System>& systems,
+                       std::optional<std::size_t> randomSeed, std::size_t numberOfBlocks, bool outputToFiles)
     : outputToFiles(outputToFiles),
-      random(randomSeed),
+      random(RandomNumber(randomSeed)),
       numberOfCycles(numberOfCycles),
       numberOfInitializationCycles(numberOfInitializationCycles),
       numberOfEquilibrationCycles(numberOfEquilibrationCycles),
@@ -139,7 +108,7 @@ void MonteCarlo::run()
           system.containsTheFractionalMolecule = false;
 
         // if the MC/MD hybrid move is on, make sure that interpolation-method include gradients
-        if (system.mc_moves_probabilities.getProbability(MoveTypes::HybridMC) > 0.0 &&
+        if (system.mc_moves_probabilities.getProbability(Move::Types::HybridMC) > 0.0 &&
             system.forceField.interpolationScheme == ForceField::InterpolationScheme::Polynomial)
         {
           system.forceField.interpolationScheme = ForceField::InterpolationScheme::Tricubic;
@@ -307,7 +276,7 @@ void MonteCarlo::performCycle()
   }
 }
 
-void MonteCarlo::initialize()
+void MonteCarlo::initialize(std::function<void()> call_back_function, std::size_t callBackEvery)
 {
   std::chrono::system_clock::time_point t1, t2;
 
@@ -329,11 +298,16 @@ void MonteCarlo::initialize()
     }
   };
 
-  for (currentCycle = 0uz; currentCycle != numberOfInitializationCycles; currentCycle++)
+  for (currentCycle = 0uz; currentCycle != numberOfInitializationCycles; ++currentCycle, ++absoluteCurrentCycle)
   {
     t1 = std::chrono::system_clock::now();
 
     performCycle();
+
+    for (System& system : systems)
+    {
+      system.samplePropertiesEvolution(absoluteCurrentCycle);
+    }
 
     if (currentCycle % printEvery == 0uz)
     {
@@ -348,6 +322,14 @@ void MonteCarlo::initialize()
           std::print(stream, "{}", system.writeInitializationStatusReport(currentCycle, numberOfInitializationCycles));
           std::flush(stream);
         }
+      }
+    }
+
+    if (currentCycle % callBackEvery == 0uz)
+    {
+      if (call_back_function)
+      {
+        call_back_function();
       }
     }
 
@@ -375,6 +357,18 @@ void MonteCarlo::initialize()
       }
     }
 
+    for (System& system : systems)
+    {
+      if (system.propertyNumberOfMoleculesEvolution.has_value())
+      {
+        system.propertyNumberOfMoleculesEvolution->writeOutput(system.systemId, absoluteCurrentCycle);
+      }
+      if (system.propertyVolumeEvolution.has_value())
+      {
+        system.propertyVolumeEvolution->writeOutput(system.systemId, absoluteCurrentCycle);
+      }
+    }
+
     if (currentCycle % writeRestartEvery == 0uz)
     {
       // write restart
@@ -396,7 +390,7 @@ void MonteCarlo::initialize()
   }
 }
 
-void MonteCarlo::equilibrate()
+void MonteCarlo::equilibrate(std::function<void()> call_back_function, std::size_t callBackEvery)
 {
   std::chrono::system_clock::time_point t1, t2;
 
@@ -415,11 +409,16 @@ void MonteCarlo::equilibrate()
     }
   };
 
-  for (currentCycle = 0uz; currentCycle != numberOfEquilibrationCycles; ++currentCycle)
+  for (currentCycle = 0uz; currentCycle != numberOfEquilibrationCycles; ++currentCycle, ++absoluteCurrentCycle)
   {
     t1 = std::chrono::system_clock::now();
 
     performCycle();
+
+    for (System& system : systems)
+    {
+      system.samplePropertiesEvolution(absoluteCurrentCycle);
+    }
 
     if (currentCycle % printEvery == 0uz)
     {
@@ -434,6 +433,14 @@ void MonteCarlo::equilibrate()
           std::print(stream, "{}", system.writeEquilibrationStatusReportMC(currentCycle, numberOfEquilibrationCycles));
           std::flush(stream);
         }
+      }
+    }
+
+    if (currentCycle % callBackEvery == 0uz)
+    {
+      if (call_back_function)
+      {
+        call_back_function();
       }
     }
 
@@ -465,6 +472,18 @@ void MonteCarlo::equilibrate()
                 std::format("bias_factors/lambda_bias_{}.s{}.json", component.name, system.systemId));
           }
         }
+      }
+    }
+
+    for (System& system : systems)
+    {
+      if (system.propertyNumberOfMoleculesEvolution.has_value())
+      {
+        system.propertyNumberOfMoleculesEvolution->writeOutput(system.systemId, absoluteCurrentCycle);
+      }
+      if (system.propertyVolumeEvolution.has_value())
+      {
+        system.propertyVolumeEvolution->writeOutput(system.systemId, absoluteCurrentCycle);
       }
     }
 
@@ -505,7 +524,7 @@ void MonteCarlo::equilibrate()
   }
 }
 
-void MonteCarlo::production()
+void MonteCarlo::production(std::function<void()> call_back_function, std::size_t callBackEvery)
 {
   double minBias{0uz};
   std::chrono::system_clock::time_point t1, t2;
@@ -563,7 +582,7 @@ void MonteCarlo::production()
   }
 
   numberOfSteps = 0uz;
-  for (currentCycle = 0uz; currentCycle != numberOfCycles; ++currentCycle)
+  for (currentCycle = 0uz; currentCycle != numberOfCycles; ++currentCycle, ++absoluteCurrentCycle)
   {
     t1 = std::chrono::system_clock::now();
 
@@ -574,6 +593,7 @@ void MonteCarlo::production()
     for (System& system : systems)
     {
       system.sampleProperties(estimation.currentBin, currentCycle);
+      system.samplePropertiesEvolution(absoluteCurrentCycle);
       if (currentCycle % 10uz == 0uz || currentCycle % printEvery == 0uz)
       {
         std::chrono::system_clock::time_point time1 = std::chrono::system_clock::now();
@@ -604,6 +624,14 @@ void MonteCarlo::production()
       }
     }
 
+    if (currentCycle % callBackEvery == 0uz)
+    {
+      if (call_back_function)
+      {
+        call_back_function();
+      }
+    }
+
     if (currentCycle % optimizeMCMovesEvery == 0uz)
     {
       for (System& system : systems)
@@ -612,40 +640,45 @@ void MonteCarlo::production()
       }
     }
 
-    if (outputToFiles)
+    for (System& system : systems)
     {
-      for (System& system : systems)
+      if (system.propertyConventionalRadialDistributionFunction.has_value())
       {
-        if (system.propertyConventionalRadialDistributionFunction.has_value())
-        {
-          system.propertyConventionalRadialDistributionFunction->writeOutput(
-              system.forceField, system.systemId, system.simulationBox.volume, system.totalNumberOfPseudoAtoms,
-              currentCycle);
-        }
+        system.propertyConventionalRadialDistributionFunction->writeOutput(
+            system.forceField, system.systemId, system.simulationBox.volume, system.totalNumberOfPseudoAtoms,
+            currentCycle);
+      }
 
-        if (system.propertyRadialDistributionFunction.has_value())
-        {
-          system.propertyRadialDistributionFunction->writeOutput(system.forceField, system.systemId,
-                                                                 system.simulationBox.volume,
-                                                                 system.totalNumberOfPseudoAtoms, currentCycle);
-        }
-        if (system.propertyDensityGrid.has_value())
-        {
-          system.propertyDensityGrid->writeOutput(system.systemId, system.simulationBox, system.forceField,
-                                                  system.framework, system.components, currentCycle);
-        }
-        if (system.averageEnergyHistogram.has_value())
-        {
-          system.averageEnergyHistogram->writeOutput(system.systemId, currentCycle);
-        }
-        if (system.averageNumberOfMoleculesHistogram.has_value())
-        {
-          system.averageNumberOfMoleculesHistogram->writeOutput(system.systemId, system.components, currentCycle);
-        }
-        if (system.propertySoap.has_value())
-        {
-          system.propertySoap->writeOutput(currentCycle);
-        }
+      if (system.propertyRadialDistributionFunction.has_value())
+      {
+        system.propertyRadialDistributionFunction->writeOutput(system.forceField, system.systemId,
+                                                               system.simulationBox.volume,
+                                                               system.totalNumberOfPseudoAtoms, currentCycle);
+      }
+      if (system.propertyDensityGrid.has_value())
+      {
+        system.propertyDensityGrid->writeOutput(system.systemId, system.simulationBox, system.forceField,
+                                                system.framework, system.components, currentCycle);
+      }
+      if (system.averageEnergyHistogram.has_value())
+      {
+        system.averageEnergyHistogram->writeOutput(system.systemId, currentCycle);
+      }
+      if (system.averageNumberOfMoleculesHistogram.has_value())
+      {
+        system.averageNumberOfMoleculesHistogram->writeOutput(system.systemId, system.components, currentCycle);
+      }
+    }
+
+    for (System& system : systems)
+    {
+      if (system.propertyNumberOfMoleculesEvolution.has_value())
+      {
+        system.propertyNumberOfMoleculesEvolution->writeOutput(system.systemId, absoluteCurrentCycle);
+      }
+      if (system.propertyVolumeEvolution.has_value())
+      {
+        system.propertyVolumeEvolution->writeOutput(system.systemId, absoluteCurrentCycle);
       }
     }
 

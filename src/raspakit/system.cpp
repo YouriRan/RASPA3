@@ -1,59 +1,20 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <exception>
-#include <filesystem>
-#include <format>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <numbers>
-#include <numeric>
-#include <optional>
-#include <ostream>
-#include <print>
-#include <ranges>
-#include <source_location>
-#include <span>
-#include <streambuf>
-#include <string>
-#include <string_view>
-#include <tuple>
-#include <vector>
-#pragma push_macro("__SSE3__")
-#undef __SSE3__
-#include <random>
-#pragma pop_macro("__SSE3__")
-#include "mdspanwrapper.h"
-#endif
-
 module system;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import randomnumbers;
 import stringutils;
 import int3;
+import uint3;
 import double3;
 import double3x3;
 import double3x3x3;
 import simd_quatd;
 import cubic;
 import atom;
-import input_reader;
 import framework;
 import component;
 import simulationbox;
@@ -74,6 +35,7 @@ import energy_status;
 import energy_status_inter;
 import energy_status_intra;
 import property_simulationbox;
+import average_energy_type;
 import property_energy;
 import property_pressure;
 import property_loading;
@@ -105,14 +67,16 @@ import interactions_intermolecular;
 import interactions_ewald;
 import interactions_internal;
 import interactions_external_field;
+import interactions_external_field_grid;
 import equation_of_states;
 import thermostat;
 import json;
 import integrators;
 import integrators_compute;
 import integrators_update;
+import interpolation_energy_grid;
 #if !(defined(__has_include) && __has_include(<mdspan>))
-//import mdspan;
+// import mdspan;
 #endif
 
 // construct System programmatically
@@ -121,11 +85,10 @@ import integrators_update;
  *
  *  Detailed description starts here.
  */
-System::System(std::size_t id, ForceField forcefield, std::optional<SimulationBox> box, double T,
+System::System(std::size_t id, ForceField forcefield, std::optional<SimulationBox> box, bool hasExternalField, double T,
                std::optional<double> P, double heliumVoidFraction, std::optional<Framework> f, std::vector<Component> c,
                std::vector<std::vector<double3>> initialpositions, std::vector<std::size_t> initialNumberOfMolecules,
-               std::size_t numberOfBlocks, const MCMoveProbabilities& systemProbabilities,
-               std::optional<std::size_t> sampleMoviesEvery)
+               std::size_t numberOfBlocks, const MCMoveProbabilities& systemProbabilities)
     : systemId(id),
       temperature(T),
       pressure(P.value_or(0.0) / Units::PressureConversionFactor),
@@ -146,7 +109,7 @@ System::System(std::size_t id, ForceField forcefield, std::optional<SimulationBo
       numberOfReactionFractionalMoleculesPerComponent_CFCMC(),
       idealGasEnergiesPerComponent(c.size()),
       forceField(forcefield),
-      hasExternalField(false),
+      hasExternalField(hasExternalField),
       numberOfPseudoAtoms(c.size(), std::vector<std::size_t>(forceField.pseudoAtoms.size())),
       totalNumberOfPseudoAtoms(forceField.pseudoAtoms.size()),
       atomData({}),
@@ -204,11 +167,6 @@ System::System(std::size_t id, ForceField forcefield, std::optional<SimulationBo
                       P.value_or(0.0), simulationBox, heliumVoidFraction, components);
 
   averageEnthalpiesOfAdsorption.resize(swappableComponents.size());
-
-  if (sampleMoviesEvery.has_value())
-  {
-    samplePDBMovie = SampleMovie(id, sampleMoviesEvery.value());
-  }
 }
 
 System::System(std::size_t id, double T, std::optional<double> P, double heliumVoidFraction, std::optional<Framework> f,
@@ -525,11 +483,10 @@ void System::createInitialMolecules(const std::vector<std::vector<double3>>& ini
           bool groupId = components[componentId].lambdaGC.computeDUdlambda;
           Component::GrowType growType = components[componentId].growType;
           growData = CBMC::growMoleculeSwapInsertion(
-              random, components[componentId], hasExternalField, forceField, simulationBox, 
-              interpolationGrids, externalFieldInterpolationGrid,
-              framework, spanOfFrameworkAtoms(), spanOfMoleculeAtoms(), beta, growType, forceField.cutOffFrameworkVDW,
-              forceField.cutOffMoleculeVDW, forceField.cutOffCoulomb, numberOfMoleculesPerComponent[componentId], 0.0,
-              groupId, true);
+              random, components[componentId], hasExternalField, forceField, simulationBox, interpolationGrids,
+              externalFieldInterpolationGrid, framework, spanOfFrameworkAtoms(), spanOfMoleculeAtoms(), beta, growType,
+              forceField.cutOffFrameworkVDW, forceField.cutOffMoleculeVDW, forceField.cutOffCoulomb,
+              numberOfMoleculesPerComponent[componentId], 0.0, groupId, true);
         } while (!growData || growData->energies.potentialEnergy() > forceField.energyOverlapCriteria);
 
         insertFractionalMolecule(componentId, growData->molecule, growData->atom, i);
@@ -595,10 +552,10 @@ void System::createInitialMolecules(const std::vector<std::vector<double3>>& ini
         {
           Component::GrowType growType = components[componentId].growType;
           growData = CBMC::growMoleculeSwapInsertion(
-              random, components[componentId], hasExternalField, forceField, simulationBox, interpolationGrids, externalFieldInterpolationGrid,
-              framework, spanOfFrameworkAtoms(), spanOfMoleculeAtoms(), beta, growType, forceField.cutOffFrameworkVDW,
-              forceField.cutOffMoleculeVDW, forceField.cutOffCoulomb, numberOfMoleculesPerComponent[componentId], 1.0,
-              false, false);
+              random, components[componentId], hasExternalField, forceField, simulationBox, interpolationGrids,
+              externalFieldInterpolationGrid, framework, spanOfFrameworkAtoms(), spanOfMoleculeAtoms(), beta, growType,
+              forceField.cutOffFrameworkVDW, forceField.cutOffMoleculeVDW, forceField.cutOffCoulomb,
+              numberOfMoleculesPerComponent[componentId], 1.0, false, false);
 
         } while (!growData || growData->energies.potentialEnergy() > forceField.energyOverlapCriteria);
 
@@ -858,16 +815,16 @@ void System::determineSwappableComponents()
 {
   for (Component& component : components)
   {
-    if (component.mc_moves_probabilities.getProbability(MoveTypes::Swap) > 0.0 ||
-        component.mc_moves_probabilities.getProbability(MoveTypes::SwapCBMC) > 0.0 ||
-        component.mc_moves_probabilities.getProbability(MoveTypes::SwapCFCMC) > 0.0 ||
-        component.mc_moves_probabilities.getProbability(MoveTypes::SwapCBCFCMC) > 0.0)
+    if (component.mc_moves_probabilities.getProbability(Move::Types::Swap) > 0.0 ||
+        component.mc_moves_probabilities.getProbability(Move::Types::SwapCBMC) > 0.0 ||
+        component.mc_moves_probabilities.getProbability(Move::Types::SwapCFCMC) > 0.0 ||
+        component.mc_moves_probabilities.getProbability(Move::Types::SwapCBCFCMC) > 0.0)
     {
       component.swappable = true;
     }
 
-    if (component.mc_moves_probabilities.getProbability(MoveTypes::GibbsSwapCBMC) > 0.0 ||
-        component.mc_moves_probabilities.getProbability(MoveTypes::GibbsSwapCFCMC) > 0.0)
+    if (component.mc_moves_probabilities.getProbability(Move::Types::GibbsSwapCBMC) > 0.0 ||
+        component.mc_moves_probabilities.getProbability(Move::Types::GibbsSwapCFCMC) > 0.0)
     {
       component.swappable = true;
     }
@@ -888,10 +845,10 @@ void System::determineFractionalComponents()
     numberOfGCFractionalMoleculesPerComponent_CFCMC[i] = 0;
     numberOfGibbsFractionalMoleculesPerComponent_CFCMC[i] = 0;
 
-    if (components[i].mc_moves_probabilities.getProbability(MoveTypes::SwapCFCMC) > 0.0 ||
-        components[i].mc_moves_probabilities.getProbability(MoveTypes::WidomCFCMC) > 0.0 ||
-        components[i].mc_moves_probabilities.getProbability(MoveTypes::SwapCBCFCMC) > 0.0 ||
-        components[i].mc_moves_probabilities.getProbability(MoveTypes::WidomCBCFCMC) > 0.0)
+    if (components[i].mc_moves_probabilities.getProbability(Move::Types::SwapCFCMC) > 0.0 ||
+        components[i].mc_moves_probabilities.getProbability(Move::Types::WidomCFCMC) > 0.0 ||
+        components[i].mc_moves_probabilities.getProbability(Move::Types::SwapCBCFCMC) > 0.0 ||
+        components[i].mc_moves_probabilities.getProbability(Move::Types::WidomCBCFCMC) > 0.0)
     {
       numberOfFractionalMoleculesPerComponent[i] += 1;
       numberOfGCFractionalMoleculesPerComponent_CFCMC[i] = 1;
@@ -899,7 +856,7 @@ void System::determineFractionalComponents()
     }
 
     // Gibbs
-    if (components[i].mc_moves_probabilities.getProbability(MoveTypes::GibbsSwapCFCMC) > 0.0)
+    if (components[i].mc_moves_probabilities.getProbability(Move::Types::GibbsSwapCFCMC) > 0.0)
     {
       numberOfFractionalMoleculesPerComponent[i] += 1;
       numberOfGibbsFractionalMoleculesPerComponent_CFCMC[i] = 1;
@@ -1318,7 +1275,7 @@ std::string System::writeProductionStatusReportMC(const std::string& statusLine)
 
   std::print(stream, "Amount of molecules per component:\n");
   std::print(stream, "-------------------------------------------------------------------------------\n");
-  std::pair<Loadings, Loadings> loadingData = averageLoadings.averageLoading();
+  std::pair<Loadings, Loadings> loadingData = averageLoadings.result();
   for (const Component& c : components)
   {
     std::print(stream, "{}",
@@ -1391,7 +1348,7 @@ std::string System::writeProductionStatusReportMC(const std::string& statusLine)
     }
   }
 
-  std::pair<EnergyStatus, EnergyStatus> energyData = averageEnergies.averageEnergy();
+  std::pair<EnergyStatus, EnergyStatus> energyData = averageEnergies.result();
   std::print(stream, "Total potential energy{}  {: .6e} ({: .6e} +/- {:.6e}) [{}]\n",
              Units::displayedUnitOfEnergyConversionString, conv * currentEnergyStatus.totalEnergy.energy,
              conv * energyData.first.totalEnergy.energy, conv * energyData.second.totalEnergy.energy,
@@ -1523,7 +1480,7 @@ std::string System::writeProductionStatusReportMD(std::size_t currentCycle, std:
   std::print(stream, "Drift: {:.6e} Average drift: {:.6e}\n\n", drift,
              accumulatedDrift / static_cast<double>(std::max(currentCycle, 1uz)));
 
-  std::pair<EnergyStatus, EnergyStatus> energyData = averageEnergies.averageEnergy();
+  std::pair<EnergyStatus, EnergyStatus> energyData = averageEnergies.result();
   std::print(stream, "Total potential energy:   {: .6e} ({: .6e} +/- {:.6e}) [K]\n",
              conv * currentEnergyStatus.totalEnergy.energy, conv * energyData.first.totalEnergy.energy,
              conv * energyData.second.totalEnergy.energy);
@@ -1595,7 +1552,7 @@ std::string System::writeProductionStatusReportMD(std::size_t currentCycle, std:
 
   std::print(stream, "Amount of molecules per component :\n");
   std::print(stream, "-------------------------------------------------------------------------------\n");
-  std::pair<Loadings, Loadings> loadingData = averageLoadings.averageLoading();
+  std::pair<Loadings, Loadings> loadingData = averageLoadings.result();
   for (const Component& c : components)
   {
     std::print(stream, "{}",
@@ -1772,7 +1729,8 @@ void System::sampleProperties(std::size_t currentBlock, std::size_t currentCycle
 
   if (samplePDBMovie.has_value())
   {
-    samplePDBMovie->update(forceField, systemId, simulationBox, spanOfMoleculeAtoms(), currentCycle);
+    samplePDBMovie->update(forceField, systemId, simulationBox, spanOfMoleculeAtoms(), components,
+                           numberOfMoleculesPerComponent, currentCycle);
   }
 
   if (writeLammpsData.has_value())
@@ -1849,6 +1807,18 @@ void System::sampleProperties(std::size_t currentBlock, std::size_t currentCycle
   std::chrono::system_clock::time_point t2 = std::chrono::system_clock::now();
 
   mc_moves_cputime.propertySampling += (t2 - t1);
+}
+
+void System::samplePropertiesEvolution(std::size_t absoluteCurrentCycle)
+{
+  if (propertyNumberOfMoleculesEvolution.has_value())
+  {
+    propertyNumberOfMoleculesEvolution->addSample(absoluteCurrentCycle, numberOfIntegerMoleculesPerComponent);
+  }
+  if (propertyVolumeEvolution.has_value())
+  {
+    propertyVolumeEvolution->addSample(absoluteCurrentCycle, simulationBox.volume);
+  }
 }
 
 void System::writeCPUTimeStatistics(std::ostream& stream) const
@@ -1962,8 +1932,8 @@ RunningEnergy System::computeTotalEnergies() noexcept
     RunningEnergy polarizationEnergy = computePolarizationEnergy();
 
     RunningEnergy externalFieldEnergy;
-    Interactions::computeExternalFieldEnergy(hasExternalField,
-      forceField, simulationBox, moleculeAtomPositions, externalFieldEnergy, externalFieldInterpolationGrid);
+    Interactions::computeExternalFieldEnergy(hasExternalField, forceField, simulationBox, moleculeAtomPositions,
+                                             externalFieldEnergy, externalFieldInterpolationGrid);
 
     return frameworkMoleculeEnergy + intermolecularEnergy + frameworkMoleculeTailEnergy + intermolecularTailEnergy +
            ewaldEnergy + polarizationEnergy + runningIntraEnergy + externalFieldEnergy;
@@ -1985,8 +1955,8 @@ RunningEnergy System::computeTotalEnergies() noexcept
         numberOfMoleculesPerComponent, moleculeAtomPositions);
 
     RunningEnergy externalFieldEnergy;
-    Interactions::computeExternalFieldEnergy(hasExternalField,
-      forceField, simulationBox, moleculeAtomPositions, externalFieldEnergy, externalFieldInterpolationGrid);
+    Interactions::computeExternalFieldEnergy(hasExternalField, forceField, simulationBox, moleculeAtomPositions,
+                                             externalFieldEnergy, externalFieldInterpolationGrid);
 
     return frameworkMoleculeEnergy + intermolecularEnergy + frameworkMoleculeTailEnergy + intermolecularTailEnergy +
            ewaldEnergy + runningIntraEnergy + externalFieldEnergy;
@@ -2242,7 +2212,7 @@ std::string System::writeMCMoveStatistics() const
                  component.lambdaGC.writeDUdLambdaStatistics(beta, imposedChemicalPotential, imposedFugacity));
     }
 
-    if (component.mc_moves_probabilities.getProbability(MoveTypes::Widom) > 0.0)
+    if (component.mc_moves_probabilities.getProbability(Move::Types::Widom) > 0.0)
     {
       double imposedChemicalPotential =
           std::log(beta * component.molFraction * component.fugacityCoefficient.value_or(1.0) * pressure) / beta;
@@ -2269,7 +2239,6 @@ std::string System::writeMCMoveStatistics() const
   return stream.str();
 }
 
-
 void System::createExternalFieldInterpolationGrid(std::ostream& stream)
 {
   // use local random-number generator (so that it does not interfere with a binary-restart)
@@ -2277,20 +2246,21 @@ void System::createExternalFieldInterpolationGrid(std::ostream& stream)
 
   std::size_t numberOfGridTestPoints = forceField.numberOfGridTestPoints;
 
-  if(hasExternalField)
+  if (hasExternalField)
   {
-    if(forceField.useExternalFieldGrid)
+    if (forceField.useExternalFieldGrid)
     {
-
       // int3 numberOfExternalFieldGridPoints  = forceField.numberOfExternalFieldGridPoints;
-      int3 numberOfExternalFieldGridPoints = InputReader::parseExternalFieldGridDimensions(forceField.externalFieldGridFileName);
+      uint3 numberOfExternalFieldGridPoints =
+          InterpolationEnergyGrid::parseExternalFieldGridDimensions(forceField.externalFieldGridFileName);
 
-      externalFieldInterpolationGrid = InterpolationEnergyGrid(simulationBox, forceField.potentialEnergySurfaceOrigin,
-                                                      numberOfExternalFieldGridPoints, forceField.interpolationScheme);
+      externalFieldInterpolationGrid =
+          InterpolationEnergyGrid(simulationBox, forceField.potentialEnergySurfaceOrigin,
+                                  numberOfExternalFieldGridPoints, forceField.interpolationScheme);
 
       std::print(stream, "Generating an external field interpolation grid ({}x{}x{})\n",
-                 externalFieldInterpolationGrid->numberOfGridPoints.x, 
-                 externalFieldInterpolationGrid->numberOfGridPoints.y, 
+                 externalFieldInterpolationGrid->numberOfGridPoints.x,
+                 externalFieldInterpolationGrid->numberOfGridPoints.y,
                  externalFieldInterpolationGrid->numberOfGridPoints.z);
       std::print(stream, "===============================================================================\n");
       externalFieldInterpolationGrid->makeExternalFieldInterpolationGrid(stream, forceField, simulationBox);
@@ -2333,23 +2303,24 @@ void System::createExternalFieldInterpolationGrid(std::ostream& stream)
         {
           case ForceField::InterpolationScheme::Polynomial:
           {
-            std::array<double, 8> analytical_polynomial = Interactions::calculateTricubicFractionalAtPositionExternalField(
-                 forceField, simulationBox, pos + forceField.potentialEnergySurfaceOrigin);
+            std::array<double, 8> analytical_polynomial =
+                Interactions::calculateTricubicFractionalAtPositionExternalField(
+                    forceField, simulationBox, pos + forceField.potentialEnergySurfaceOrigin);
 
             analytical_energy = analytical_polynomial[0] * Units::EnergyToKelvin;
           }
           break;
           case ForceField::InterpolationScheme::Tricubic:
           {
-            std::array<double, 8> analytical_tricubic = Interactions::calculateTricubicFractionalAtPositionExternalField(
-                 forceField, simulationBox, pos + forceField.potentialEnergySurfaceOrigin);
+            std::array<double, 8> analytical_tricubic =
+                Interactions::calculateTricubicFractionalAtPositionExternalField(
+                    forceField, simulationBox, pos + forceField.potentialEnergySurfaceOrigin);
 
             analytical_energy = analytical_tricubic[0] * Units::EnergyToKelvin;
 
             // convert gradient from fractional to Cartesian
-            analytical_gradient =
-                framework->simulationBox.inverseCell.transpose() *
-                double3(analytical_tricubic[1], analytical_tricubic[2], analytical_tricubic[3]);
+            analytical_gradient = framework->simulationBox.inverseCell.transpose() *
+                                  double3(analytical_tricubic[1], analytical_tricubic[2], analytical_tricubic[3]);
 
             analytical_gradient.x *= Units::EnergyToKelvin;
             analytical_gradient.y *= Units::EnergyToKelvin;
@@ -2358,24 +2329,23 @@ void System::createExternalFieldInterpolationGrid(std::ostream& stream)
           break;
           case ForceField::InterpolationScheme::Triquintic:
           {
-            std::array<double, 27> analytical_triquintic = Interactions::calculateTriquinticFractionalAtPositionExternalField(
-                 forceField, simulationBox, pos + forceField.potentialEnergySurfaceOrigin);
+            std::array<double, 27> analytical_triquintic =
+                Interactions::calculateTriquinticFractionalAtPositionExternalField(
+                    forceField, simulationBox, pos + forceField.potentialEnergySurfaceOrigin);
 
             analytical_energy = analytical_triquintic[0] * Units::EnergyToKelvin;
 
             // convert gradient from fractional to Cartesian
-            analytical_gradient =
-                framework->simulationBox.inverseCell.transpose() *
-                double3(analytical_triquintic[1], analytical_triquintic[2], analytical_triquintic[3]);
+            analytical_gradient = framework->simulationBox.inverseCell.transpose() *
+                                  double3(analytical_triquintic[1], analytical_triquintic[2], analytical_triquintic[3]);
 
             analytical_gradient.x *= Units::EnergyToKelvin;
             analytical_gradient.y *= Units::EnergyToKelvin;
             analytical_gradient.z *= Units::EnergyToKelvin;
 
-            double3x3 hessian =
-                double3x3(analytical_triquintic[4], analytical_triquintic[5], analytical_triquintic[6],
-                          analytical_triquintic[5], analytical_triquintic[7], analytical_triquintic[8],
-                          analytical_triquintic[6], analytical_triquintic[8], analytical_triquintic[9]);
+            double3x3 hessian = double3x3(analytical_triquintic[4], analytical_triquintic[5], analytical_triquintic[6],
+                                          analytical_triquintic[5], analytical_triquintic[7], analytical_triquintic[8],
+                                          analytical_triquintic[6], analytical_triquintic[8], analytical_triquintic[9]);
             analytical_hessian =
                 framework->simulationBox.inverseCell.transpose() * hessian * framework->simulationBox.inverseCell;
 
@@ -2409,12 +2379,11 @@ void System::createExternalFieldInterpolationGrid(std::ostream& stream)
 
       std::print(stream, "Absolute error energy:                  {}\n\n", summed_errors / count);
       std::print(stream, "Boltzmann weighted error energy:        {}\n\n",
-                        std::sqrt(boltzmann_weighted_difference_squared_summed / 
-                                  boltzmann_weighted_full_squared_summed));
+                 std::sqrt(boltzmann_weighted_difference_squared_summed / boltzmann_weighted_full_squared_summed));
     }
   }
 
-  if(forceField.writeExternalFieldInterpolationGrid)
+  if (forceField.writeExternalFieldInterpolationGrid)
   {
     externalFieldInterpolationGrid->writeOutput(systemId, simulationBox, forceField);
   }
@@ -2429,7 +2398,7 @@ void System::createFrameworkInterpolationGrids(std::ostream& stream)
 
   if (framework.has_value())
   {
-    int3 numberOfCoulombGridPoints{};
+    uint3 numberOfCoulombGridPoints{};
     if (forceField.numberOfVDWGridPoints.has_value())
     {
       numberOfCoulombGridPoints = forceField.numberOfCoulombGridPoints.value();
@@ -2438,11 +2407,11 @@ void System::createFrameworkInterpolationGrids(std::ostream& stream)
     {
       const double3 perpendicular_widths = framework->simulationBox.perpendicularWidths();
       numberOfCoulombGridPoints.x =
-          static_cast<std::int32_t>(perpendicular_widths.x / forceField.spacingCoulombGrid + 0.5);
+          static_cast<std::size_t>(perpendicular_widths.x / forceField.spacingCoulombGrid + 0.5);
       numberOfCoulombGridPoints.y =
-          static_cast<std::int32_t>(perpendicular_widths.y / forceField.spacingCoulombGrid + 0.5);
+          static_cast<std::size_t>(perpendicular_widths.y / forceField.spacingCoulombGrid + 0.5);
       numberOfCoulombGridPoints.z =
-          static_cast<std::int32_t>(perpendicular_widths.z / forceField.spacingCoulombGrid + 0.5);
+          static_cast<std::size_t>(perpendicular_widths.z / forceField.spacingCoulombGrid + 0.5);
     }
 
     // also create a Charge grid when needed
@@ -2455,11 +2424,12 @@ void System::createFrameworkInterpolationGrids(std::ostream& stream)
       interpolationGrids.back() =
           InterpolationEnergyGrid(framework->simulationBox, forceField.potentialEnergySurfaceOrigin,
                                   numberOfCoulombGridPoints, forceField.interpolationScheme);
-      interpolationGrids.back()->makeFrameworkInterpolationGrid(stream, ForceField::InterpolationGridType::EwaldReal, forceField,
-                                                       framework.value(), forceField.cutOffCoulomb, 0);
+      interpolationGrids.back()->makeFrameworkInterpolationGrid(stream, ForceField::InterpolationGridType::EwaldReal,
+                                                                forceField, framework.value(), forceField.cutOffCoulomb,
+                                                                0);
     }
 
-    int3 numberOfVDWGridPoints{};
+    uint3 numberOfVDWGridPoints{};
     if (forceField.numberOfVDWGridPoints.has_value())
     {
       numberOfVDWGridPoints = forceField.numberOfVDWGridPoints.value();
@@ -2467,9 +2437,9 @@ void System::createFrameworkInterpolationGrids(std::ostream& stream)
     else
     {
       const double3 perpendicular_widths = framework->simulationBox.perpendicularWidths();
-      numberOfVDWGridPoints.x = static_cast<std::int32_t>(perpendicular_widths.x / forceField.spacingVDWGrid + 0.5);
-      numberOfVDWGridPoints.y = static_cast<std::int32_t>(perpendicular_widths.y / forceField.spacingVDWGrid + 0.5);
-      numberOfVDWGridPoints.z = static_cast<std::int32_t>(perpendicular_widths.z / forceField.spacingVDWGrid + 0.5);
+      numberOfVDWGridPoints.x = static_cast<std::size_t>(perpendicular_widths.x / forceField.spacingVDWGrid + 0.5);
+      numberOfVDWGridPoints.y = static_cast<std::size_t>(perpendicular_widths.y / forceField.spacingVDWGrid + 0.5);
+      numberOfVDWGridPoints.z = static_cast<std::size_t>(perpendicular_widths.z / forceField.spacingVDWGrid + 0.5);
     }
 
     for (const std::size_t& index : forceField.gridPseudoAtomIndices)
@@ -2479,10 +2449,11 @@ void System::createFrameworkInterpolationGrids(std::ostream& stream)
       std::print(stream, "===============================================================================\n");
 
       interpolationGrids[index] =
-          InterpolationEnergyGrid(framework->simulationBox, forceField.potentialEnergySurfaceOrigin, numberOfVDWGridPoints, forceField.interpolationScheme);
+          InterpolationEnergyGrid(framework->simulationBox, forceField.potentialEnergySurfaceOrigin,
+                                  numberOfVDWGridPoints, forceField.interpolationScheme);
       interpolationGrids[index]->makeFrameworkInterpolationGrid(stream, ForceField::InterpolationGridType::LennardJones,
-                                                       forceField, framework.value(), forceField.cutOffFrameworkVDW,
-                                                       index);
+                                                                forceField, framework.value(),
+                                                                forceField.cutOffFrameworkVDW, index);
 
       double boltzmann_weight_summed_vdw{};
       double boltzmann_weighted_energy_full_summed_vdw{};
@@ -3222,6 +3193,8 @@ Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const System
   archive << s.propertyVACF;
   archive << s.writeLammpsData;
 
+  archive << s.propertyNumberOfMoleculesEvolution;
+
   archive << s.columnNumberOfGridPoints;
   archive << s.columnTotalPressure;
   archive << s.columnPressureGradient;
@@ -3364,6 +3337,8 @@ Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, System& s)
   archive >> s.propertyMSD;
   archive >> s.propertyVACF;
   archive >> s.writeLammpsData;
+
+  archive >> s.propertyNumberOfMoleculesEvolution;
 
   archive >> s.columnNumberOfGridPoints;
   archive >> s.columnTotalPressure;

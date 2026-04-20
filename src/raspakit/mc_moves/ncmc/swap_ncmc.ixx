@@ -31,6 +31,6 @@ export namespace MC_Moves
  * \param system The simulation system to modify.
  * \return The new total energy if the move is accepted; std::nullopt otherwise.
  */
-std::pair<std::optional<RunningEnergy>, double3> NonEqCBMC(RandomNumber& random, System& system,
-                                                           std::size_t selectedComponent);
-}
+std::pair<std::optional<RunningEnergy>, double3> swapNCMC(RandomNumber& random, System& system,
+                                                          std::size_t selectedComponent);
+}  // namespace MC_Moves

@@ -1,29 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <fstream>
-#include <iostream>
-#include <numbers>
-#include <numeric>
-#include <optional>
-#include <string>
-#include <tuple>
-#include <vector>
-#endif
-
 export module property_loading;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import int3;
@@ -104,7 +83,7 @@ export struct PropertyLoading
     return summedBlocks.first / std::max(1.0, summedBlocks.second);;
   }
 
-  std::pair<Loadings, Loadings> averageLoading() const
+  std::pair<Loadings, Loadings> result() const
   {
     Loadings average = averagedLoading();
 

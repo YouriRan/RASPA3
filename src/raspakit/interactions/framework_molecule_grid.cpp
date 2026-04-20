@@ -1,33 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <atomic>
-#include <cmath>
-#include <cstddef>
-#include <deque>
-#include <future>
-#include <iostream>
-#include <limits>
-#include <numbers>
-#include <optional>
-#include <semaphore>
-#include <span>
-#include <thread>
-#include <utility>
-#include <vector>
-#endif
-
 module interactions_framework_molecule_grid;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import double3;
 import double4;
@@ -312,6 +287,8 @@ std::array<double, 8> Interactions::calculateTricubicFractionalAtPosition(
 
               third_derivative_fractional[0][1][2]};
   }
+
+  std::unreachable();
 }
 
 std::tuple<double, std::array<double, 3>, std::array<std::array<double, 3>, 3>,
@@ -841,4 +818,6 @@ std::array<double, 27> Interactions::calculateTriquinticFractionalAtPosition(
 
               sixth_derivative_fractional[0][0][1][1][2][2]};
   };
+
+  std::unreachable();
 }

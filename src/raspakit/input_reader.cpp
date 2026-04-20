@@ -1,37 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <complex>
-#include <cstddef>
-#include <cstdlib>
-#include <exception>
-#include <filesystem>
-#include <fstream>
-#include <functional>
-#include <ios>
-#include <iostream>
-#include <iterator>
-#include <map>
-#include <numbers>
-#include <optional>
-#include <print>
-#include <set>
-#include <sstream>
-#include <streambuf>
-#include <vector>
-#endif
-
 module input_reader;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import int3;
 import stringutils;
@@ -61,12 +32,16 @@ import property_rdf;
 import property_density_grid;
 import property_energy_histogram;
 import property_number_of_molecules_histogram;
+import property_volume_evolution;
+import property_number_of_molecules_evolution;
 import property_msd;
 import property_vacf;
 import property_autocorrelation;
 import property_soap;
 import write_lammps_data;
 import thermostat;
+import cif_reader;
+import move_statistics;
 
 int3 parseInt3(const std::string& item, auto json)
 {
@@ -147,7 +122,7 @@ std::vector<T> parseList(std::size_t size, const std::string& item, auto json)
       std::format("[Input reader (parseList)]: key '{}', value {} should be array of numbers\n", item, json.dump()));
 }
 
-InputReader::InputReader(const std::string inputFile)  // : inputStream(inputFile)
+InputReader::InputReader(const std::string inputFile)
 {
   if (!std::filesystem::exists(inputFile))
   {
@@ -226,93 +201,6 @@ void InputReader::parseFitting([[maybe_unused]] const nlohmann::basic_json<nlohm
 
 void InputReader::parseMixturePrediction([[maybe_unused]] const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {
-}
-
-const int3 InputReader::parseExternalFieldGridDimensions(const std::string& filename)
-{
-  int3 gridDims;
-  double ax, ay, az, bx, by, bz, cx, cy, cz;  // dummy variables currently
-
-  std::ifstream infile(filename);
-
-  if (!infile) {
-      throw std::runtime_error("Cannot open cube file: " + filename);
-  }
-
-  std::string line;
-
-  // skip comment lines
-  std::getline(infile, line);
-  std::getline(infile, line);
-
-  if (!std::getline(infile, line))
-  {
-      throw std::runtime_error("Invalid cube file (missing origin line): " + filename);
-  }
-
-  // read X basis vector coordinates
-  if (!std::getline(infile, line))
-      throw std::runtime_error("Invalid cube file (missing X grid line): " + filename);
-  {
-      std::istringstream iss(line);
-      if (!(iss >> gridDims.x >> ax >> ay >> az))
-          throw std::runtime_error("Invalid X grid line in cube: " + filename);
-  }
-
-  // Y vector
-  if (!std::getline(infile, line))
-      throw std::runtime_error("Invalid cube file (missing Y grid line): " + filename);
-  {
-      std::istringstream iss(line);
-      if (!(iss >> gridDims.y >> bx >> by >> bz))
-          throw std::runtime_error("Invalid Y grid line in cube: " + filename);
-  }
-
-  // Z vector
-  if (!std::getline(infile, line))
-      throw std::runtime_error("Invalid cube file (missing Z grid line): " + filename);
-  {
-      std::istringstream iss(line);
-      if (!(iss >> gridDims.z >> cx >> cy >> cz))
-          throw std::runtime_error("Invalid Z grid line in cube: " + filename);
-  }     
-
-  if (gridDims.x < 0 && gridDims.y < 0 && gridDims.z < 0)
-  {
-    gridDims = {-1 * gridDims.x, -1 * gridDims.y, -1 * gridDims.z};
-  }
-  else
-  {
-    throw std::runtime_error("All grid dimensions in the CUBE file must be only negative or only poisitive, not mixed");
-  }
-
-  return gridDims;
-}
-
-const std::vector<double> InputReader::parseExternalFieldGridCube(const std::string& filename)
-{
-  int3 gridDims = parseExternalFieldGridDimensions(filename);
-
-  std::ifstream infile(filename);
-
-  // skip comments and already read lines
-  std::string line;
-  for (int i = 0; i < 6; ++i) {
-      std::getline(infile, line);
-  }
-
-  std::vector<double> gridFlat(gridDims.x * gridDims.y * gridDims.z);
-  double value{};
-  for (int i = 0; i < gridDims.x * gridDims.y * gridDims.z; i++)
-  {
-    if (!(infile >> value)){
-      throw std::runtime_error("Unexpected end of cube data: " + filename);
-    }
-    // TODO: add options for different input units
-    gridFlat[i] = value * Units::KelvinToEnergy;
-  }
-
-  return gridFlat;
 }
 
 void InputReader::parseBreakthrough(const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
@@ -593,7 +481,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double translationProbability = item["TranslationProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::Translation, translationProbability);
+          move_probabilities[i].setProbability(Move::Types::Translation, translationProbability);
         }
       }
 
@@ -602,7 +490,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double randomTranslationProbability = item["RandomTranslationProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::RandomTranslation, randomTranslationProbability);
+          move_probabilities[i].setProbability(Move::Types::RandomTranslation, randomTranslationProbability);
         }
       }
 
@@ -611,7 +499,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double rotationProbability = item["RotationProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::Rotation, rotationProbability);
+          move_probabilities[i].setProbability(Move::Types::Rotation, rotationProbability);
         }
       }
 
@@ -620,7 +508,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double randomRotationProbability = item["RandomRotationProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::RandomRotation, randomRotationProbability);
+          move_probabilities[i].setProbability(Move::Types::RandomRotation, randomRotationProbability);
         }
       }
 
@@ -629,7 +517,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double reinsertionCBMCProbability = item["ReinsertionProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::ReinsertionCBMC, reinsertionCBMCProbability);
+          move_probabilities[i].setProbability(Move::Types::ReinsertionCBMC, reinsertionCBMCProbability);
         }
       }
 
@@ -638,7 +526,8 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double partial_reinsertion_CBMC_probability = item["PartialReinsertionProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::PartialReinsertionCBMC, partial_reinsertion_CBMC_probability);
+          move_probabilities[i].setProbability(Move::Types::PartialReinsertionCBMC,
+                                               partial_reinsertion_CBMC_probability);
         }
       }
 
@@ -647,7 +536,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double swapProbability = item["SwapConventionalProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::Swap, swapProbability);
+          move_probabilities[i].setProbability(Move::Types::Swap, swapProbability);
         }
       }
 
@@ -656,7 +545,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double swapCBMCProbability = item["SwapProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::SwapCBMC, swapCBMCProbability);
+          move_probabilities[i].setProbability(Move::Types::SwapCBMC, swapCBMCProbability);
         }
       }
 
@@ -665,7 +554,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double swapCFCMCProbability = item["CFCMC_SwapProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::SwapCFCMC, swapCFCMCProbability);
+          move_probabilities[i].setProbability(Move::Types::SwapCFCMC, swapCFCMCProbability);
         }
       }
 
@@ -674,7 +563,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double swapCBCFCMCProbability = item["CFCMC_CBMC_SwapProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::SwapCBCFCMC, swapCBCFCMCProbability);
+          move_probabilities[i].setProbability(Move::Types::SwapCBCFCMC, swapCBCFCMCProbability);
         }
       }
 
@@ -683,7 +572,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double gibbsSwapCFCMCProbability = item["Gibbs_CFCMC_SwapProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::GibbsSwapCFCMC, gibbsSwapCFCMCProbability);
+          move_probabilities[i].setProbability(Move::Types::GibbsSwapCFCMC, gibbsSwapCFCMCProbability);
         }
       }
 
@@ -692,7 +581,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double gibbsSwapCBMCProbability = item["GibbsSwapProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::GibbsSwapCBMC, gibbsSwapCBMCProbability);
+          move_probabilities[i].setProbability(Move::Types::GibbsSwapCBMC, gibbsSwapCBMCProbability);
         }
       }
 
@@ -701,7 +590,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double widomProbability = item["WidomProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::Widom, widomProbability);
+          move_probabilities[i].setProbability(Move::Types::Widom, widomProbability);
         }
       }
 
@@ -710,7 +599,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double widomCFCMCProbability = item["CFCMC_WidomProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::WidomCFCMC, widomCFCMCProbability);
+          move_probabilities[i].setProbability(Move::Types::WidomCFCMC, widomCFCMCProbability);
         }
       }
 
@@ -719,7 +608,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double widomCBCFCMCProbability = item["CFCMC_CBMC_WidomProbability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::WidomCBCFCMC, widomCBCFCMCProbability);
+          move_probabilities[i].setProbability(Move::Types::WidomCBCFCMC, widomCBCFCMCProbability);
         }
       }
 
@@ -728,7 +617,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double nonEqCBMC_Probability = item["NonEqCBMC_Probability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::SwapNonEqCBMC, nonEqCBMC_Probability);
+          move_probabilities[i].setProbability(Move::Types::SwapNonEqCBMC, nonEqCBMC_Probability);
         }
       }
 
@@ -737,7 +626,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         double nonEqCFCMC_Probability = item["NonEqCFCMC_Probability"].get<double>();
         for (std::size_t i = 0; i < move_probabilities.size(); ++i)
         {
-          move_probabilities[i].setProbability(MoveTypes::SwapNCMC, nonEqCFCMC_Probability);
+          move_probabilities[i].setProbability(Move::Types::SwapNCMC, nonEqCFCMC_Probability);
         }
       }
 
@@ -1028,50 +917,50 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         }
       }
 
-      Framework::UseChargesFrom useChargesFrom{Framework::UseChargesFrom::PseudoAtoms};
+      CIFReader::UseChargesFrom useChargesFrom{CIFReader::UseChargesFrom::PseudoAtoms};
       if (value.contains("UseChargesFrom") && value["UseChargesFrom"].is_string())
       {
         std::string useChargesFromString = value["UseChargesFrom"].get<std::string>();
 
         if (caseInSensStringCompare(useChargesFromString, "PsuedoAtoms"))
         {
-          useChargesFrom = Framework::UseChargesFrom::PseudoAtoms;
+          useChargesFrom = CIFReader::UseChargesFrom::PseudoAtoms;
         }
         if (caseInSensStringCompare(useChargesFromString, "CIF_File"))
         {
-          useChargesFrom = Framework::UseChargesFrom::CIF_File;
+          useChargesFrom = CIFReader::UseChargesFrom::CIF_File;
         }
         if (caseInSensStringCompare(useChargesFromString, "ChargeEquilibration"))
         {
-          useChargesFrom = Framework::UseChargesFrom::ChargeEquilibration;
+          useChargesFrom = CIFReader::UseChargesFrom::ChargeEquilibration;
         }
       }
 
       if (value.contains("VolumeMoveProbability") && value["VolumeMoveProbability"].is_number_float())
       {
-        mc_moves_probabilities.setProbability(MoveTypes::VolumeChange, value["VolumeMoveProbability"].get<double>());
+        mc_moves_probabilities.setProbability(Move::Types::VolumeChange, value["VolumeMoveProbability"].get<double>());
       }
 
       if (value.contains("GibbsVolumeMoveProbability") && value["GibbsVolumeMoveProbability"].is_number_float())
       {
-        mc_moves_probabilities.setProbability(MoveTypes::GibbsVolume,
+        mc_moves_probabilities.setProbability(Move::Types::GibbsVolume,
                                               value["GibbsVolumeMoveProbability"].get<double>());
       }
 
       if (value.contains("ParallelTemperingSwapProbability") &&
           value["ParallelTemperingSwapProbability"].is_number_float())
       {
-        mc_moves_probabilities.setProbability(MoveTypes::ParallelTempering,
+        mc_moves_probabilities.setProbability(Move::Types::ParallelTempering,
                                               value["ParallelTemperingSwapProbability"].get<double>());
       }
       if (value.contains("HybridMCProbability") && value["HybridMCProbability"].is_number_float())
       {
-        mc_moves_probabilities.setProbability(MoveTypes::HybridMC, value["HybridMCProbability"].get<double>());
+        mc_moves_probabilities.setProbability(Move::Types::HybridMC, value["HybridMCProbability"].get<double>());
       }
 
       if (value.contains("VolumeNCMCProbability") && value["VolumeNCMCProbability"].is_number_float())
       {
-        mc_moves_probabilities.setProbability(MoveTypes::VolumeNCMC, value["VolumeNCMCProbability"].get<double>());
+        mc_moves_probabilities.setProbability(Move::Types::VolumeNCMC, value["VolumeNCMCProbability"].get<double>());
       }
 
       if (!value.contains("Type"))
@@ -1101,6 +990,12 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
       if (value.contains("ChemicalPotential"))
       {
         P = std::exp(value["ChemicalPotential"].get<double>() / (Units::KB * T));
+      }
+
+      bool hasExternalField = false;
+      if (value.contains("ExternalField") && value["ExternalField"].is_boolean())
+      {
+        hasExternalField = value["ExternalField"].get<bool>();
       }
 
       std::optional<SimulationBox> restart_simulation_box{};
@@ -1174,15 +1069,34 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           throw std::runtime_error(std::format("[Input reader]: No forcefield specified or found'\n"));
         }
 
-        std::optional<Framework> jsonFrameworkComponents{Framework(0, forceFields[systemId].value(),
-                                                                   frameworkNameString, frameworkNameString,
-                                                                   jsonNumberOfUnitCells, useChargesFrom)};
+        const std::string file_content = readFileContent(frameworkNameString, ".cif");
 
-        // create system
-        systems[systemId] =
-            System(systemId, forceFields[systemId].value(), std::nullopt, T, P, heliumVoidFraction,
-                   jsonFrameworkComponents, jsonComponents[systemId], jsonRestartFilePositions[systemId],
-                   jsonCreateNumberOfMolecules[systemId], jsonNumberOfBlocks, mc_moves_probabilities);
+        if (const auto cif = CIFReader::readCIFString(file_content, forceFields[systemId].value(), useChargesFrom);
+            cif.has_value())
+        {
+          auto [simulation_box, space_group_hall_symbol, defined_atoms, fractional_atoms_unit_cell] = cif.value();
+          Framework framework =
+              Framework(0, forceFields[systemId].value(), frameworkNameString, simulation_box, space_group_hall_symbol,
+                        defined_atoms, fractional_atoms_unit_cell, jsonNumberOfUnitCells);
+
+          std::optional<Framework> jsonFrameworkComponents{framework};
+
+          // create system
+          systems[systemId] =
+              System(systemId, forceFields[systemId].value(), std::nullopt, hasExternalField, T, P, heliumVoidFraction,
+                     jsonFrameworkComponents, jsonComponents[systemId], jsonRestartFilePositions[systemId],
+                     jsonCreateNumberOfMolecules[systemId], jsonNumberOfBlocks, mc_moves_probabilities);
+        }
+        else if (cif.error() == CIFReader::ParseError::invalidInput)
+        {
+          std::print("Invalid input\n");
+          std::exit(-1);
+        }
+        else if (cif.error() == CIFReader::ParseError::invalidForceField)
+        {
+          std::print("not all atoms defined in CIF-file\n");
+          std::exit(-1);
+        }
       }
       else if (caseInSensStringCompare(typeString, "Box"))
       {
@@ -1200,7 +1114,6 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         }
         boxAngles = boxAngles * (std::numbers::pi / 180.0);
 
-        // create system
         if (!forceFields[systemId].has_value())
         {
           throw std::runtime_error(std::format("[Input reader]: No forcefield specified or found'\n"));
@@ -1212,8 +1125,8 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           simulationBox = restart_simulation_box.value();
         }
 
-        systems[systemId] = System(systemId, forceFields[systemId].value(), simulationBox, T, P, 1.0, {},
-                                   jsonComponents[systemId], jsonRestartFilePositions[systemId],
+        systems[systemId] = System(systemId, forceFields[systemId].value(), simulationBox, hasExternalField, T, P, 1.0,
+                                   {}, jsonComponents[systemId], jsonRestartFilePositions[systemId],
                                    jsonCreateNumberOfMolecules[systemId], jsonNumberOfBlocks, mc_moves_probabilities);
       }
       else
@@ -1237,11 +1150,6 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
           value["MacroStateMaximumNumberOfMolecules"].is_number_unsigned())
       {
         systems[systemId].tmmc.maxMacrostate = value["MacroStateMaximumNumberOfMolecules"].get<std::size_t>();
-      }
-
-      if (value.contains("ExternalField") && value["ExternalField"].is_boolean())
-      {
-        systems[systemId].hasExternalField = value["ExternalField"].get<bool>();
       }
 
       if (value.contains("ComputeEnergyHistogram") && value["ComputeEnergyHistogram"].is_boolean())
@@ -1322,6 +1230,55 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
               jsonNumberOfBlocks, {minimumRangeNumberOfMoleculesHistogram, maximumRangeNumberOfMoleculesHistogram},
               systems[systemId].components.size(), sampleNumberOfMoleculesHistogramEvery,
               writeNumberOfMoleculesHistogramEvery);
+        }
+      }
+
+      if (value.contains("ComputeNumberOfMoleculesEvolution") &&
+          value["ComputeNumberOfMoleculesEvolution"].is_boolean())
+      {
+        if (value["ComputeNumberOfMoleculesEvolution"].get<bool>())
+        {
+          std::size_t sample_number_of_molecules_every{1};
+          if (value.contains("SampleNumberOfMoleculesEvolutionEvery") &&
+              value["SampleNumberOfMoleculesEvolutionEvery"].is_number_unsigned())
+          {
+            sample_number_of_molecules_every = value["SampleNumberOfMoleculesEvolutionEvery"].get<std::size_t>();
+          }
+
+          std::size_t write_number_of_molecules_evolution_every{5000};
+          if (value.contains("WriteNumberOfMoleculesEvolutionEvery") &&
+              value["WriteNumberOfMoleculesEvolutionEvery"].is_number_unsigned())
+          {
+            write_number_of_molecules_evolution_every =
+                value["WriteNumberOfMoleculesEvolutionEvery"].get<std::size_t>();
+          }
+
+          systems[systemId].propertyNumberOfMoleculesEvolution = PropertyNumberOfMoleculesEvolution(
+              numberOfCycles + numberOfInitializationCycles + numberOfEquilibrationCycles,
+              systems[systemId].components.size(), sample_number_of_molecules_every,
+              write_number_of_molecules_evolution_every);
+        }
+      }
+
+      if (value.contains("ComputeVolumeEvolution") && value["ComputeVolumeEvolution"].is_boolean())
+      {
+        if (value["ComputeVolumeEvolution"].get<bool>())
+        {
+          std::size_t sample_volume_evolution_every{1};
+          if (value.contains("SampleVolumeEvolutionEvery") && value["SampleVolumeEvolutionEvery"].is_number_unsigned())
+          {
+            sample_volume_evolution_every = value["SampleVolumeEvolutionEvery"].get<std::size_t>();
+          }
+
+          std::size_t write_volume_evolution_every{5000};
+          if (value.contains("writeVolumeEvolutionEvery") && value["writeVolumeEvolutionEvery"].is_number_unsigned())
+          {
+            write_volume_evolution_every = value["writeVolumeEvolutionEvery"].get<std::size_t>();
+          }
+
+          systems[systemId].propertyVolumeEvolution =
+              PropertyVolumeEvolution(numberOfCycles + numberOfInitializationCycles + numberOfEquilibrationCycles,
+                                      sample_volume_evolution_every, write_volume_evolution_every);
         }
       }
 
@@ -1503,9 +1460,28 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
             }
           }
 
+          PropertyDensityGrid::Binning binning = PropertyDensityGrid::Binning::Standard;
+          if (value.contains("DensityGridBinning") && value["DensityGridBinning"].is_string())
+          {
+            std::string binningString = value["DensityGridBinning"].get<std::string>();
+            if (caseInSensStringCompare(binningString, "Equitable"))
+            {
+              binning = PropertyDensityGrid::Binning::Equitable;
+            }
+            else if (caseInSensStringCompare(binningString, "Standard"))
+            {
+              binning = PropertyDensityGrid::Binning::Standard;
+            }
+            else
+            {
+              throw std::runtime_error(
+                  std::format("Error: DensityGridBinning must be 'Standard' or 'Equitable', got '{}'", binningString));
+            }
+          }
+
           systems[systemId].propertyDensityGrid = PropertyDensityGrid(
               systems[systemId].framework ? 1 : 0, systems[systemId].components.size(), densityGridSize,
-              sampleDensityGridEvery, writeDensityGridEvery, densityGridPseudoAtomsList, norm);
+              sampleDensityGridEvery, writeDensityGridEvery, densityGridPseudoAtomsList, norm, binning);
         }
       }
 
@@ -1640,18 +1616,28 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
             sampleMovieEvery = value["SampleMovieEvery"].get<std::size_t>();
           }
 
-          systems[systemId].samplePDBMovie = SampleMovie(systemId, sampleMovieEvery);
+          bool restrict_to_box{true};
+          if (value.contains("RestrictMoviePositionsToBox") && value["RestrictMoviePositionsToBox"].is_boolean())
+          {
+            restrict_to_box = value["RestrictMoviePositionsToBox"].get<bool>();
+          }
+
+          systems[systemId].samplePDBMovie = SampleMovie(systemId, sampleMovieEvery, restrict_to_box);
         }
       }
 
       if (value.contains("VolumeMaxChange") && value["VolumeMaxChange"].is_number_float())
       {
-        systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::VolumeChange,
+        systems[systemId].mc_moves_statistics.setMaxChange(Move::Types::VolumeChange,
                                                            value["VolumeMaxChange"].get<double>());
-        systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::VolumeNCMC,
+        systems[systemId].mc_moves_statistics.setMaxChange(Move::Types::VolumeNCMC,
                                                            value["VolumeMaxChange"].get<double>());
-        systems[systemId].mc_moves_statistics.statsMapDouble[MoveTypes::VolumeChange].optimize = false;
-        systems[systemId].mc_moves_statistics.statsMapDouble[MoveTypes::VolumeNCMC].optimize = false;
+        std::get<MoveStatistics<double>>(
+            systems[systemId].mc_moves_statistics.stats[std::to_underlying(Move::Types::VolumeChange)])
+            .optimize = false;
+        std::get<MoveStatistics<double3>>(
+            systems[systemId].mc_moves_statistics.stats[std::to_underlying(Move::Types::VolumeNCMC)])
+            .optimize = false;
       }
       if (value.contains("WriteLammpsData") && value["WriteLammpsData"].is_boolean())
       {
@@ -1690,7 +1676,7 @@ void InputReader::parseMolecularSimulations(const nlohmann::basic_json<nlohmann:
         systems[systemId].numberOfHybridMCSteps = value["HybridMCMoveNumberOfSteps"].get<std::size_t>();
         if (value.contains("TimeStep") && value["TimeStep"].is_number_float())
         {
-          systems[systemId].mc_moves_statistics.setMaxChange(MoveTypes::HybridMC, value["Timestep"].get<double>());
+          systems[systemId].mc_moves_statistics.setMaxChange(Move::Types::HybridMC, value["Timestep"].get<double>());
         }
       }
 
@@ -1943,6 +1929,12 @@ const std::set<std::string, InputReader::InsensitiveCompare> InputReader::system
     "SoapPowerSpectrumNumberOfRadialBasisFunctions",
     "SoapPowerSpectrumNumberOfAngularBasisFunctions",
     "SoapPowerSpectrumWriteOutputEvery",
+    "DensityGridBinning",
+    "OutputPDBMovie",
+    "SampleMovieEvery",
+    "RestrictMoviePositionsToBox",
+    "ComputeNumberOfMoleculesEvolution",
+    "ComputeVolumeEvolution",
     "WriteLammpsData",
     "WriteLammpsDataEvery",
     "Ensemble",

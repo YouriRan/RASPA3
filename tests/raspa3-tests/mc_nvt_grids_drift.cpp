@@ -1,27 +1,11 @@
-#ifdef USE_LEGACY_HEADERS
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <complex>
-#include <cstddef>
-#include <iostream>
-#include <optional>
-#include <ranges>
-#include <span>
-#include <tuple>
-#include <vector>
-#endif
-
-#ifdef USE_STD_IMPORT
-#include <gtest/gtest.h>
 import std;
-#endif
 
 import int3;
 import double3;
 import double3x3;
 import randomnumbers;
-import factory;
 import units;
 import atom;
 import pseudo_atom;
@@ -40,13 +24,13 @@ import mc_moves_move_types;
 
 TEST(MC_NVT_GRIDS_DRIFT, translation)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities = MCMoveProbabilities();
-  probabilities.setProbability(MoveTypes::Translation, 1.0);
+  probabilities.setProbability(Move::Types::Translation, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -67,7 +51,8 @@ TEST(MC_NVT_GRIDS_DRIFT, translation)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -80,15 +65,13 @@ TEST(MC_NVT_GRIDS_DRIFT, translation)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -115,13 +98,13 @@ TEST(MC_NVT_GRIDS_DRIFT, translation)
 
 TEST(MC_NVT_GRIDS_DRIFT, random_translation)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities = MCMoveProbabilities();
-  probabilities.setProbability(MoveTypes::RandomTranslation, 1.0);
+  probabilities.setProbability(Move::Types::RandomTranslation, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -142,7 +125,8 @@ TEST(MC_NVT_GRIDS_DRIFT, random_translation)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -155,15 +139,13 @@ TEST(MC_NVT_GRIDS_DRIFT, random_translation)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -190,13 +172,13 @@ TEST(MC_NVT_GRIDS_DRIFT, random_translation)
 
 TEST(MC_NVT_GRIDS_DRIFT, rotation)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities = MCMoveProbabilities();
-  probabilities.setProbability(MoveTypes::Rotation, 1.0);
+  probabilities.setProbability(Move::Types::Rotation, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -217,7 +199,8 @@ TEST(MC_NVT_GRIDS_DRIFT, rotation)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -230,15 +213,13 @@ TEST(MC_NVT_GRIDS_DRIFT, rotation)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -265,13 +246,13 @@ TEST(MC_NVT_GRIDS_DRIFT, rotation)
 
 TEST(MC_NVT_GRIDS_DRIFT, random_rotation)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities = MCMoveProbabilities();
-  probabilities.setProbability(MoveTypes::RandomRotation, 1.0);
+  probabilities.setProbability(Move::Types::RandomRotation, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -292,7 +273,8 @@ TEST(MC_NVT_GRIDS_DRIFT, random_rotation)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -305,15 +287,13 @@ TEST(MC_NVT_GRIDS_DRIFT, random_rotation)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -340,13 +320,13 @@ TEST(MC_NVT_GRIDS_DRIFT, random_rotation)
 
 TEST(MC_NVT_GRIDS_DRIFT, reinsertion)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities = MCMoveProbabilities();
-  probabilities.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -367,7 +347,8 @@ TEST(MC_NVT_GRIDS_DRIFT, reinsertion)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{250};
@@ -380,15 +361,13 @@ TEST(MC_NVT_GRIDS_DRIFT, reinsertion)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -415,15 +394,15 @@ TEST(MC_NVT_GRIDS_DRIFT, reinsertion)
 
 TEST(MC_NVT_GRIDS_DRIFT, translation_rotation_reinsertion)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities = MCMoveProbabilities();
-  probabilities.setProbability(MoveTypes::Translation, 1.0);
-  probabilities.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities.setProbability(Move::Types::Translation, 1.0);
+  probabilities.setProbability(Move::Types::Rotation, 1.0);
+  probabilities.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -444,7 +423,8 @@ TEST(MC_NVT_GRIDS_DRIFT, translation_rotation_reinsertion)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{250};
@@ -457,15 +437,13 @@ TEST(MC_NVT_GRIDS_DRIFT, translation_rotation_reinsertion)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -492,15 +470,15 @@ TEST(MC_NVT_GRIDS_DRIFT, translation_rotation_reinsertion)
 
 TEST(MC_NVT_GRIDS_DRIFT, random_translation_random_rotation_reinsertion)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities = MCMoveProbabilities();
-  probabilities.setProbability(MoveTypes::RandomTranslation, 1.0);
-  probabilities.setProbability(MoveTypes::RandomRotation, 1.0);
-  probabilities.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities.setProbability(Move::Types::RandomTranslation, 1.0);
+  probabilities.setProbability(Move::Types::RandomRotation, 1.0);
+  probabilities.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -521,7 +499,8 @@ TEST(MC_NVT_GRIDS_DRIFT, random_translation_random_rotation_reinsertion)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e4, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{250};
@@ -534,15 +513,13 @@ TEST(MC_NVT_GRIDS_DRIFT, random_translation_random_rotation_reinsertion)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;

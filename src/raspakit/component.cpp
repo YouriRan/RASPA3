@@ -1,45 +1,12 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <complex>
-#include <cstddef>
-#include <cstdlib>
-#include <exception>
-#include <filesystem>
-#include <fstream>
-#include <functional>
-#include <iostream>
-#include <iterator>
-#include <unordered_map>
-#include <numeric>
-#include <optional>
-#include <ostream>
-#include <print>
-#include <source_location>
-#include <span>
-#include <sstream>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#endif
-
 #if !defined(_WIN32)
 #include <assert.h>
 #endif
 
 module component;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import int3;
 import simd_quatd;
@@ -91,10 +58,10 @@ import json;
 Component::Component() {}
 
 // create Component in 'inputreader.cpp'
-Component::Component(Component::Type type, std::size_t currentComponent, const ForceField &forceField,
-                     const std::string &componentName, std::optional<const std::string> fileName,
+Component::Component(Component::Type type, std::size_t currentComponent, const ForceField& forceField,
+                     const std::string& componentName, std::optional<const std::string> fileName,
                      std::size_t numberOfBlocks, std::size_t numberOfLambdaBins,
-                     const MCMoveProbabilities &particleProbabilities, std::optional<double> fugacityCoefficient,
+                     const MCMoveProbabilities& particleProbabilities, std::optional<double> fugacityCoefficient,
                      bool thermodynamicIntegration) noexcept(false)
     : type(type),
       componentId(currentComponent),
@@ -116,11 +83,12 @@ Component::Component(Component::Type type, std::size_t currentComponent, const F
 }
 
 // create programmatically an 'adsorbate' component
-Component::Component(std::size_t componentId, const ForceField &forceField, std::string componentName, double T_c,
-                     double P_c, double w, std::vector<Atom> atomList, const ConnectivityTable &connectivityTable,
-                     const Potentials::IntraMolecularPotentials &intraMolecularPotentials, std::size_t numberOfBlocks,
-                     std::size_t numberOfLambdaBins, const MCMoveProbabilities &particleProbabilities,
-                     std::optional<double> fugacityCoefficient, bool thermodynamicIntegration) noexcept(false)
+Component::Component(std::size_t componentId, const ForceField& forceField, std::string componentName, double T_c,
+                     double P_c, double w, std::vector<Atom> atomList, const ConnectivityTable& connectivityTable,
+                     const Potentials::IntraMolecularPotentials& intraMolecularPotentials, std::size_t numberOfBlocks,
+                     std::size_t numberOfLambdaBins, const MCMoveProbabilities& particleProbabilities,
+                     std::optional<double> fugacityCoefficient, bool thermodynamicIntegration,
+                     std::vector<double4> blockingPockets) noexcept(false)
     : type(Type::Adsorbate),
       componentId(componentId),
       name(componentName),
@@ -134,11 +102,12 @@ Component::Component(std::size_t componentId, const ForceField &forceField, std:
       lambdaGibbs(numberOfBlocks, numberOfLambdaBins),
       mc_moves_probabilities(particleProbabilities),
       cbmc_moves_statistics(atomList.size()),
-      averageRosenbluthWeights(numberOfBlocks)
+      averageRosenbluthWeights(numberOfBlocks),
+      blockingPockets(blockingPockets)
 {
   totalMass = 0.0;
   netCharge = 0.0;
-  for (const Atom &atom : atomList)
+  for (const Atom& atom : atomList)
   {
     std::size_t atomType = static_cast<std::size_t>(atom.type);
     double mass = forceField.pseudoAtoms[atomType].mass;
@@ -158,14 +127,14 @@ Component::Component(std::size_t componentId, const ForceField &forceField, std:
 }
 
 // read the component from the molecule-file
-void Component::readComponent(const ForceField &forceField, const std::string &fileName)
+void Component::readComponent(const ForceField& forceField, const std::string& fileName)
 {
   const std::string defaultMoleculeFileName = addExtension(fileName, ".json");
 
   std::string moleculeFileName = defaultMoleculeFileName;
   if (!std::filesystem::exists(std::filesystem::path{moleculeFileName}))
   {
-    const char *env_p = std::getenv("RASPA_DIR");
+    const char* env_p = std::getenv("RASPA_DIR");
     if (env_p)
     {
       moleculeFileName = env_p + std::string("/") + defaultMoleculeFileName;
@@ -191,7 +160,7 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
   {
     parsed_data = nlohmann::json::parse(moleculeStream);
   }
-  catch (nlohmann::json::parse_error &ex)
+  catch (nlohmann::json::parse_error& ex)
   {
     throw std::runtime_error(std::format("[Component reader]: Parse error of file {} at byte {}\n{}\n",
                                          std::format("{}.json", fileName), ex.byte, ex.what()));
@@ -201,7 +170,7 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
   {
     criticalTemperature = parsed_data.value("CriticalTemperature", 0.0);
   }
-  catch (nlohmann::json::exception &ex)
+  catch (nlohmann::json::exception& ex)
   {
     throw std::runtime_error(
         std::format("[Component reader]: item 'CriticalTemperature' listed as {} must be floating point number\n{}\n",
@@ -212,7 +181,7 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
   {
     criticalPressure = parsed_data.value("CriticalPressure", 0.0);
   }
-  catch (nlohmann::json::exception &ex)
+  catch (nlohmann::json::exception& ex)
   {
     throw std::runtime_error(
         std::format("[Component reader]: item 'CriticalPressure' listed as {} must be floating point number\n{}\n",
@@ -223,14 +192,14 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
   {
     acentricFactor = parsed_data.value("AcentricFactor", 0.0);
   }
-  catch (nlohmann::json::exception &ex)
+  catch (nlohmann::json::exception& ex)
   {
     throw std::runtime_error(
         std::format("[Component reader]: item 'AcentricFactor' listed as {} must be floating point number\n{}\n",
                     parsed_data["AcentricFactor"].dump(), ex.what()));
   }
 
-  for (auto &[_, item] : parsed_data["BlockingPockets"].items())
+  for (auto& [_, item] : parsed_data["BlockingPockets"].items())
   {
     if (!item.is_array())
     {
@@ -265,7 +234,7 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
         std::format("[Component reader]: No pseudo-atoms found [keyword 'PseudoAtoms' missing]\n"));
   }
 
-  for (auto &[_, item] : parsed_data["PseudoAtoms"].items())
+  for (auto& [_, item] : parsed_data["PseudoAtoms"].items())
   {
     if (!item.is_array())
     {
@@ -316,7 +285,7 @@ void Component::readComponent(const ForceField &forceField, const std::string &f
     {
       position = item[1].is_array() ? item[1].get<std::vector<double>>() : std::vector<double>{};
     }
-    catch (nlohmann::json::exception &ex)
+    catch (nlohmann::json::exception& ex)
     {
       throw std::runtime_error(
           std::format("[Component reader]: item {} must be array of three floating point numbers \n{}\n",
@@ -395,7 +364,7 @@ void Component::computeRigidProperties()
 {
   double3 com{};
   double total_mass{};
-  for (auto &[atom, mass] : definedAtoms)
+  for (auto& [atom, mass] : definedAtoms)
   {
     com += mass * atom.position;
     total_mass += mass;
@@ -403,7 +372,7 @@ void Component::computeRigidProperties()
   com = com / total_mass;
 
   double3x3 inertiaTensor{};
-  for (auto &[atom, mass] : definedAtoms)
+  for (auto& [atom, mass] : definedAtoms)
   {
     double3 dr = atom.position - com;
     inertiaTensor.ax += mass * dr.x * dr.x;
@@ -447,7 +416,7 @@ void Component::computeRigidProperties()
   {
     if (inertiaVector.y >= rot_xyz)
     {
-      for (auto &atom : atoms)
+      for (auto& atom : atoms)
       {
         double temp = atom.position.x;
         atom.position.x = atom.position.y;
@@ -458,7 +427,7 @@ void Component::computeRigidProperties()
     }
     else if (inertiaVector.z >= rot_xyz)
     {
-      for (auto &atom : atoms)
+      for (auto& atom : atoms)
       {
         double temp = atom.position.x;
         atom.position.x = atom.position.z;
@@ -470,7 +439,7 @@ void Component::computeRigidProperties()
   }
   if (inertiaVector.z > inertiaVector.y)
   {
-    for (auto &atom : atoms)
+    for (auto& atom : atoms)
     {
       double temp = atom.position.y;
       atom.position.y = atom.position.z;
@@ -496,7 +465,7 @@ void Component::computeRigidProperties()
   if (inertiaVector.y / rotall < 1.0e-5) ++index;
   if (inertiaVector.z / rotall < 1.0e-5) ++index;
 
-  if(rigid)
+  if (rigid)
   {
     translationalDegreesOfFreedom = 3;
     rotationalDegreesOfFreedom = 3;
@@ -514,7 +483,7 @@ void Component::computeRigidProperties()
   }
 }
 
-std::vector<Atom> Component::rotatePositions(const simd_quatd &q) const
+std::vector<Atom> Component::rotatePositions(const simd_quatd& q) const
 {
   double3x3 rotationMatrix = double3x3::buildRotationMatrixInverse(q);
   std::vector<Atom> rotatedAtoms{};
@@ -536,7 +505,7 @@ double3 Component::computeCenterOfMass(std::span<Atom> atom_list) const
   }
   double3 com{};
   double total_mass{};
-  for (const auto &[atom, mass] : a)
+  for (const auto& [atom, mass] : a)
   {
     com += mass * atom.position;
     total_mass += mass;
@@ -544,7 +513,7 @@ double3 Component::computeCenterOfMass(std::span<Atom> atom_list) const
   return com / total_mass;
 }
 
-std::string Component::printStatus(const ForceField &forceField, double inputPressure) const
+std::string Component::printStatus(const ForceField& forceField, double inputPressure) const
 {
   std::ostringstream stream;
 
@@ -608,11 +577,11 @@ std::string Component::printStatus(const ForceField &forceField, double inputPre
   std::print(stream, "    Net-charge:      {:12.8f} [e]\n", netCharge);
   std::print(stream, "\n");
 
-  const std::unordered_map<MoveTypes, double> normalizedProbabilities = mc_moves_probabilities.normalizedMap();
+  const std::vector<double> normalizedProbabilities = mc_moves_probabilities.normalizedMap();
   std::print(stream, "    Move probabilities:\n");
-  for (auto &[moveType, probability] : normalizedProbabilities)
+  for (std::size_t i = 0; i < normalizedProbabilities.size(); ++i)
   {
-    std::print(stream, "    {:<30} {:8.6f} [-]\n", moveNames[moveType] + ":", probability);
+    std::print(stream, "    {:<30} {:8.6f} [-]\n", Move::moveNames[i] + ":", normalizedProbabilities[i]);
   }
   std::print(stream, "\n");
 
@@ -792,7 +761,10 @@ std::string Component::printStatus(const ForceField &forceField, double inputPre
       std::print(stream, "    number of partial-reinsertion moves: {}\n", partialReinsertionFixedAtoms.size());
       for (std::size_t i = 0; i < partialReinsertionFixedAtoms.size(); ++i)
       {
-        std::print(stream, "        fixed atoms: {}\n", partialReinsertionFixedAtoms[i]);
+        std::stringstream result{};
+        std::copy(partialReinsertionFixedAtoms[i].begin(), partialReinsertionFixedAtoms[i].end(),
+                  std::ostream_iterator<std::size_t>(result, " "));
+        std::print(stream, "        fixed atoms: {}\n", result.str());
       }
       std::print(stream, "\n");
     }
@@ -839,12 +811,8 @@ nlohmann::json Component::jsonStatus() const
   }
 
   nlohmann::json moves;
-  std::unordered_map<MoveTypes, double> normalizedProbabilities = mc_moves_probabilities.normalizedMap();
-  for (auto &[moveType, probability] : normalizedProbabilities)
-  {
-    moves[moveNames[moveType]] = probability;
-  }
-  status["moveProbabilities"] = moves;
+  std::vector<double> normalizedProbabilities = mc_moves_probabilities.normalizedMap();
+  status["moveProbabilities"] = normalizedProbabilities;
 
   status["n_bonds"] = intraMolecularPotentials.bonds.size();
   std::vector<std::string> bondTypes(intraMolecularPotentials.bonds.size());
@@ -867,7 +835,7 @@ std::vector<Atom> Component::copiedAtoms(std::span<Atom> molecule) const
 }
 
 std::pair<Molecule, std::vector<Atom>> Component::equilibratedMoleculeRandomInBox(
-    RandomNumber &random, const SimulationBox &simulationBox) const
+    RandomNumber& random, const SimulationBox& simulationBox) const
 {
   simd_quatd q = random.randomSimdQuatd();
   double3x3 M = double3x3::buildRotationMatrixInverse(q);
@@ -882,7 +850,7 @@ std::pair<Molecule, std::vector<Atom>> Component::equilibratedMoleculeRandomInBo
   return {{com, q, totalMass, componentId, atoms.size()}, trial_atoms};
 }
 
-std::pair<Molecule, std::vector<Atom>> Component::translate(const Molecule &molecule, std::span<Atom> molecule_atoms,
+std::pair<Molecule, std::vector<Atom>> Component::translate(const Molecule& molecule, std::span<Atom> molecule_atoms,
                                                             double3 displacement) const
 {
   std::vector<Atom> trialAtoms(molecule_atoms.begin(), molecule_atoms.end());
@@ -903,7 +871,7 @@ std::pair<Molecule, std::vector<Atom>> Component::translate(const Molecule &mole
   else
   {
     trialMolecule.centerOfMassPosition += displacement;
-    for (Atom &atom : trialAtoms)
+    for (Atom& atom : trialAtoms)
     {
       atom.position += displacement;
     }
@@ -912,7 +880,7 @@ std::pair<Molecule, std::vector<Atom>> Component::translate(const Molecule &mole
   return {trialMolecule, trialAtoms};
 }
 
-std::pair<Molecule, std::vector<Atom>> Component::rotate(const Molecule &molecule, std::span<Atom> molecule_atoms,
+std::pair<Molecule, std::vector<Atom>> Component::rotate(const Molecule& molecule, std::span<Atom> molecule_atoms,
                                                          simd_quatd rotation) const
 {
   std::vector<Atom> trialAtoms(molecule_atoms.begin(), molecule_atoms.end());
@@ -967,13 +935,13 @@ std::string Component::printBreakthroughStatus() const
 }
 
 ConnectivityTable Component::readConnectivityTable(std::size_t size,
-                                                   const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+                                                   const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {
   ConnectivityTable table(size);
 
   if (parsed_data.contains("Connectivity"))
   {
-    for (auto &[_, item] : parsed_data["Connectivity"].items())
+    for (auto& [_, item] : parsed_data["Connectivity"].items())
     {
       if (!item.is_array())
       {
@@ -993,7 +961,7 @@ ConnectivityTable Component::readConnectivityTable(std::size_t size,
         table[identifiers[0], identifiers[1]] = true;
         table[identifiers[1], identifiers[0]] = true;
       }
-      catch (std::exception const &e)
+      catch (std::exception const& e)
       {
         throw std::runtime_error(std::format("Error in connectivities ({}): {}\n", item.dump(), e.what()));
       }
@@ -1002,8 +970,8 @@ ConnectivityTable Component::readConnectivityTable(std::size_t size,
   return table;
 }
 
-std::vector<BondPotential> Component::readBondPotentials(const ForceField &forceField,
-                                                         const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+std::vector<BondPotential> Component::readBondPotentials(const ForceField& forceField,
+                                                         const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {
   std::vector<BondPotential> bond_potentials{};
 
@@ -1020,7 +988,7 @@ std::vector<BondPotential> Component::readBondPotentials(const ForceField &force
       // only one is allowed (no ambiguities)
       bool bond_identified{false};
 
-      for (auto &[_, item] : parsed_data["Bonds"].items())
+      for (auto& [_, item] : parsed_data["Bonds"].items())
       {
         if (!item.is_array())
         {
@@ -1103,7 +1071,7 @@ std::vector<BondPotential> Component::readBondPotentials(const ForceField &force
             }
           }
         }
-        catch (std::exception const &e)
+        catch (std::exception const& e)
         {
           throw std::runtime_error(std::format("Error in Bond-potential ({}): {}\n", item.dump(), e.what()));
         }
@@ -1120,8 +1088,8 @@ std::vector<BondPotential> Component::readBondPotentials(const ForceField &force
   return bond_potentials;
 }
 
-std::vector<BendPotential> Component::readBendPotentials(const ForceField &forceField,
-                                                         const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+std::vector<BendPotential> Component::readBendPotentials(const ForceField& forceField,
+                                                         const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {
   std::vector<BendPotential> bend_potentials{};
 
@@ -1138,7 +1106,7 @@ std::vector<BendPotential> Component::readBendPotentials(const ForceField &force
       // only one is allowed (no ambiguities)
       bool bend_identified{false};
 
-      for (auto &[_, item] : parsed_data["Bends"].items())
+      for (auto& [_, item] : parsed_data["Bends"].items())
       {
         if (!item.is_array())
         {
@@ -1228,7 +1196,7 @@ std::vector<BendPotential> Component::readBendPotentials(const ForceField &force
             }
           }
         }
-        catch (std::exception const &e)
+        catch (std::exception const& e)
         {
           throw std::runtime_error(std::format("Error in Bend-potential ({}): {}\n", item.dump(), e.what()));
         }
@@ -1246,7 +1214,7 @@ std::vector<BendPotential> Component::readBendPotentials(const ForceField &force
 }
 
 std::vector<TorsionPotential> Component::readTorsionPotentials(
-    const ForceField &forceField, const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+    const ForceField& forceField, const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {
   std::vector<TorsionPotential> torsion_potentials{};
 
@@ -1263,7 +1231,7 @@ std::vector<TorsionPotential> Component::readTorsionPotentials(
       // only one is allowed (no ambiguities)
       bool torsion_identified{false};
 
-      for (auto &[_, item] : parsed_data["Torsions"].items())
+      for (auto& [_, item] : parsed_data["Torsions"].items())
       {
         if (!item.is_array())
         {
@@ -1355,7 +1323,7 @@ std::vector<TorsionPotential> Component::readTorsionPotentials(
             }
           }
         }
-        catch (std::exception const &e)
+        catch (std::exception const& e)
         {
           throw std::runtime_error(std::format("Error in Torsion-potential ({}): {}\n", item.dump(), e.what()));
         }
@@ -1374,29 +1342,29 @@ std::vector<TorsionPotential> Component::readTorsionPotentials(
 }
 
 std::vector<VanDerWaalsPotential> Component::readVanDerWaalsPotentials(
-    const ForceField &forceField, [[maybe_unused]] const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+    const ForceField& forceField, [[maybe_unused]] const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {
   std::vector<VanDerWaalsPotential> van_der_waals_potentials{};
 
   if (parsed_data.contains("Intra14VanDerWaalsScalingValue"))
   {
-    if(parsed_data["Intra14VanDerWaalsScalingValue"].is_number_float())
+    if (parsed_data["Intra14VanDerWaalsScalingValue"].is_number_float())
     {
       double scaling = parsed_data["Intra14VanDerWaalsScalingValue"].get<double>();
 
-      if(scaling > 0.0)
+      if (scaling > 0.0)
       {
         std::vector<std::array<std::size_t, 4>> found_14_van_der_waals = connectivityTable.findAllTorsions();
-        for (std::array<std::size_t, 4> &found_14_van_der_waal : found_14_van_der_waals)
+        for (std::array<std::size_t, 4>& found_14_van_der_waal : found_14_van_der_waals)
         {
           std::size_t A = found_14_van_der_waal[0];
           std::size_t B = found_14_van_der_waal[3];
           std::size_t typeA = static_cast<std::size_t>(atoms[A].type);
           std::size_t typeB = static_cast<std::size_t>(atoms[B].type);
-          
+
           [[maybe_unused]] VDWParameters::Type potentialType = forceField(typeA, typeB).type;
           double4 parameters = forceField(typeA, typeB).parameters;
-          double shift = forceField(typeA, typeB).shift;
+          // double shift = forceField(typeA, typeB).shift;
 
           // FIX: unit conversion
           VanDerWaalsPotential potential = VanDerWaalsPotential(
@@ -1411,7 +1379,7 @@ std::vector<VanDerWaalsPotential> Component::readVanDerWaalsPotentials(
 
   std::vector<std::array<std::size_t, 2>> found_van_der_waals = connectivityTable.findAllVanDerWaals();
 
-  for (std::array<std::size_t, 2> &found_van_der_waal : found_van_der_waals)
+  for (std::array<std::size_t, 2>& found_van_der_waal : found_van_der_waals)
   {
     std::size_t A = found_van_der_waal[0];
     std::size_t B = found_van_der_waal[1];
@@ -1422,9 +1390,9 @@ std::vector<VanDerWaalsPotential> Component::readVanDerWaalsPotentials(
     double4 parameters = forceField(typeA, typeB).parameters;
 
     // FIX: unit conversion
-    VanDerWaalsPotential potential = VanDerWaalsPotential(
-        {A, B}, VanDerWaalsType::LennardJones,
-        {parameters.x * Units::EnergyToKelvin, parameters.y, parameters.z, parameters.w}, 1.0);
+    VanDerWaalsPotential potential =
+        VanDerWaalsPotential({A, B}, VanDerWaalsType::LennardJones,
+                             {parameters.x * Units::EnergyToKelvin, parameters.y, parameters.z, parameters.w}, 1.0);
 
     van_der_waals_potentials.push_back(potential);
   }
@@ -1433,28 +1401,28 @@ std::vector<VanDerWaalsPotential> Component::readVanDerWaalsPotentials(
 }
 
 std::vector<CoulombPotential> Component::readCoulombPotentials(
-    const ForceField &forceField, [[maybe_unused]] const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+    const ForceField& forceField, [[maybe_unused]] const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {
   std::vector<CoulombPotential> coulomb_potentials{};
 
-  if(!forceField.useCharge) return coulomb_potentials;
+  if (!forceField.useCharge) return coulomb_potentials;
 
   if (parsed_data.contains("Intra14ChargeChargeScalingValue"))
   {
-    if(parsed_data["Intra14ChargeChargeScalingValue"].is_number_float())
+    if (parsed_data["Intra14ChargeChargeScalingValue"].is_number_float())
     {
       double scaling = parsed_data["Intra14ChargeChargeScalingValue"].get<double>();
 
-      if(scaling > 0.0)
+      if (scaling > 0.0)
       {
         std::vector<std::array<std::size_t, 4>> found_14_coulombs = connectivityTable.findAllTorsions();
-        for (std::array<std::size_t, 4> &found_14_coulomb : found_14_coulombs)
+        for (std::array<std::size_t, 4>& found_14_coulomb : found_14_coulombs)
         {
           std::size_t A = found_14_coulomb[0];
           std::size_t B = found_14_coulomb[3];
           double chargeA = atoms[A].charge;
           double chargeB = atoms[B].charge;
-          
+
           CoulombPotential potential = CoulombPotential({A, B}, CoulombType::Coulomb, chargeA, chargeB, scaling);
 
           coulomb_potentials.push_back(potential);
@@ -1465,7 +1433,7 @@ std::vector<CoulombPotential> Component::readCoulombPotentials(
 
   std::vector<std::array<std::size_t, 2>> found_coulombs = connectivityTable.findAllVanDerWaals();
 
-  for (std::array<std::size_t, 2> &found_coulomb : found_coulombs)
+  for (std::array<std::size_t, 2>& found_coulomb : found_coulombs)
   {
     std::size_t A = found_coulomb[0];
     std::size_t B = found_coulomb[1];
@@ -1481,7 +1449,7 @@ std::vector<CoulombPotential> Component::readCoulombPotentials(
 }
 
 std::vector<std::vector<std::size_t>> Component::readPartialReinsertionFixedAtoms(
-    const nlohmann::basic_json<nlohmann::raspa_map> &parsed_data)
+    const nlohmann::basic_json<nlohmann::raspa_map>& parsed_data)
 {
   std::vector<std::vector<std::size_t>> config_moves{};
 
@@ -1497,22 +1465,24 @@ std::vector<std::vector<std::size_t>> Component::readPartialReinsertionFixedAtom
     {
       config_moves = parsed_data["Partial-reinsertion"].get<std::vector<std::vector<std::size_t>>>();
     }
-    catch (std::exception const &e)
+    catch (std::exception const& e)
     {
       throw std::runtime_error(std::format("Error in defined partial reinsertion ({}): {}\n", item.dump(), e.what()));
     }
   }
 
-  for (const std::vector<std::size_t> &config_move : config_moves)
+  for (const std::vector<std::size_t>& config_move : config_moves)
   {
     if (!connectivityTable.checkIsConnectedSubgraph(config_move))
     {
+      std::stringstream result{};
+      std::copy(config_move.begin(), config_move.end(), std::ostream_iterator<std::size_t>(result, " "));
       throw std::runtime_error(
-          std::format("Error in defined partial reinsertion ({} is not connected)\n", config_move));
+          std::format("Error in defined partial reinsertion ({} is not connected)\n", result.str()));
     }
   }
 
-  for (const std::vector<std::size_t> &config_move : config_moves)
+  for (const std::vector<std::size_t>& config_move : config_moves)
   {
     std::vector<std::size_t> beads_already_placed = config_move;
 
@@ -1526,10 +1496,13 @@ std::vector<std::vector<std::size_t>> Component::readPartialReinsertionFixedAtom
       }
       else
       {
+        std::stringstream result{};
+        std::copy(config_move.begin(), config_move.end(), std::ostream_iterator<std::size_t>(result, " "));
+
         throw std::runtime_error(
             std::format("Error in defined partial reinsertion\n"
                         "{} does not satisfy requirement that all branches need to be grown at the same time\n",
-                        config_move));
+                        result.str()));
       }
     } while (beads_already_placed.size() < connectivityTable.numberOfBeads);
   }
@@ -1537,7 +1510,7 @@ std::vector<std::vector<std::size_t>> Component::readPartialReinsertionFixedAtom
   return config_moves;
 }
 
-Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Component &c)
+Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const Component& c)
 {
   archive << c.versionNumber;
 
@@ -1621,13 +1594,13 @@ Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const Compon
   return archive;
 }
 
-Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Component &c)
+Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, Component& c)
 {
   std::uint64_t versionNumber;
   archive >> versionNumber;
   if (versionNumber > c.versionNumber)
   {
-    const std::source_location &location = std::source_location::current();
+    const std::source_location& location = std::source_location::current();
     throw std::runtime_error(std::format("Invalid version reading 'Component' at line {} in file {}\n", location.line(),
                                          location.file_name()));
   }
@@ -1718,3 +1691,96 @@ Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, Component &c
 }
 
 std::string Component::repr() const { return std::string("Component test"); }
+
+Component Component::makeMethane(const ForceField& forceField, std::size_t id)
+{
+  std::optional<std::size_t> type_ch4 = forceField.findPseudoAtom("CH4");
+  if (!type_ch4.has_value())
+  {
+    throw std::runtime_error(
+        std::format("[ReadForceFieldSelfInteractions]: unknown pseudo-atom '{}', please define\n", "CH4"));
+  }
+
+  return Component(id, forceField, "methane", 190.564, 45599200, 0.01142,
+                   {Atom({0, 0, 0}, 0.0, 1.0, 0, static_cast<std::uint16_t>(type_ch4.value()),
+                         static_cast<std::uint8_t>(id), false, false)},
+                   {}, {}, 5, 21);
+}
+
+Component Component::makeCO2(const ForceField& forceField, std::size_t id, bool useCharges)
+{
+  const double qC = useCharges ? 0.6512 : 0.0;
+  const double qO = useCharges ? -0.3256 : 0.0;
+
+  std::optional<std::size_t> type_c_co2 = forceField.findPseudoAtom("C_co2");
+  if (!type_c_co2.has_value())
+  {
+    throw std::runtime_error(
+        std::format("[ReadForceFieldSelfInteractions]: unknown pseudo-atom '{}', please define\n", "C_co2"));
+  }
+
+  std::optional<std::size_t> type_o_co2 = forceField.findPseudoAtom("O_co2");
+  if (!type_o_co2.has_value())
+  {
+    throw std::runtime_error(
+        std::format("[ReadForceFieldSelfInteractions]: unknown pseudo-atom '{}', please define\n", "O_co2"));
+  }
+
+  return Component(id, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
+                   {Atom({0, 0, 1.149}, qO, 1.0, 0, static_cast<std::uint16_t>(type_o_co2.value()),
+                         static_cast<std::uint8_t>(id), false, false),
+                    Atom({0, 0, 0.000}, qC, 1.0, 0, static_cast<std::uint16_t>(type_c_co2.value()),
+                         static_cast<std::uint8_t>(id), false, false),
+                    Atom({0, 0, -1.149}, qO, 1.0, 0, static_cast<std::uint16_t>(type_o_co2.value()),
+                         static_cast<std::uint8_t>(id), false, false)},
+                   {}, {}, 5, 21);
+}
+
+Component Component::makeWater(const ForceField& forceField, std::size_t id, bool useCharges)
+{
+  const double qh = useCharges ? 0.241 : 0.0;
+  const double ql = useCharges ? -0.241 : 0.0;
+
+  std::optional<std::size_t> type_ow = forceField.findPseudoAtom("Ow");
+  if (!type_ow.has_value())
+  {
+    throw std::runtime_error(
+        std::format("[ReadForceFieldSelfInteractions]: unknown pseudo-atom '{}', please define\n", "Ow"));
+  }
+
+  std::optional<std::size_t> type_hw = forceField.findPseudoAtom("Hw");
+  if (!type_hw.has_value())
+  {
+    throw std::runtime_error(
+        std::format("[ReadForceFieldSelfInteractions]: unknown pseudo-atom '{}', please define\n", "Hw"));
+  }
+
+  std::optional<std::size_t> type_lw = forceField.findPseudoAtom("Lw");
+  if (!type_lw.has_value())
+  {
+    throw std::runtime_error(
+        std::format("[ReadForceFieldSelfInteractions]: unknown pseudo-atom '{}', please define\n", "Lw"));
+  }
+
+  return Component(id, forceField, "water", 0.0, 0.0, 0.0,
+                   {Atom(double3(0.0, 0.0, 0.0), 0.0, 1.0, 0, static_cast<std::uint16_t>(type_ow.value()),
+                         static_cast<std::uint8_t>(id), false, false),
+                    Atom(double3(-0.75695032726366118157, 0.0, -0.58588227661829499395), qh, 1.0, 0,
+                         static_cast<std::uint16_t>(type_hw.value()), static_cast<std::uint8_t>(id), false, false),
+                    Atom(double3(0.75695032726366118157, 0.0, -0.58588227661829499395), qh, 1.0, 0,
+                         static_cast<std::uint16_t>(type_hw.value()), static_cast<std::uint8_t>(id), false, false),
+                    Atom(double3(0.0, -0.57154330164408200866, 0.40415127656087122858), ql, 1.0, 0,
+                         static_cast<std::uint16_t>(type_lw.value()), static_cast<std::uint8_t>(id), false, false),
+                    Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), ql, 1.0, 0,
+                         static_cast<std::uint16_t>(type_lw.value()), static_cast<std::uint8_t>(id), false, false)},
+                   {}, {}, 5, 21);
+}
+
+Component Component::makeIon(const ForceField& forceField, std::size_t id, std::string_view name, std::size_t type,
+                             double q)
+{
+  return Component(
+      id, forceField, std::string{name}, 0.0, 0.0, 0.0,
+      {Atom({0, 0, 0}, q, 1.0, 0, static_cast<std::uint16_t>(type), static_cast<std::uint8_t>(id), false, false)}, {},
+      {}, 5, 21);
+}

@@ -1,19 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <cstddef>
-#include <vector>
-#endif
-
 export module skrotationalchangeofbasis;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import int3;
 import int3x3;
@@ -38,7 +27,7 @@ export struct SKRotationalChangeOfBasis
 
 export inline SKSeitzIntegerMatrix operator*(const SKRotationalChangeOfBasis& a, const SKSeitzIntegerMatrix& b)
 {
-  SKRotationMatrix rotationMatrix = SKRotationMatrix(a.inverseRotationMatrix * b.rotation * a.rotationMatrix);
+  SKRotationMatrix rotationMatrix = a.inverseRotationMatrix * b.rotation * a.rotationMatrix;
   int3 translationVector = a.inverseRotationMatrix * b.translation;
   return SKSeitzIntegerMatrix(rotationMatrix, translationVector);
 }

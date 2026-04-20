@@ -1,30 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <format>
-#include <fstream>
-#include <istream>
-#include <ostream>
-#include <print>
-#include <span>
-#include <string>
-#include <string_view>
-#include <tuple>
-#include <vector>
-#endif
-
 export module double3x3;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import double3;
@@ -259,9 +237,12 @@ export union double3x3
   */
 
   std::tuple<double3x3, double3, double3x3> singularValueDecomposition() const;
+
   static double3x3 computeRotationMatrix(double3 center_of_mass_A, std::span<double3> positions_A,
                                          double3 center_of_mass_B, std::span<double3> positions_B);
+
   static double3x3 computeRotationMatrix(double3 a, double3 b);
+  static double3x3 computeRotationMatrixSVD(double3 a, double3 b);
 
   friend Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const double3x3& vec);
   friend Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, double3x3& vec);

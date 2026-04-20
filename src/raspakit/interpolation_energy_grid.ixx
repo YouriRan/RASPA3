@@ -1,34 +1,12 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#include "mdspanwrapper.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <fstream>
-#include <istream>
-#include <ostream>
-#include <print>
-#include <sstream>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#include "mdspanwrapper.h"
-#endif
-
 export module interpolation_energy_grid;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import int3;
+import uint3;
 import double3;
 import double3x3;
 import stringutils;
@@ -44,14 +22,14 @@ export struct InterpolationEnergyGrid
 
   SimulationBox unitCellBox;
   double3 origin;
-  int3 numberOfGridPoints;
-  int3 numberOfCells;
+  uint3 numberOfGridPoints;
+  uint3 numberOfCells;
   ForceField::InterpolationScheme order;
   std::vector<double> data;
 
   InterpolationEnergyGrid() {}
 
-  InterpolationEnergyGrid(const SimulationBox unitCellBox, double3 origin, int3 numberOfGridPoints, ForceField::InterpolationScheme order);
+  InterpolationEnergyGrid(const SimulationBox unitCellBox, double3 origin, uint3 numberOfGridPoints, ForceField::InterpolationScheme order);
 
   constexpr static std::make_signed_t<std::size_t> num_points_interpolation{6};
 
@@ -66,6 +44,19 @@ export struct InterpolationEnergyGrid
   std::tuple<double, double3, double3x3> interpolateHessian(double3 pos) const;
 
   void writeOutput(std::size_t systemId, const SimulationBox &simulationBox, const ForceField &forceField);
+
+  static const uint3 parseExternalFieldGridDimensions(const std::string& filename);
+
+  /**
+   * \brief Parses external field grid based on the provided CUBE file.
+   *
+   * This function extracts parameters specific to external field grids,
+   * allowing to use this data in construction of external field interpolation grid in simulations.
+   *
+   * \param filename The name of the CUBE file containing the external field data.
+   * \return A pair containing the 3D grid of external field values and the grid dimensions.
+   */
+  static const std::vector<double> parseExternalFieldGridCube(const std::string& filename);
 
   friend Archive<std::ofstream> &operator<<(Archive<std::ofstream> &archive, const InterpolationEnergyGrid &s);
   friend Archive<std::ifstream> &operator>>(Archive<std::ifstream> &archive, InterpolationEnergyGrid &s);

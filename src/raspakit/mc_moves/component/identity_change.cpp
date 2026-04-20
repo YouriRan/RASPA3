@@ -1,29 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <iomanip>
-#include <iostream>
-#include <optional>
-#include <span>
-#include <tuple>
-#include <vector>
-#endif
-
 module mc_moves_identity_change;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import component;
 import atom;
@@ -52,14 +31,14 @@ import interactions_external_field;
 import interactions_polarization;
 import mc_moves_move_types;
 
-std::optional<RunningEnergy> MC_Moves::identityChangeMove(RandomNumber &random, System &system,
+std::optional<RunningEnergy> MC_Moves::identityChangeMove(RandomNumber& random, System& system,
                                                           std::size_t selectedComponent, std::size_t selectedMolecule,
-                                                          Molecule &molecule, std::span<Atom> molecule_atoms)
+                                                          Molecule& molecule, std::span<Atom> molecule_atoms)
 {
   // Variables to record timing for performance measurement.
   std::chrono::system_clock::time_point time_begin, time_end;
-  MoveTypes move = MoveTypes::ReinsertionCBMC;
-  Component &component = system.components[selectedComponent];
+  Move::Types move = Move::Types::ReinsertionCBMC;
+  Component& component = system.components[selectedComponent];
 
   // Increment move counts for reinsertion CBMC statistics.
   component.mc_moves_statistics.addTrial(move);
@@ -81,11 +60,11 @@ std::optional<RunningEnergy> MC_Moves::identityChangeMove(RandomNumber &random, 
 
   time_begin = std::chrono::system_clock::now();
   // Attempt to grow the molecule using CBMC reinsertion.
-  std::optional<ChainGrowData> growData = CBMC::growMoleculeReinsertion(
-      random, component, system.hasExternalField, system.forceField, system.simulationBox, 
-      system.interpolationGrids, system.externalFieldInterpolationGrid,
-      system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(), system.beta, growType,
-      cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, molecule, molecule_atoms);
+  std::optional<ChainGrowData> growData =
+      CBMC::growMoleculeReinsertion(random, component, system.hasExternalField, system.forceField, system.simulationBox,
+                                    system.interpolationGrids, system.externalFieldInterpolationGrid, system.framework,
+                                    system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(), system.beta, growType,
+                                    cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, molecule, molecule_atoms);
   time_end = std::chrono::system_clock::now();
   // Record CPU time taken for the non-Ewald part of the move.
   component.mc_moves_cputime[move]["NonEwald"] += (time_end - time_begin);
@@ -113,10 +92,10 @@ std::optional<RunningEnergy> MC_Moves::identityChangeMove(RandomNumber &random, 
   // Retrace the old molecule configuration using CBMC retracing.
   time_begin = std::chrono::system_clock::now();
   ChainRetraceData retraceData = CBMC::retraceMoleculeReinsertion(
-      random, component, system.hasExternalField, system.forceField, system.simulationBox, 
-      system.interpolationGrids, system.externalFieldInterpolationGrid,
-      system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(), system.beta, growType,
-      cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, molecule, molecule_atoms, growData->storedR);
+      random, component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+      system.externalFieldInterpolationGrid, system.framework, system.spanOfFrameworkAtoms(),
+      system.spanOfMoleculeAtoms(), system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb,
+      molecule, molecule_atoms, growData->storedR);
   time_end = std::chrono::system_clock::now();
 
   // Record CPU time taken for the retracing step.
@@ -140,17 +119,15 @@ std::optional<RunningEnergy> MC_Moves::identityChangeMove(RandomNumber &random, 
   {
     // If dual cutoff is used, compute correction factor due to non-overlapping energies.
     energyNew = CBMC::computeExternalNonOverlappingEnergyDualCutOff(
-        component, system.hasExternalField, system.forceField, system.simulationBox, 
-        system.interpolationGrids, system.externalFieldInterpolationGrid,
-        system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-        system.forceField.cutOffFrameworkVDW, system.forceField.cutOffMoleculeVDW, system.forceField.cutOffCoulomb,
-        growData->atom);
+        component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+        system.externalFieldInterpolationGrid, system.framework, system.spanOfFrameworkAtoms(),
+        system.spanOfMoleculeAtoms(), system.forceField.cutOffFrameworkVDW, system.forceField.cutOffMoleculeVDW,
+        system.forceField.cutOffCoulomb, growData->atom);
     energyOld = CBMC::computeExternalNonOverlappingEnergyDualCutOff(
-        component, system.hasExternalField, system.forceField, system.simulationBox, 
-        system.interpolationGrids, system.externalFieldInterpolationGrid,
-        system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-        system.forceField.cutOffFrameworkVDW, system.forceField.cutOffMoleculeVDW, system.forceField.cutOffCoulomb,
-        old_molecule);
+        component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+        system.externalFieldInterpolationGrid, system.framework, system.spanOfFrameworkAtoms(),
+        system.spanOfMoleculeAtoms(), system.forceField.cutOffFrameworkVDW, system.forceField.cutOffMoleculeVDW,
+        system.forceField.cutOffCoulomb, old_molecule);
     correctionFactorDualCutOff =
         std::exp(-system.beta * (energyNew->potentialEnergy() - growData->energies.potentialEnergy() -
                                  (energyOld->potentialEnergy() - retraceData.energies.potentialEnergy())));

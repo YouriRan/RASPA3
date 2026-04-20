@@ -27,25 +27,9 @@
 
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <cstdlib>
-#include <exception>
-#include <functional>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-#include <vector>
-#endif
-
 export module getopt;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 export namespace argparser
 {
@@ -59,7 +43,7 @@ class argument_required_exception : public std::exception
   {
     exception_message = "Option `" + option_name + "` requires an argument, but none is given.";
   }
-  const char *what() const throw() { return exception_message.c_str(); }
+  const char *what() const throw() override { return exception_message.c_str(); }
 };
 
 class unknown_option_exception : public std::exception
@@ -71,7 +55,7 @@ class unknown_option_exception : public std::exception
   {
     exception_message = "Option `" + option_name + "` is unknown.";
   }
-  const char *what() const throw() { return exception_message.c_str(); }
+  const char *what() const throw() override { return exception_message.c_str(); }
 };
 
 class help_requested_exception : public std::exception
@@ -80,7 +64,7 @@ class help_requested_exception : public std::exception
 
  public:
   explicit help_requested_exception() {};
-  const char *what() const throw() { return exception_message.c_str(); }
+  const char *what() const throw() override { return exception_message.c_str(); }
 };
 
 namespace util

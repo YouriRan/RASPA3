@@ -1,30 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <iomanip>
-#include <iostream>
-#include <optional>
-#include <span>
-#include <tuple>
-#include <type_traits>
-#include <vector>
-#endif
-
 module mc_moves_swap_cfcmc;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import component;
 import molecule;
@@ -57,7 +35,7 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
                                                                           bool insertionDisabled, bool deletionDisabled)
 {
   std::chrono::system_clock::time_point time_begin, time_end;
-  MoveTypes move = MoveTypes::SwapCFCMC;
+  Move::Types move = Move::Types::SwapCFCMC;
   Component& component = system.components[selectedComponent];
 
   // Retrieve lambda parameters and select a new lambda bin for the move
@@ -110,8 +88,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     // Compute external field energy contribution
     time_begin = std::chrono::system_clock::now();
     std::optional<RunningEnergy> externalFieldDifferenceStep1 = Interactions::computeExternalFieldEnergyDifference(
-        system.hasExternalField, system.forceField, system.simulationBox, 
-        system.externalFieldInterpolationGrid, fractionalMolecule, oldFractionalMolecule);
+        system.hasExternalField, system.forceField, system.simulationBox, system.externalFieldInterpolationGrid,
+        fractionalMolecule, oldFractionalMolecule);
     time_end = std::chrono::system_clock::now();
     component.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
     system.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
@@ -212,8 +190,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     // Compute external field energy contribution
     time_begin = std::chrono::system_clock::now();
     std::optional<RunningEnergy> externalFieldDifferenceStep2 = Interactions::computeExternalFieldEnergyDifference(
-        system.hasExternalField, system.forceField, system.simulationBox,
-        system.externalFieldInterpolationGrid, trialMolecule.second, {});
+        system.hasExternalField, system.forceField, system.simulationBox, system.externalFieldInterpolationGrid,
+        trialMolecule.second, {});
     time_end = std::chrono::system_clock::now();
     component.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
     system.mc_moves_cputime[move]["Insertion-ExternalField"] += (time_end - time_begin);
@@ -371,8 +349,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       // Compute external field energy contribution
       time_begin = std::chrono::system_clock::now();
       std::optional<RunningEnergy> externalFieldDifferenceStep1 = Interactions::computeExternalFieldEnergyDifference(
-          system.hasExternalField, system.forceField, system.simulationBox, 
-          system.externalFieldInterpolationGrid, fractionalMolecule, oldFractionalMolecule);
+          system.hasExternalField, system.forceField, system.simulationBox, system.externalFieldInterpolationGrid,
+          fractionalMolecule, oldFractionalMolecule);
       time_end = std::chrono::system_clock::now();
       component.mc_moves_cputime[move]["Deletion-ExternalField"] += (time_end - time_begin);
       system.mc_moves_cputime[move]["Deletion-ExternalField"] += (time_end - time_begin);
@@ -459,9 +437,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
       // Compute external field energy contribution
       time_begin = std::chrono::system_clock::now();
       std::optional<RunningEnergy> externalFieldDifferenceStep2 = Interactions::computeExternalFieldEnergyDifference(
-          system.hasExternalField, system.forceField, system.simulationBox, 
-          system.externalFieldInterpolationGrid, newFractionalMolecule,
-          savedFractionalMolecule);
+          system.hasExternalField, system.forceField, system.simulationBox, system.externalFieldInterpolationGrid,
+          newFractionalMolecule, savedFractionalMolecule);
       time_end = std::chrono::system_clock::now();
       component.mc_moves_cputime[move]["Deletion-ExternalField"] += (time_end - time_begin);
       system.mc_moves_cputime[move]["Deletion-ExternalField"] += (time_end - time_begin);
@@ -608,13 +585,13 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     // Compute external field energy contribution
     time_begin = std::chrono::system_clock::now();
     std::optional<RunningEnergy> externalFieldEnergyDifference = Interactions::computeExternalFieldEnergyDifference(
-        system.hasExternalField, system.forceField, system.simulationBox, 
-        system.externalFieldInterpolationGrid, trialPositions, molecule);
+        system.hasExternalField, system.forceField, system.simulationBox, system.externalFieldInterpolationGrid,
+        trialPositions, molecule);
     time_end = std::chrono::system_clock::now();
     if (insertionDisabled || deletionDisabled)
     {
-      component.mc_moves_cputime[MoveTypes::WidomCFCMC]["ExternalField"] += (time_end - time_begin);
-      system.mc_moves_cputime[MoveTypes::WidomCFCMC]["ExternalField"] += (time_end - time_begin);
+      component.mc_moves_cputime[Move::Types::WidomCFCMC]["ExternalField"] += (time_end - time_begin);
+      system.mc_moves_cputime[Move::Types::WidomCFCMC]["ExternalField"] += (time_end - time_begin);
     }
     else
     {
@@ -631,8 +608,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     time_end = std::chrono::system_clock::now();
     if (insertionDisabled || deletionDisabled)
     {
-      component.mc_moves_cputime[MoveTypes::WidomCFCMC]["Framework"] += (time_end - time_begin);
-      system.mc_moves_cputime[MoveTypes::WidomCFCMC]["Framework"] += (time_end - time_begin);
+      component.mc_moves_cputime[Move::Types::WidomCFCMC]["Framework"] += (time_end - time_begin);
+      system.mc_moves_cputime[Move::Types::WidomCFCMC]["Framework"] += (time_end - time_begin);
     }
     else
     {
@@ -648,8 +625,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     time_end = std::chrono::system_clock::now();
     if (insertionDisabled || deletionDisabled)
     {
-      component.mc_moves_cputime[MoveTypes::WidomCFCMC]["Molecule"] += (time_end - time_begin);
-      system.mc_moves_cputime[MoveTypes::WidomCFCMC]["Molecule"] += (time_end - time_begin);
+      component.mc_moves_cputime[Move::Types::WidomCFCMC]["Molecule"] += (time_end - time_begin);
+      system.mc_moves_cputime[Move::Types::WidomCFCMC]["Molecule"] += (time_end - time_begin);
     }
     else
     {
@@ -666,8 +643,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     time_end = std::chrono::system_clock::now();
     if (insertionDisabled || deletionDisabled)
     {
-      component.mc_moves_cputime[MoveTypes::WidomCFCMC]["Ewald"] += (time_end - time_begin);
-      system.mc_moves_cputime[MoveTypes::WidomCFCMC]["Ewald"] += (time_end - time_begin);
+      component.mc_moves_cputime[Move::Types::WidomCFCMC]["Ewald"] += (time_end - time_begin);
+      system.mc_moves_cputime[Move::Types::WidomCFCMC]["Ewald"] += (time_end - time_begin);
     }
     else
     {
@@ -685,8 +662,8 @@ std::pair<std::optional<RunningEnergy>, double3> MC_Moves::swapMove_CFCMC(Random
     time_end = std::chrono::system_clock::now();
     if (insertionDisabled || deletionDisabled)
     {
-      component.mc_moves_cputime[MoveTypes::WidomCFCMC]["Tail"] += (time_end - time_begin);
-      system.mc_moves_cputime[MoveTypes::WidomCFCMC]["Tail"] += (time_end - time_begin);
+      component.mc_moves_cputime[Move::Types::WidomCFCMC]["Tail"] += (time_end - time_begin);
+      system.mc_moves_cputime[Move::Types::WidomCFCMC]["Tail"] += (time_end - time_begin);
     }
     else
     {

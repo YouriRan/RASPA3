@@ -1,29 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <cmath>
-#include <cstddef>
-#include <fstream>
-#include <functional>
-#include <iostream>
-#include <map>
-#include <numeric>
-#include <ostream>
-#include <sstream>
-#include <string>
-#include <vector>
-#endif
-
 export module running_energy;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import scaling;
@@ -422,6 +401,14 @@ export struct RunningEnergy
   double translationalKineticEnergy;  ///< Translational kinetic energy.
   double rotationalKineticEnergy;     ///< Rotational kinetic energy.
   double NoseHooverEnergy;            ///< Energy associated with Nose-Hoover thermostat/barostat.
+
+  /**
+   * \brief Returns a string representation of the RunningEnergy object.
+   *
+   * \return A string describing the RunningEnergy object.
+   */
+  std::string repr() const;
+
 
   friend Archive<std::ofstream>& operator<<(Archive<std::ofstream>& archive, const RunningEnergy& c);
   friend Archive<std::ifstream>& operator>>(Archive<std::ifstream>& archive, RunningEnergy& c);

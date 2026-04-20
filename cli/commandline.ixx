@@ -1,33 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <bitset>
-#include <complex>
-#include <cstddef>
-#include <deque>
-#include <exception>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <locale>
-#include <mutex>
-#include <optional>
-#include <ranges>
-#include <semaphore>
-#include <span>
-#include <string_view>
-#include <vector>
-#endif
-
 export module commandline;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import threadpool;
@@ -61,11 +36,6 @@ enum State : std::uint8_t
   PSD_BV = 9, // Pore Size Distribution using Ban, Vlugt method
   Last = 10
 };
-
-ForceField defaultForceFieldZeolite(double rc = 12.0, bool shifted = false, bool tailCorrections = false,
-                                    bool useEwald = false);
-ForceField defaultForceFieldMOF(double rc = 12.0, bool shifted = false, bool tailCorrections = false,
-                                bool useEwald = false);
 
 void run(int argc, char* argv[]);
 }  // namespace CommandLine

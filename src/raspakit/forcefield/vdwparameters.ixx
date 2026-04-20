@@ -1,25 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <cstddef>
-#include <fstream>
-#include <iostream>
-#include <optional>
-#include <ostream>
-#include <string>
-#include <vector>
-#endif
-
 export module vdwparameters;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import double4;
@@ -131,6 +114,17 @@ export struct VDWParameters
     double rri3 = 1.0 / ((temp * temp * temp) + 0.5 * (1.0 - scaling) * (1.0 - scaling));
     shift = scaling * (4.0 * arg1 * (rri3 * (rri3 - 1.0)));
   }
+
+  double strengthParameter() const
+  {
+    switch (type)
+    {
+      case Type::LennardJones:
+        return parameters.x;
+      default:
+        return 0.0;
+    }
+  };
 
   double sizeParameter() const
   {

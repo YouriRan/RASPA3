@@ -1,27 +1,5 @@
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <complex>
-#include <cstddef>
-#include <deque>
-#include <exception>
-#include <fstream>
-#include <iostream>
-#include <locale>
-#include <mutex>
-#include <optional>
-#include <semaphore>
-#include <span>
-#include <string_view>
-#include <vector>
-#endif
-
-#ifdef USE_STD_IMPORT
 #include <locale.h>
 import std;
-#endif
 
 import archive;
 import threadpool;
@@ -151,6 +129,11 @@ int main(int argc, char* argv[])
   catch (std::exception const& e)
   {
     std::cerr << e.what();
+    std::exit(-1);
+  }
+  catch (...)
+  {
+    std::cerr << "Exception caught" << std::endl;
     std::exit(-1);
   }
 }

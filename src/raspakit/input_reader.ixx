@@ -1,36 +1,10 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <cctype>
-#include <complex>
-#include <cstddef>
-#include <cstring>
-#include <format>
-#include <fstream>
-#include <istream>
-#include <locale>
-#include <map>
-#include <optional>
-#include <set>
-#include <string>
-#include <unordered_set>
-#include <vector>
-#endif
-
-#ifdef USE_STD_IMPORT
 #include <string.h>
-#endif
 
 export module input_reader;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import stringutils;
 
@@ -272,7 +246,7 @@ export struct InputReader
   static const std::set<std::string, InsensitiveCompare> componentOptions;
 
   static const std::set<std::string, InsensitiveCompare> autocorrelationOptions;
-  static const int3 parseExternalFieldGridDimensions(const std::string& filename);
+  static const int3 parseExternalFieldGridDimensions(const std::string &filename);
 
   /**
    * \brief Parses external field grid based on the provided CUBE file.
@@ -283,5 +257,5 @@ export struct InputReader
    * \param filename The name of the CUBE file containing the external field data.
    * \return A pair containing the 3D grid of external field values and the grid dimensions.
    */
-  static const std::vector<double> parseExternalFieldGridCube(const std::string& filename);
+  static const std::vector<double> parseExternalFieldGridCube(const std::string &filename);
 };

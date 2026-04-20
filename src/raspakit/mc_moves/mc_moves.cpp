@@ -1,34 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <exception>
-#include <format>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <optional>
-#include <print>
-#include <source_location>
-#include <span>
-#include <tuple>
-#include <vector>
-#endif
-
 module mc_moves;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import double3;
@@ -63,11 +37,9 @@ import mc_moves_deletion;
 import mc_moves_insertion_cbmc;
 import mc_moves_deletion_cbmc;
 import mc_moves_swap_cfcmc;
-import mc_moves_swap_ncmc;
 import mc_moves_swap_cfcmc_cbmc;
 import mc_moves_gibbs_swap_cbmc;
 import mc_moves_volume;
-import mc_moves_volume_ncmc;
 import mc_moves_gibbs_volume;
 import mc_moves_identity_change;
 import mc_moves_swap_cfcmc;
@@ -79,21 +51,22 @@ import mc_moves_reaction_cfcmc_cbmc;
 import mc_moves_widom;
 import mc_moves_parallel_tempering_swap;
 import mc_moves_hybridmc;
+import mc_moves_volume_ncmc;
 import mc_moves_noneq_cbmc;
 
-void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &selectedSystem,
-                                               System &selectedSecondSystem, std::size_t selectedComponent,
-                                               [[maybe_unused]] std::size_t &fractionalMoleculeSystem)
+void MC_Moves::performRandomMoveInitialization(RandomNumber& random, System& selectedSystem,
+                                               System& selectedSecondSystem, std::size_t selectedComponent,
+                                               [[maybe_unused]] std::size_t& fractionalMoleculeSystem)
 {
   // pick move type from probabilities object
-  MoveTypes moveType = selectedSystem.components[selectedComponent].mc_moves_probabilities.sample(random);
+  Move::Types moveType = selectedSystem.components[selectedComponent].mc_moves_probabilities.sample(random);
 
   // save old number of molecules for reference
   std::size_t oldN = selectedSystem.numberOfIntegerMoleculesPerComponent[selectedComponent];
 
   switch (moveType)
   {
-    case MoveTypes::Translation:
+    case Move::Types::Translation:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -103,7 +76,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference =
@@ -120,7 +93,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
 
       break;
     }
-    case MoveTypes::RandomTranslation:
+    case Move::Types::RandomTranslation:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -130,7 +103,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference =
@@ -146,7 +119,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::Rotation:
+    case Move::Types::Rotation:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -156,7 +129,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference =
@@ -173,7 +146,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
 
       break;
     }
-    case MoveTypes::RandomRotation:
+    case Move::Types::RandomRotation:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -183,7 +156,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference =
@@ -200,7 +173,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
 
       break;
     }
-    case MoveTypes::VolumeChange:
+    case Move::Types::VolumeChange:
     {
       // perform move
       std::optional<RunningEnergy> energy = MC_Moves::volumeMove(random, selectedSystem);
@@ -212,7 +185,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::ReinsertionCBMC:
+    case Move::Types::ReinsertionCBMC:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -222,7 +195,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference = MC_Moves::reinsertionMove(
@@ -238,7 +211,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::PartialReinsertionCBMC:
+    case Move::Types::PartialReinsertionCBMC:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -248,7 +221,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference = MC_Moves::partialReinsertionMove(
@@ -264,7 +237,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::IdentityChangeCBMC:
+    case Move::Types::IdentityChangeCBMC:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -274,7 +247,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference = MC_Moves::identityChangeMove(
@@ -290,7 +263,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::Swap:
+    case Move::Types::Swap:
     {
       if (random.uniform() < 0.5)
       {
@@ -315,9 +288,9 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::SwapCBMC:
-    case MoveTypes::SwapCFCMC:
-    case MoveTypes::SwapCBCFCMC:
+    case Move::Types::SwapCBMC:
+    case Move::Types::SwapCFCMC:
+    case Move::Types::SwapCBCFCMC:
     {
       if (random.uniform() < 0.5)
       {
@@ -344,7 +317,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::GibbsVolume:
+    case Move::Types::GibbsVolume:
     {
       std::optional<std::pair<RunningEnergy, RunningEnergy>> energy =
           MC_Moves::GibbsVolumeMove(random, selectedSystem, selectedSecondSystem);
@@ -355,8 +328,8 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::GibbsSwapCBMC:
-    case MoveTypes::GibbsSwapCFCMC:
+    case Move::Types::GibbsSwapCBMC:
+    case Move::Types::GibbsSwapCFCMC:
     {
       if (random.uniform() < 0.5)
       {
@@ -380,15 +353,15 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::Widom:
+    case Move::Types::Widom:
     {
       break;
     }
-    case MoveTypes::WidomCFCMC:
+    case Move::Types::WidomCFCMC:
     {
       break;
     }
-    case MoveTypes::WidomCBCFCMC:
+    case Move::Types::WidomCBCFCMC:
     {
       const auto [energyDifference, Pacc] =
           MC_Moves::swapMove_CFCMC_CBMC(random, selectedSystem, selectedComponent, 0, true, true);
@@ -398,7 +371,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::ParallelTempering:
+    case Move::Types::ParallelTempering:
     {
       std::optional<std::pair<RunningEnergy, RunningEnergy>> energy =
           MC_Moves::ParallelTemperingSwap(random, selectedSystem, selectedSecondSystem);
@@ -409,7 +382,7 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::HybridMC:
+    case Move::Types::HybridMC:
     {
       std::optional<RunningEnergy> energy = MC_Moves::hybridMCMove(random, selectedSystem);
       if (energy)
@@ -418,23 +391,20 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       }
       break;
     }
-    case MoveTypes::SwapNonEqCBMC:
+    case Move::Types::VolumeNCMC:
     {
-      const auto [energy, Pacc] =
-          MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
-      if (energy.has_value())
+      std::optional<RunningEnergy> energy = MC_Moves::volumeMoveNCMC(random, selectedSystem);
+      if (energy)
       {
         selectedSystem.runningEnergies = energy.value();
       }
-      selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-        case MoveTypes::SwapNCMC:
+    case Move::Types::SwapNCMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
-      const auto [energyDifference, Pacc] =
-          MC_Moves::swapNCMC(random, selectedSystem, selectedComponent, selectedMolecule);
+      const auto [energyDifference, Pacc] = MC_Moves::swapNCMC(random, selectedSystem, selectedComponent);
       if (energyDifference)
       {
         selectedSystem.runningEnergies += energyDifference.value();
@@ -442,7 +412,17 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-    case MoveTypes::Count:
+    case Move::Types::SwapNonEqCBMC:
+    {
+      // const auto [energy, Pacc] = MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
+      // if (energy.has_value())
+      // {
+      //   selectedSystem.runningEnergies = energy.value();
+      // }
+      // selectedSystem.tmmc.updateMatrix(Pacc, oldN);
+      break;
+    }
+    case Move::Types::Count:
     {
       throw std::runtime_error("Move count called, invalid sampling of move probabilities");
       break;
@@ -455,19 +435,19 @@ void MC_Moves::performRandomMoveInitialization(RandomNumber &random, System &sel
   }
 }
 
-void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &selectedSystem,
-                                              System &selectedSecondSystem, std::size_t selectedComponent,
-                                              std::size_t &fractionalMoleculeSystem)
+void MC_Moves::performRandomMoveEquilibration(RandomNumber& random, System& selectedSystem,
+                                              System& selectedSecondSystem, std::size_t selectedComponent,
+                                              std::size_t& fractionalMoleculeSystem)
 {
   // pick move type from probabilities object
-  MoveTypes moveType = selectedSystem.components[selectedComponent].mc_moves_probabilities.sample(random);
+  Move::Types moveType = selectedSystem.components[selectedComponent].mc_moves_probabilities.sample(random);
 
   // save old number of molecules for reference
   std::size_t oldN = selectedSystem.numberOfIntegerMoleculesPerComponent[selectedComponent];
 
   switch (moveType)
   {
-    case MoveTypes::Translation:
+    case Move::Types::Translation:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -477,7 +457,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference =
@@ -494,7 +474,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
 
       break;
     }
-    case MoveTypes::RandomTranslation:
+    case Move::Types::RandomTranslation:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -504,7 +484,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference =
@@ -520,7 +500,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::Rotation:
+    case Move::Types::Rotation:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -530,7 +510,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference =
@@ -547,7 +527,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
 
       break;
     }
-    case MoveTypes::RandomRotation:
+    case Move::Types::RandomRotation:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -557,7 +537,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference =
@@ -574,7 +554,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
 
       break;
     }
-    case MoveTypes::VolumeChange:
+    case Move::Types::VolumeChange:
     {
       // perform move
       std::optional<RunningEnergy> energy = MC_Moves::volumeMove(random, selectedSystem);
@@ -586,7 +566,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::ReinsertionCBMC:
+    case Move::Types::ReinsertionCBMC:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -596,7 +576,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference = MC_Moves::reinsertionMove(
@@ -612,7 +592,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::PartialReinsertionCBMC:
+    case Move::Types::PartialReinsertionCBMC:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -622,7 +602,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference = MC_Moves::partialReinsertionMove(
@@ -638,7 +618,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::IdentityChangeCBMC:
+    case Move::Types::IdentityChangeCBMC:
     {
       // select molecule and only move if there are actually molecules
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
@@ -648,7 +628,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
         // load molecule atoms
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
 
         // perform move
         std::optional<RunningEnergy> energyDifference = MC_Moves::identityChangeMove(
@@ -664,7 +644,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::Swap:
+    case Move::Types::Swap:
     {
       if (random.uniform() < 0.5)
       {
@@ -689,7 +669,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::SwapCBMC:
+    case Move::Types::SwapCBMC:
     {
       if (random.uniform() < 0.5)
       {
@@ -716,7 +696,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::SwapCFCMC:
+    case Move::Types::SwapCFCMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
@@ -729,7 +709,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-    case MoveTypes::SwapCBCFCMC:
+    case Move::Types::SwapCBCFCMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
@@ -742,7 +722,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-    case MoveTypes::GibbsVolume:
+    case Move::Types::GibbsVolume:
     {
       std::optional<std::pair<RunningEnergy, RunningEnergy>> energy =
           MC_Moves::GibbsVolumeMove(random, selectedSystem, selectedSecondSystem);
@@ -753,7 +733,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::GibbsSwapCBMC:
+    case Move::Types::GibbsSwapCBMC:
     {
       if (random.uniform() < 0.5)
       {
@@ -777,7 +757,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::GibbsSwapCFCMC:
+    case Move::Types::GibbsSwapCFCMC:
     {
       if (selectedSystem.containsTheFractionalMolecule)
       {
@@ -801,15 +781,15 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::Widom:
+    case Move::Types::Widom:
     {
       break;
     }
-    case MoveTypes::WidomCFCMC:
+    case Move::Types::WidomCFCMC:
     {
       break;
     }
-    case MoveTypes::WidomCBCFCMC:
+    case Move::Types::WidomCBCFCMC:
     {
       const auto [energyDifference, Pacc] =
           MC_Moves::swapMove_CFCMC_CBMC(random, selectedSystem, selectedComponent, 0, true, true);
@@ -819,7 +799,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::ParallelTempering:
+    case Move::Types::ParallelTempering:
     {
       std::optional<std::pair<RunningEnergy, RunningEnergy>> energy =
           MC_Moves::ParallelTemperingSwap(random, selectedSystem, selectedSecondSystem);
@@ -830,7 +810,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::HybridMC:
+    case Move::Types::HybridMC:
     {
       std::optional<RunningEnergy> energy = MC_Moves::hybridMCMove(random, selectedSystem);
       if (energy)
@@ -839,7 +819,7 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::VolumeNCMC:
+    case Move::Types::VolumeNCMC:
     {
       std::optional<RunningEnergy> energy = MC_Moves::volumeMoveNCMC(random, selectedSystem);
       if (energy)
@@ -848,12 +828,11 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       }
       break;
     }
-    case MoveTypes::SwapNCMC:
+    case Move::Types::SwapNCMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
-      const auto [energyDifference, Pacc] =
-          MC_Moves::swapNCMC(random, selectedSystem, selectedComponent, selectedMolecule);
+      const auto [energyDifference, Pacc] = MC_Moves::swapNCMC(random, selectedSystem, selectedComponent);
       if (energyDifference)
       {
         selectedSystem.runningEnergies += energyDifference.value();
@@ -861,18 +840,17 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-    case MoveTypes::SwapNonEqCBMC:
+    case Move::Types::SwapNonEqCBMC:
     {
-      const auto [energy, Pacc] =
-          MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
-      if (energy.has_value())
-      {
-        selectedSystem.runningEnergies = energy.value();
-      }
-      selectedSystem.tmmc.updateMatrix(Pacc, oldN);
+      // const auto [energy, Pacc] = MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
+      // if (energy.has_value())
+      // {
+      //   selectedSystem.runningEnergies = energy.value();
+      // }
+      // selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-    case MoveTypes::Count:
+    case Move::Types::Count:
     {
       throw std::runtime_error("Move count called, invalid sampling of move probabilities");
       break;
@@ -885,12 +863,12 @@ void MC_Moves::performRandomMoveEquilibration(RandomNumber &random, System &sele
   }
 }
 
-void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selectedSystem, System &selectedSecondSystem,
-                                           std::size_t selectedComponent, std::size_t &fractionalMoleculeSystem,
+void MC_Moves::performRandomMoveProduction(RandomNumber& random, System& selectedSystem, System& selectedSecondSystem,
+                                           std::size_t selectedComponent, std::size_t& fractionalMoleculeSystem,
                                            std::size_t currentBlock)
 {
   // pick move type from probabilities object
-  MoveTypes moveType = selectedSystem.components[selectedComponent].mc_moves_probabilities.sample(random);
+  Move::Types moveType = selectedSystem.components[selectedComponent].mc_moves_probabilities.sample(random);
 
   // save old number of molecules for reference
   std::size_t oldN = selectedSystem.numberOfIntegerMoleculesPerComponent[selectedComponent];
@@ -898,7 +876,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
   std::chrono::system_clock::time_point t1 = std::chrono::system_clock::now();
   switch (moveType)
   {
-    case MoveTypes::Translation:
+    case Move::Types::Translation:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
@@ -906,7 +884,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       {
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
         std::optional<RunningEnergy> energyDifference =
             MC_Moves::translationMove(random, selectedSystem, selectedComponent, selectedMolecule,
                                       selectedSystem.components, molecule, molecule_atoms);
@@ -918,7 +896,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::RandomTranslation:
+    case Move::Types::RandomTranslation:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
@@ -926,7 +904,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       {
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
         std::optional<RunningEnergy> energyDifference =
             MC_Moves::randomTranslationMove(random, selectedSystem, selectedComponent, selectedMolecule,
                                             selectedSystem.components, molecule, molecule_atoms);
@@ -938,7 +916,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::Rotation:
+    case Move::Types::Rotation:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
@@ -946,7 +924,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       {
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
         std::optional<RunningEnergy> energyDifference =
             MC_Moves::rotationMove(random, selectedSystem, selectedComponent, selectedMolecule,
                                    selectedSystem.components, molecule, molecule_atoms);
@@ -958,14 +936,14 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::RandomRotation:
+    case Move::Types::RandomRotation:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
       if (selectedSystem.numberOfMoleculesPerComponent[selectedComponent] > 0)
       {
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
         std::optional<RunningEnergy> energyDifference =
             MC_Moves::randomRotationMove(random, selectedSystem, selectedComponent, selectedMolecule,
                                          selectedSystem.components, molecule, molecule_atoms);
@@ -977,7 +955,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::VolumeChange:
+    case Move::Types::VolumeChange:
     {
       std::optional<RunningEnergy> energy = MC_Moves::volumeMove(random, selectedSystem);
       if (energy)
@@ -986,7 +964,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::ReinsertionCBMC:
+    case Move::Types::ReinsertionCBMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
@@ -994,7 +972,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       {
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
         std::optional<RunningEnergy> energyDifference = MC_Moves::reinsertionMove(
             random, selectedSystem, selectedComponent, selectedMolecule, molecule, molecule_atoms);
 
@@ -1006,7 +984,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::PartialReinsertionCBMC:
+    case Move::Types::PartialReinsertionCBMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
@@ -1014,7 +992,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       {
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
         std::optional<RunningEnergy> energyDifference = MC_Moves::partialReinsertionMove(
             random, selectedSystem, selectedComponent, selectedMolecule, molecule, molecule_atoms);
 
@@ -1026,7 +1004,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::IdentityChangeCBMC:
+    case Move::Types::IdentityChangeCBMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
@@ -1034,7 +1012,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       {
         std::span<Atom> molecule_atoms = selectedSystem.spanOfMolecule(selectedComponent, selectedMolecule);
         std::size_t molecule_index = selectedSystem.moleculeIndexOfComponent(selectedComponent, selectedMolecule);
-        Molecule &molecule = selectedSystem.moleculeData[molecule_index];
+        Molecule& molecule = selectedSystem.moleculeData[molecule_index];
         std::optional<RunningEnergy> energyDifference = MC_Moves::identityChangeMove(
             random, selectedSystem, selectedComponent, selectedMolecule, molecule, molecule_atoms);
 
@@ -1046,7 +1024,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::Swap:
+    case Move::Types::Swap:
     {
       if (random.uniform() < 0.5)
       {
@@ -1082,7 +1060,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::SwapCBMC:
+    case Move::Types::SwapCBMC:
     {
       if (random.uniform() < 0.5)
       {
@@ -1119,7 +1097,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::SwapCFCMC:
+    case Move::Types::SwapCFCMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
@@ -1132,7 +1110,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-    case MoveTypes::SwapCBCFCMC:
+    case Move::Types::SwapCBCFCMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
       const auto [energyDifference, Pacc] =
@@ -1144,7 +1122,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-    case MoveTypes::GibbsVolume:
+    case Move::Types::GibbsVolume:
     {
       std::optional<std::pair<RunningEnergy, RunningEnergy>> energy =
           MC_Moves::GibbsVolumeMove(random, selectedSystem, selectedSecondSystem);
@@ -1155,7 +1133,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::GibbsSwapCBMC:
+    case Move::Types::GibbsSwapCBMC:
     {
       if (random.uniform() < 0.5)
       {
@@ -1190,7 +1168,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::GibbsSwapCFCMC:
+    case Move::Types::GibbsSwapCFCMC:
     {
       if (selectedSystem.containsTheFractionalMolecule)
       {
@@ -1225,7 +1203,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::Widom:
+    case Move::Types::Widom:
     {
       double value = MC_Moves::WidomMove(random, selectedSystem, selectedComponent);
 
@@ -1233,7 +1211,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
                                                                                            selectedSystem.weight());
       break;
     }
-    case MoveTypes::WidomCFCMC:
+    case Move::Types::WidomCFCMC:
     {
       const auto [energyDifference, Pacc] =
           MC_Moves::swapMove_CFCMC(random, selectedSystem, selectedComponent, 0, true, true);
@@ -1243,7 +1221,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::WidomCBCFCMC:
+    case Move::Types::WidomCBCFCMC:
     {
       const auto [energyDifference, Pacc] =
           MC_Moves::swapMove_CFCMC_CBMC(random, selectedSystem, selectedComponent, 0, true, true);
@@ -1253,7 +1231,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::ParallelTempering:
+    case Move::Types::ParallelTempering:
     {
       std::optional<std::pair<RunningEnergy, RunningEnergy>> energy =
           MC_Moves::ParallelTemperingSwap(random, selectedSystem, selectedSecondSystem);
@@ -1264,7 +1242,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::HybridMC:
+    case Move::Types::HybridMC:
     {
       std::optional<RunningEnergy> energy = MC_Moves::hybridMCMove(random, selectedSystem);
       if (energy)
@@ -1273,7 +1251,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::VolumeNCMC:
+    case Move::Types::VolumeNCMC:
     {
       std::optional<RunningEnergy> energy = MC_Moves::volumeMoveNCMC(random, selectedSystem);
       if (energy)
@@ -1282,23 +1260,21 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       }
       break;
     }
-    case MoveTypes::SwapNonEqCBMC:
+    case Move::Types::SwapNonEqCBMC:
     {
-      const auto [energy, Pacc] =
-          MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
-      if (energy.has_value())
-      {
-        selectedSystem.runningEnergies = energy.value();
-      }
-      selectedSystem.tmmc.updateMatrix(Pacc, oldN);
+      // const auto [energy, Pacc] = MC_Moves::NonEqCBMC(random, selectedSystem, selectedComponent);
+      // if (energy.has_value())
+      // {
+      //   selectedSystem.runningEnergies = energy.value();
+      // }
+      // selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-        case MoveTypes::SwapNCMC:
+    case Move::Types::SwapNCMC:
     {
       std::size_t selectedMolecule = selectedSystem.randomMoleculeOfComponent(random, selectedComponent);
 
-      const auto [energyDifference, Pacc] =
-          MC_Moves::swapNCMC(random, selectedSystem, selectedComponent, selectedMolecule);
+      const auto [energyDifference, Pacc] = MC_Moves::swapNCMC(random, selectedSystem, selectedComponent);
       if (energyDifference)
       {
         selectedSystem.runningEnergies += energyDifference.value();
@@ -1306,7 +1282,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
       selectedSystem.tmmc.updateMatrix(Pacc, oldN);
       break;
     }
-    case MoveTypes::Count:
+    case Move::Types::Count:
     {
       throw std::runtime_error("Move count called, invalid sampling of move probabilities");
       break;
@@ -1320,7 +1296,7 @@ void MC_Moves::performRandomMoveProduction(RandomNumber &random, System &selecte
   std::chrono::system_clock::time_point t2 = std::chrono::system_clock::now();
 
   // Use lookup to skip adding count to system stats for cross system
-  if (moveType != MoveTypes::GibbsSwapCBMC && moveType != MoveTypes::GibbsSwapCFCMC)
+  if (moveType != Move::Types::GibbsSwapCBMC && moveType != Move::Types::GibbsSwapCFCMC)
   {
     selectedSystem.mc_moves_cputime[moveType]["Total"] += (t2 - t1);
     if (componentMoves.count(moveType))

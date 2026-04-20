@@ -1,19 +1,6 @@
-#ifdef USE_LEGACY_HEADERS
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <array>
-#include <complex>
-#include <cstddef>
-#include <numbers>
-#include <span>
-#include <vector>
-#endif
-
-#ifdef USE_STD_IMPORT
-#include <gtest/gtest.h>
 import std;
-#endif
 
 import int3;
 import double3;
@@ -666,7 +653,7 @@ TEST(nist_water_3, Test_NIST_water_200_triclinic)
                            Atom(double3(-0.81649, 0.51275, 0.00000), 0.42380, 1.0, 0, 1, 0, false, false)},
                           {}, {}, 5, 21);
 
-  System system = System(0, forceField, box, 300.0, 1e4, 1.0, {}, {c}, {}, {200}, 5);
+  System system = System(0, forceField, box, false, 300.0, 1e4, 1.0, {}, {c}, {}, {200}, 5);
 
   std::span<Atom> moleculeAtomPositions = system.spanOfMoleculeAtoms();
 

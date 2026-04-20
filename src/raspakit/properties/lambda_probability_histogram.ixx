@@ -1,30 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <numbers>
-#include <numeric>
-#include <optional>
-#include <string>
-#include <tuple>
-#include <vector>
-#endif
-
 export module property_lambda_probability_histogram;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import double3;
 import randomnumbers;
@@ -176,7 +154,7 @@ export struct PropertyLambdaProbabilityHistogram
   void WangLandauIteration(PropertyLambdaProbabilityHistogram::WangLandauPhase phase,
                            bool containsTheFractionalMolecule, double value = 1.0);
 
-  std::pair<std::vector<double>, std::vector<double>> normalizedAverageProbabilityHistogram();
+  std::pair<std::vector<double>, std::vector<double>> result();
 
   std::string writeAveragesStatistics(double beta, std::optional<double> imposedChemicalPotential,
                                       std::optional<double> imposedFugacity) const;

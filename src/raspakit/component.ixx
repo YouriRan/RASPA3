@@ -1,32 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <array>
-#include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <format>
-#include <fstream>
-#include <map>
-#include <optional>
-#include <ostream>
-#include <print>
-#include <span>
-#include <sstream>
-#include <string>
-#include <tuple>
-#include <vector>
-#endif
-
 export module component;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import stringutils;
 import archive;
@@ -169,9 +145,9 @@ export struct Component
   Component(std::size_t componentId, const ForceField &forceField, std::string componentName, double T_c, double P_c,
             double w, std::vector<Atom> definedAtoms, const ConnectivityTable &connectivityTable,
             const Potentials::IntraMolecularPotentials &intraMolecularPotentials, std::size_t numberOfBlocks,
-            std::size_t numberOfLambdaBins, const MCMoveProbabilities &systemProbabilities = MCMoveProbabilities(),
+            std::size_t numberOfLambdaBins, const MCMoveProbabilities &particleProbabilities = MCMoveProbabilities(),
             std::optional<double> fugacityCoefficient = std::nullopt,
-            bool thermodynamicIntegration = false) noexcept(false);
+            bool thermodynamicIntegration = false, std::vector<double4> blockingPockets = {}) noexcept(false);
 
   std::uint64_t versionNumber{1};  ///< Version number for serialization.
 
@@ -183,7 +159,6 @@ export struct Component
   std::optional<std::string> filenameData{};  ///< Optional filename containing component data.
   std::string filename{};                     ///< Filename associated with the component.
 
-  std::vector<double4> blockingPockets{};  ///< List of blocking pockets defined by position and radius.
 
   bool rigid{true};                             ///< Flag indicating if the component is rigid.
   std::size_t translationalDegreesOfFreedom{};  ///< Number of translational degrees of freedom.
@@ -232,6 +207,8 @@ export struct Component
   std::vector<CBMCMoveStatistics> cbmc_moves_statistics;
 
   PropertyWidom averageRosenbluthWeights;  ///< Average Rosenbluth weights for Widom insertion.
+  
+  std::vector<double4> blockingPockets{};  ///< List of blocking pockets defined by position and radius.
 
   double lnPartitionFunction{0};  ///< Natural logarithm of the partition function [-].
 
@@ -400,6 +377,11 @@ export struct Component
    * \return A string representing the Component.
    */
   std::string repr() const;
+
+  static Component makeMethane(const ForceField &forceField, std::size_t id = 0);
+  static Component makeCO2(const ForceField &forceField, std::size_t id = 0, bool useCharges = true);
+  static Component makeWater(const ForceField &forceField, std::size_t id = 0, bool useCharges = true);
+  static Component makeIon(const ForceField &forceField, std::size_t id, std::string_view name, std::size_t type, double q);
 };
 
 /**

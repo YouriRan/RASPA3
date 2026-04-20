@@ -1,29 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <iomanip>
-#include <iostream>
-#include <optional>
-#include <span>
-#include <tuple>
-#include <vector>
-#endif
-
 module mc_moves_partial_reinsertion;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import component;
 import atom;
@@ -52,15 +31,15 @@ import interactions_external_field;
 import interactions_polarization;
 import mc_moves_move_types;
 
-std::optional<RunningEnergy> MC_Moves::partialReinsertionMove(RandomNumber &random, System &system,
+std::optional<RunningEnergy> MC_Moves::partialReinsertionMove(RandomNumber& random, System& system,
                                                               std::size_t selectedComponent,
-                                                              std::size_t selectedMolecule, Molecule &molecule,
+                                                              std::size_t selectedMolecule, Molecule& molecule,
                                                               std::span<Atom> molecule_atoms)
 {
   // Variables to record timing for performance measurement.
   std::chrono::system_clock::time_point time_begin, time_end;
-  MoveTypes move = MoveTypes::PartialReinsertionCBMC;
-  Component &component = system.components[selectedComponent];
+  Move::Types move = Move::Types::PartialReinsertionCBMC;
+  Component& component = system.components[selectedComponent];
 
   if (component.partialReinsertionFixedAtoms.empty())
   {
@@ -92,10 +71,10 @@ std::optional<RunningEnergy> MC_Moves::partialReinsertionMove(RandomNumber &rand
   time_begin = std::chrono::system_clock::now();
   // Attempt to grow the molecule using CBMC reinsertion.
   std::optional<ChainGrowData> growData = CBMC::growMoleculePartialReinsertion(
-      random, component, system.hasExternalField, system.forceField, system.simulationBox, 
-      system.interpolationGrids, system.externalFieldInterpolationGrid,
-      system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(), system.beta, growType,
-      cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, molecule, molecule_atoms, beads_already_placed);
+      random, component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+      system.externalFieldInterpolationGrid, system.framework, system.spanOfFrameworkAtoms(),
+      system.spanOfMoleculeAtoms(), system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb,
+      molecule, molecule_atoms, beads_already_placed);
   time_end = std::chrono::system_clock::now();
 
   // Record CPU time taken for the non-Ewald part of the move.
@@ -124,10 +103,10 @@ std::optional<RunningEnergy> MC_Moves::partialReinsertionMove(RandomNumber &rand
   // Retrace the old molecule configuration using CBMC retracing.
   time_begin = std::chrono::system_clock::now();
   ChainRetraceData retraceData = CBMC::retraceMoleculePartialReinsertion(
-      random, component, system.hasExternalField, system.forceField, system.simulationBox, 
-      system.interpolationGrids, system.externalFieldInterpolationGrid,
-      system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(), system.beta, growType,
-      cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb, molecule, molecule_atoms, beads_already_placed);
+      random, component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+      system.externalFieldInterpolationGrid, system.framework, system.spanOfFrameworkAtoms(),
+      system.spanOfMoleculeAtoms(), system.beta, growType, cutOffFrameworkVDW, cutOffMoleculeVDW, cutOffCoulomb,
+      molecule, molecule_atoms, beads_already_placed);
   time_end = std::chrono::system_clock::now();
 
   // Record CPU time taken for the retracing step.
@@ -152,17 +131,15 @@ std::optional<RunningEnergy> MC_Moves::partialReinsertionMove(RandomNumber &rand
   {
     // If dual cutoff is used, compute correction factor due to non-overlapping energies.
     energyNew = CBMC::computeExternalNonOverlappingEnergyDualCutOff(
-        component, system.hasExternalField, system.forceField, system.simulationBox, 
-        system.interpolationGrids, system.externalFieldInterpolationGrid,
-        system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-        system.forceField.cutOffFrameworkVDW, system.forceField.cutOffMoleculeVDW, system.forceField.cutOffCoulomb,
-        growData->atom);
+        component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+        system.externalFieldInterpolationGrid, system.framework, system.spanOfFrameworkAtoms(),
+        system.spanOfMoleculeAtoms(), system.forceField.cutOffFrameworkVDW, system.forceField.cutOffMoleculeVDW,
+        system.forceField.cutOffCoulomb, growData->atom);
     energyOld = CBMC::computeExternalNonOverlappingEnergyDualCutOff(
-        component, system.hasExternalField, system.forceField, system.simulationBox, 
-        system.interpolationGrids, system.externalFieldInterpolationGrid,
-        system.framework, system.spanOfFrameworkAtoms(), system.spanOfMoleculeAtoms(),
-        system.forceField.cutOffFrameworkVDW, system.forceField.cutOffMoleculeVDW, system.forceField.cutOffCoulomb,
-        old_molecule);
+        component, system.hasExternalField, system.forceField, system.simulationBox, system.interpolationGrids,
+        system.externalFieldInterpolationGrid, system.framework, system.spanOfFrameworkAtoms(),
+        system.spanOfMoleculeAtoms(), system.forceField.cutOffFrameworkVDW, system.forceField.cutOffMoleculeVDW,
+        system.forceField.cutOffCoulomb, old_molecule);
     correctionFactorDualCutOff =
         std::exp(-system.beta * (energyNew->potentialEnergy() - growData->energies.potentialEnergy() -
                                  (energyOld->potentialEnergy() - retraceData.energies.potentialEnergy())));

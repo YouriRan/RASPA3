@@ -1,22 +1,10 @@
-#ifdef USE_LEGACY_HEADERS
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <complex>
-#include <cstddef>
-#include <span>
-#include <vector>
-#endif
-
-#ifdef USE_STD_IMPORT
-#include <gtest/gtest.h>
 import std;
-#endif
 
 import int3;
 import double3;
 import double3x3;
-import factory;
 import units;
 import atom;
 import pseudo_atom;
@@ -82,7 +70,7 @@ TEST(electrostatic_potential, Test_reference_system_1_four_ions)
                            },
                            {}, {}, 5, 21);
 
-  System system = System(0, forceField, SimulationBox(1000.0, 1000.0, 1000.0), 300.0, 1e4, 1.0, {}, {c1, c2, c3, c4},
+  System system = System(0, forceField, SimulationBox(1000.0, 1000.0, 1000.0), false, 300.0, 1e4, 1.0, {}, {c1, c2, c3, c4},
                          {}, {1, 1, 1, 1}, 5);
 
   std::span<Atom> spanOfMoleculeAtoms = system.spanOfMoleculeAtoms();
@@ -219,13 +207,14 @@ TEST(electrostatic_potential, Test_reference_system_1_framework_molecule)
   forceField.omitInterPolarization = false;
   forceField.omitInterInteractions = false;
 
+  std::vector<Atom> atoms{
+    Atom({-1.0 / 1000.0, 0.0, 0.0}, 0.5, 1.0, 0, 0, 0, false, false),
+    Atom({1.0 / 1000.0, 0.0, 0.0}, 1.5, 1.0, 0, 1, 0, false, false),
+    Atom({0.0, 1.0 / 1000.0, 0.0}, -0.75, 1.0, 0, 2, 0, false, false)
+  };
+
   Framework framework = Framework(0, forceField, "ions", SimulationBox(1000.0, 1000.0, 1000.0), 1,
-                                  {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t
-                                   // type, uint8_t componentId, bool groupId, bool is_fractional
-                                   Atom({-1.0 / 1000.0, 0.0, 0.0}, 0.5, 1.0, 0, 0, 0, false, false),
-                                   Atom({1.0 / 1000.0, 0.0, 0.0}, 1.5, 1.0, 0, 1, 0, false, false),
-                                   Atom({0.0, 1.0 / 1000.0, 0.0}, -0.75, 1.0, 0, 2, 0, false, false)},
-                                  {1, 1, 1});
+                                  atoms, atoms, {1, 1, 1});
 
   Component c4 = Component(0, forceField, "t4", 0.0, 0.0, 0.0,
                            {
@@ -235,7 +224,7 @@ TEST(electrostatic_potential, Test_reference_system_1_framework_molecule)
                            },
                            {}, {}, 5, 21);
 
-  System system = System(0, forceField, SimulationBox(1000.0, 1000.0, 1000.0), 300.0, 1e4, 1.0, {framework}, {c4}, {},
+  System system = System(0, forceField, SimulationBox(1000.0, 1000.0, 1000.0), false, 300.0, 1e4, 1.0, {framework}, {c4}, {},
                          {1, 1, 1, 1}, 5);
 
   std::span<Atom> spanOfMoleculeAtoms = system.spanOfMoleculeAtoms();
@@ -327,12 +316,12 @@ TEST(electrostatic_potential, Test_reference_system_2_framework_molecule)
   forceField.omitInterPolarization = true;
   forceField.omitInterInteractions = true;
 
+  std::vector<Atom> atoms{
+    Atom({-1.0 / 1000.0, 0.0, 0.0}, 0.5, 1.0, 0, 0, 0, false, false),
+    Atom({0.0, -1.0 / 1000.0, 0.0}, -1.25, 1.0, 0, 1, 0, false, false)
+  };
   Framework framework = Framework(0, forceField, "ions", SimulationBox(1000.0, 1000.0, 1000.0), 1,
-                                  {// double3 position, double charge, double lambda, uint32_t moleculeId, uint16_t
-                                   // type, uint8_t componentId, bool groupId, bool is_fractional
-                                   Atom({-1.0 / 1000.0, 0.0, 0.0}, 0.5, 1.0, 0, 0, 0, false, false),
-                                   Atom({0.0, -1.0 / 1000.0, 0.0}, -1.25, 1.0, 0, 1, 0, false, false)},
-                                  {1, 1, 1});
+                                  atoms, atoms, {1, 1, 1});
 
   Component c3 = Component(0, forceField, "t3", 0.0, 0.0, 0.0,
                            {
@@ -350,7 +339,7 @@ TEST(electrostatic_potential, Test_reference_system_2_framework_molecule)
                            },
                            {}, {}, 5, 21);
 
-  System system = System(0, forceField, SimulationBox(1000.0, 1000.0, 1000.0), 300.0, 1e4, 1.0, {framework}, {c3, c4},
+  System system = System(0, forceField, SimulationBox(1000.0, 1000.0, 1000.0), false, 300.0, 1e4, 1.0, {framework}, {c3, c4},
                          {}, {1, 1, 1, 1}, 5);
 
   std::span<Atom> spanOfMoleculeAtoms = system.spanOfMoleculeAtoms();
@@ -439,16 +428,16 @@ TEST(electrostatic_potential, Test_reference_system_2_framework_molecule)
 
 TEST(electrostatic_potential, Test_2_CO2_in_ITQ_29_2x2x2)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(11.8, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(11.8, true, false, true);
 
   forceField.computePolarization = true;
   forceField.omitInterPolarization = true;
   forceField.omitInterInteractions = true;
 
-  Framework f = TestFactories::makeITQ29(forceField, int3(2, 2, 2));
-  Component c = TestFactories::makeCO2(forceField, 0, true);
+  Framework f = Framework::makeITQ29(forceField, int3(2, 2, 2));
+  Component c = Component::makeCO2(forceField, 0, true);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e4, 1.0, {f}, {c}, {}, {1}, 5);
+  System system = System(0, forceField, std::nullopt, false, 300.0, 1e4, 1.0, {f}, {c}, {}, {1}, 5);
   system.forceField.EwaldAlpha = 0.25;
   system.forceField.numberOfWaveVectors = int3(8, 8, 8);
   system.forceField.omitEwaldFourier = true;

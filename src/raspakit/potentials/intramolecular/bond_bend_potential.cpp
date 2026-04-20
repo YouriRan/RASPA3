@@ -1,31 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <exception>
-#include <fstream>
-#include <map>
-#include <numbers>
-#include <print>
-#include <source_location>
-#include <tuple>
-#include <utility>
-#include <vector>
-#endif
-
 module bond_bend_potential;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import randomnumbers;
@@ -193,6 +170,8 @@ std::string BondBendPotential::print() const
           "[A]\n",
           identifiers[0], identifiers[1], identifiers[2], parameters[0] * Units::EnergyToKelvin,
           parameters[1] * Units::RadiansToDegrees, parameters[2], parameters[3]);
+    default:
+      std::unreachable();
   }
 }
 
@@ -216,6 +195,8 @@ double BondBendPotential::calculateEnergy([[maybe_unused]] const double3 &posA, 
       return 0.0;
     case BondBendType::TruncatedVessal:
       return 0.0;
+    default:
+      std::unreachable();
   }
 }
 

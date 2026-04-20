@@ -50,10 +50,10 @@ import thermostat;
 import units;
 import mc_moves_move_types;
 
-std::optional<RunningEnergy> MC_Moves::volumeMoveNCMC(RandomNumber &random, System &system)
+std::optional<RunningEnergy> MC_Moves::volumeMoveNCMC(RandomNumber& random, System& system)
 {
   std::chrono::system_clock::time_point time_begin, time_end;
-  MoveTypes move = MoveTypes::VolumeNCMC;
+  Move::Types move = Move::Types::VolumeNCMC;
 
   // Update volume move counts
   system.mc_moves_statistics.addTrial(move);

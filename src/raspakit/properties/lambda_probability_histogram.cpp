@@ -1,35 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <filesystem>
-#include <format>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <numbers>
-#include <numeric>
-#include <optional>
-#include <print>
-#include <ranges>
-#include <sstream>
-#include <string>
-#include <vector>
-#endif
-
 module property_lambda_probability_histogram;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import double3;
 import archive;
@@ -94,7 +67,7 @@ void PropertyLambdaProbabilityHistogram::WangLandauIteration(PropertyLambdaProba
 }
 
 std::pair<std::vector<double>, std::vector<double>>
-PropertyLambdaProbabilityHistogram::normalizedAverageProbabilityHistogram()
+PropertyLambdaProbabilityHistogram::result()
 {
   std::pair<std::vector<double>, std::vector<double>> histogram_avg = averageProbabilityHistogram();
 

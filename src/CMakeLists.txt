@@ -20,6 +20,7 @@ file(GLOB SRC_CPP_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/intramolecular/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/interpolation/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/properties/*.cpp
+  ${PROJECT_SOURCE_DIR}/raspakit/properties_time_evolution/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/integrators/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/ruptura/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/monte_carlo/*.cpp
@@ -27,6 +28,8 @@ file(GLOB SRC_CPP_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/energy/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/energy_opencl/*.cpp
   ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/grid_opencl/*.cpp
+  ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/integration/*.cpp
+  ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/integration_opencl/*.cpp
   ${PROJECT_SOURCE_DIR}/utilitykit/*.cpp)
 
 file(GLOB SRC_IXX_FILES
@@ -49,6 +52,7 @@ file(GLOB SRC_IXX_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/intramolecular/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/potentials/interpolation/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/properties/*.ixx
+  ${PROJECT_SOURCE_DIR}/raspakit/properties_time_evolution/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/integrators/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/ruptura/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/monte_carlo/*.ixx
@@ -56,18 +60,9 @@ file(GLOB SRC_IXX_FILES
   ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/energy/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/energy_opencl/*.ixx
   ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/grid_opencl/*.ixx
+  ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/integration/*.ixx
+  ${PROJECT_SOURCE_DIR}/raspakit/structure_properties/integration_opencl/*.ixx
   ${PROJECT_SOURCE_DIR}/utilitykit/*.ixx)
-
-#set(PCH_HEADER "${PROJECT_SOURCE_DIR}/pch.h")
-#set(PCH_SOURCE "${PROJECT_SOURCE_DIR}/pch.cpp")
-#set(PCH_OUTPUT "${CMAKE_BINARY_DIR}/pch.h.gch")
-#
-#add_custom_command(
-#    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PCH_OUTPUT}
-#    COMMAND ${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -x c++-header ${PCH_HEADER} -o ${PCH_OUTPUT}
-#    DEPENDS ${PCH_HEADER} ${PCH_SOURCE}
-#    COMMENT "Building precompiled header ${PCH_OUTPUT}"
-#)
 
 add_library(${PROJECT_NAME} STATIC ${PCH_HEADER} ${PCH_SOURCE})
 set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE TRUE)

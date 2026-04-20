@@ -1,25 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <cstddef>
-#include <format>
-#include <fstream>
-#include <map>
-#include <ostream>
-#include <string>
-#include <string_view>
-#include <vector>
-#endif
-
 export module simd_quatd;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import double3;
 import archive;
@@ -38,6 +21,7 @@ export union simd_quatd
   simd_quatd(double real, double3 imag);
   simd_quatd(double3 EulerAngles);
   static simd_quatd fromAxisAngle(double angle, double3 axis);
+  static simd_quatd fromTwoVectors(double3 a, double3 b);
   double3 EulerAngles();
   simd_quatd normalized();
   simd_quatd inverse() { return simd_quatd(-ix, -iy, -iz, r); }
@@ -124,6 +108,12 @@ struct std::formatter<simd_quatd> : std::formatter<std::string_view>
   }
 };
 
-export void to_json(nlohmann::json& j, const simd_quatd& q) { j = nlohmann::json{q.ix, q.iy, q.iz, q.r}; }
+export void to_json(nlohmann::json& j, const simd_quatd& q)
+{ 
+  j = nlohmann::json{q.ix, q.iy, q.iz, q.r};
+}
 
-export void from_json(const nlohmann::json& j, simd_quatd& q) { j.get_to(q); }
+export void from_json(const nlohmann::json& j, simd_quatd& q) 
+{ 
+  j.get_to(q);
+}

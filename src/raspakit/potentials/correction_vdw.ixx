@@ -1,19 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <cmath>
-#include <cstddef>
-#endif
-
 export module potential_correction_vdw;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import vdwparameters;
 import double4;
@@ -33,7 +22,7 @@ export namespace Potentials
  *
  * \return The calculated VDW potential correction.
  */
-inline double potentialCorrectionVDW(VDWParameters::Type potentialType, double4 &parameters, double cutOffVDW, const std::size_t& typeA, const std::size_t& typeB)
+inline double potentialCorrectionVDW(VDWParameters::Type potentialType, double4 &parameters, double cutOffVDW)
 {
   switch (potentialType)
   {

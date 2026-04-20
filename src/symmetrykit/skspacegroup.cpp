@@ -1,26 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <iterator>
-#include <map>
-#include <string>
-#include <unordered_set>
-#include <vector>
-#endif
-
 module skspacegroup;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import int3;
 import int3x3;
@@ -44,9 +26,49 @@ import skrotationalchangeofbasis;
 import skseitzintegermatrix;
 import skintegersymmetryoperationset;
 
-std::string simplified(std::string a) { return a; };
+// https://stackoverflow.com/questions/66897068/can-trim-of-a-string-be-done-inplace-with-c20-ranges
+/*
+inline std::string simplified(const std::string &a)
+{
+  std::string s = a;
+  auto not_space = [](unsigned char c){ return !std::isspace(c); };
 
-std::string toLower(std::string a) { return a; }
+    // erase the the spaces at the back first
+    // so we don't have to do extra work
+    s.erase(
+        std::ranges::find_if(s | std::views::reverse, not_space).base(),
+        s.end());
+
+    // erase the spaces at the front
+    s.erase(
+        s.begin(),
+        std::ranges::find_if(s, not_space));
+
+    return s;
+}*/
+
+inline std::string simplified(const std::string &a)
+{
+  std::string s = a;
+
+  s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+
+  s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+
+  return s;
+}
+
+inline std::string toLower(const std::string &a)
+{
+  std::string data = a;
+  std::transform(data.begin(), data.end(), data.begin(),
+    [](unsigned char c){ return std::tolower(c); });
+  return data;
+}
 
 SKSpaceGroup::SKSpaceGroup(std::size_t HallNumber)
 {
@@ -516,7 +538,7 @@ std::optional<SKSpaceGroup::FoundNiggliCellInfo> SKSpaceGroup::findNiggliCell(
 {
   std::vector<std::tuple<double3, std::size_t, double>> reducedAtoms{};
 
-  std::size_t leastOccuringAtomType;
+  std::size_t leastOccuringAtomType{};
   if (allowPartialOccupancies)
   {
     reducedAtoms = atoms;

@@ -1,30 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <iomanip>
-#include <iostream>
-#include <numeric>
-#include <optional>
-#include <span>
-#include <tuple>
-#include <vector>
-#endif
-
 module mc_moves_gibbs_volume;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import component;
 import atom;
@@ -55,7 +33,7 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
                                                                                  System &systemB)
 {
   std::chrono::system_clock::time_point time_begin, time_end;
-  MoveTypes move = MoveTypes::GibbsVolume;
+  Move::Types move = Move::Types::GibbsVolume;
 
   systemA.mc_moves_statistics.addTrial(move);
   systemB.mc_moves_statistics.addTrial(move);
@@ -171,8 +149,8 @@ std::optional<std::pair<RunningEnergy, RunningEnergy>> MC_Moves::GibbsVolumeMove
 
   // apply acceptance/rejection rule
   if (random.uniform() < std::exp(-systemA.beta * deltaU +
-                                  (static_cast<double>(numberOfMoleculesA + 1.0) * std::log(newVolumeA / oldVolumeA)) +
-                                  (static_cast<double>(numberOfMoleculesB + 1.0) * std::log(newVolumeB / oldVolumeB))))
+                                  ((numberOfMoleculesA + 1.0) * std::log(newVolumeA / oldVolumeA)) +
+                                  ((numberOfMoleculesB + 1.0) * std::log(newVolumeB / oldVolumeB))))
   {
     // Accept the move: update systems A and B with new configurations and energies
     systemA.mc_moves_statistics.addAccepted(move);

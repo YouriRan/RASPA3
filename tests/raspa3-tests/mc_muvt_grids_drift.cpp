@@ -1,28 +1,11 @@
-#ifdef USE_LEGACY_HEADERS
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <complex>
-#include <cstddef>
-#include <iostream>
-#include <optional>
-#include <print>
-#include <ranges>
-#include <span>
-#include <tuple>
-#include <vector>
-#endif
-
-#ifdef USE_STD_IMPORT
-#include <gtest/gtest.h>
 import std;
-#endif
 
 import int3;
 import double3;
 import double3x3;
 import randomnumbers;
-import factory;
 import units;
 import atom;
 import pseudo_atom;
@@ -47,16 +30,16 @@ import mc_moves_move_types;
 
 TEST(MC_MUVT_GRIDS_DRIFT, insertion)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities_co2 = MCMoveProbabilities();
-  probabilities_co2.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_co2.setProbability(MoveTypes::Swap, 1.0);
+  probabilities_co2.setProbability(Move::Types::Translation, 1.0);
+  probabilities_co2.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_co2.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::Swap, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -65,19 +48,19 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertion)
                             {}, {}, 5, 21, probabilities_co2, std::nullopt, false);
 
   MCMoveProbabilities probabilities_methane = MCMoveProbabilities();
-  probabilities_methane.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_methane.setProbability(MoveTypes::Swap, 1.0);
+  probabilities_methane.setProbability(Move::Types::Translation, 1.0);
+  probabilities_methane.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_methane.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::Swap, 1.0);
 
   Component methane = Component(1, forceField, "methane", 190.564, 45599200, 0.01142,
                                 {Atom({0, 0, 0}, 0.0, 1.0, 0, 2, 1, false, false)}, {}, {}, 5, 21,
                                 probabilities_methane, std::nullopt, false);
 
   MCMoveProbabilities probabilities_water = MCMoveProbabilities();
-  probabilities_water.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_water.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_water.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities_water.setProbability(Move::Types::Translation, 1.0);
+  probabilities_water.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_water.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component water = Component(
       2, forceField, "water", 0.0, 0.0, 0.0,
@@ -88,7 +71,8 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertion)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities_water, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -101,15 +85,13 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertion)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -136,16 +118,16 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertion)
 
 TEST(MC_MUVT_GRIDS_DRIFT, insertionCBMC)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities_co2 = MCMoveProbabilities();
-  probabilities_co2.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_co2.setProbability(MoveTypes::SwapCBMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::Translation, 1.0);
+  probabilities_co2.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_co2.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::SwapCBMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -154,19 +136,19 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBMC)
                             {}, {}, 5, 21, probabilities_co2, std::nullopt, false);
 
   MCMoveProbabilities probabilities_methane = MCMoveProbabilities();
-  probabilities_methane.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_methane.setProbability(MoveTypes::SwapCBMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::Translation, 1.0);
+  probabilities_methane.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_methane.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::SwapCBMC, 1.0);
 
   Component methane = Component(1, forceField, "methane", 190.564, 45599200, 0.01142,
                                 {Atom({0, 0, 0}, 0.0, 1.0, 0, 2, 1, false, false)}, {}, {}, 5, 21,
                                 probabilities_methane, std::nullopt, false);
 
   MCMoveProbabilities probabilities_water = MCMoveProbabilities();
-  probabilities_water.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_water.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_water.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities_water.setProbability(Move::Types::Translation, 1.0);
+  probabilities_water.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_water.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component water = Component(
       2, forceField, "water", 0.0, 0.0, 0.0,
@@ -177,7 +159,8 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBMC)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities_water, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -190,15 +173,13 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBMC)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -225,16 +206,16 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBMC)
 
 TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities_co2 = MCMoveProbabilities();
-  probabilities_co2.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_co2.setProbability(MoveTypes::SwapCFCMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::Translation, 1.0);
+  probabilities_co2.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_co2.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::SwapCFCMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -243,19 +224,19 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC)
                             {}, {}, 5, 21, probabilities_co2, std::nullopt, false);
 
   MCMoveProbabilities probabilities_methane = MCMoveProbabilities();
-  probabilities_methane.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_methane.setProbability(MoveTypes::SwapCFCMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::Translation, 1.0);
+  probabilities_methane.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_methane.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::SwapCFCMC, 1.0);
 
   Component methane = Component(1, forceField, "methane", 190.564, 45599200, 0.01142,
                                 {Atom({0, 0, 0}, 0.0, 1.0, 0, 2, 1, false, false)}, {}, {}, 5, 21,
                                 probabilities_methane, std::nullopt, false);
 
   MCMoveProbabilities probabilities_water = MCMoveProbabilities();
-  probabilities_water.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_water.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_water.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities_water.setProbability(Move::Types::Translation, 1.0);
+  probabilities_water.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_water.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component water = Component(
       2, forceField, "water", 0.0, 0.0, 0.0,
@@ -266,7 +247,8 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities_water, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -279,15 +261,13 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -314,16 +294,16 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC)
 
 TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities_co2 = MCMoveProbabilities();
-  probabilities_co2.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_co2.setProbability(MoveTypes::SwapCBCFCMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::Translation, 1.0);
+  probabilities_co2.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_co2.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::SwapCBCFCMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -332,19 +312,19 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC)
                             {}, {}, 5, 21, probabilities_co2, std::nullopt, false);
 
   MCMoveProbabilities probabilities_methane = MCMoveProbabilities();
-  probabilities_methane.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_methane.setProbability(MoveTypes::SwapCBCFCMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::Translation, 1.0);
+  probabilities_methane.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_methane.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::SwapCBCFCMC, 1.0);
 
   Component methane = Component(1, forceField, "methane", 190.564, 45599200, 0.01142,
                                 {Atom({0, 0, 0}, 0.0, 1.0, 0, 2, 1, false, false)}, {}, {}, 5, 21,
                                 probabilities_methane, std::nullopt, false);
 
   MCMoveProbabilities probabilities_water = MCMoveProbabilities();
-  probabilities_water.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_water.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_water.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities_water.setProbability(Move::Types::Translation, 1.0);
+  probabilities_water.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_water.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component water = Component(
       2, forceField, "water", 0.0, 0.0, 0.0,
@@ -355,7 +335,8 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities_water, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -368,15 +349,13 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -403,16 +382,16 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC)
 
 TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_co2)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities_co2 = MCMoveProbabilities();
-  probabilities_co2.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_co2.setProbability(MoveTypes::SwapCFCMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::Translation, 1.0);
+  probabilities_co2.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_co2.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::SwapCFCMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -421,19 +400,19 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_co2)
                             {}, {}, 5, 21, probabilities_co2, std::nullopt, true);
 
   MCMoveProbabilities probabilities_methane = MCMoveProbabilities();
-  probabilities_methane.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_methane.setProbability(MoveTypes::SwapCFCMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::Translation, 1.0);
+  probabilities_methane.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_methane.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::SwapCFCMC, 1.0);
 
   Component methane = Component(1, forceField, "methane", 190.564, 45599200, 0.01142,
                                 {Atom({0, 0, 0}, 0.0, 1.0, 0, 2, 1, false, false)}, {}, {}, 5, 21,
                                 probabilities_methane, std::nullopt, false);
 
   MCMoveProbabilities probabilities_water = MCMoveProbabilities();
-  probabilities_water.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_water.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_water.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities_water.setProbability(Move::Types::Translation, 1.0);
+  probabilities_water.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_water.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component water = Component(
       2, forceField, "water", 0.0, 0.0, 0.0,
@@ -444,7 +423,8 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_co2)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities_water, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -457,15 +437,13 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_co2)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -492,16 +470,16 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_co2)
 
 TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC_thermodynamic_integration_co2)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities_co2 = MCMoveProbabilities();
-  probabilities_co2.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_co2.setProbability(MoveTypes::SwapCBCFCMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::Translation, 1.0);
+  probabilities_co2.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_co2.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::SwapCBCFCMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -510,19 +488,19 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC_thermodynamic_integration_co2)
                             {}, {}, 5, 21, probabilities_co2, std::nullopt, true);
 
   MCMoveProbabilities probabilities_methane = MCMoveProbabilities();
-  probabilities_methane.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_methane.setProbability(MoveTypes::SwapCBCFCMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::Translation, 1.0);
+  probabilities_methane.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_methane.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::SwapCBCFCMC, 1.0);
 
   Component methane = Component(1, forceField, "methane", 190.564, 45599200, 0.01142,
                                 {Atom({0, 0, 0}, 0.0, 1.0, 0, 2, 1, false, false)}, {}, {}, 5, 21,
                                 probabilities_methane, std::nullopt, false);
 
   MCMoveProbabilities probabilities_water = MCMoveProbabilities();
-  probabilities_water.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_water.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_water.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities_water.setProbability(Move::Types::Translation, 1.0);
+  probabilities_water.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_water.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component water = Component(
       2, forceField, "water", 0.0, 0.0, 0.0,
@@ -533,7 +511,8 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC_thermodynamic_integration_co2)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities_water, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -546,15 +525,13 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC_thermodynamic_integration_co2)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -581,16 +558,16 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC_thermodynamic_integration_co2)
 
 TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_methane)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities_co2 = MCMoveProbabilities();
-  probabilities_co2.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_co2.setProbability(MoveTypes::SwapCFCMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::Translation, 1.0);
+  probabilities_co2.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_co2.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::SwapCFCMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -599,19 +576,19 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_methane)
                             {}, {}, 5, 21, probabilities_co2, std::nullopt, false);
 
   MCMoveProbabilities probabilities_methane = MCMoveProbabilities();
-  probabilities_methane.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_methane.setProbability(MoveTypes::SwapCFCMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::Translation, 1.0);
+  probabilities_methane.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_methane.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::SwapCFCMC, 1.0);
 
   Component methane = Component(1, forceField, "methane", 190.564, 45599200, 0.01142,
                                 {Atom({0, 0, 0}, 0.0, 1.0, 0, 2, 1, false, false)}, {}, {}, 5, 21,
                                 probabilities_methane, std::nullopt, true);
 
   MCMoveProbabilities probabilities_water = MCMoveProbabilities();
-  probabilities_water.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_water.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_water.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities_water.setProbability(Move::Types::Translation, 1.0);
+  probabilities_water.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_water.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component water = Component(
       2, forceField, "water", 0.0, 0.0, 0.0,
@@ -622,7 +599,8 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_methane)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities_water, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -635,15 +613,13 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_methane)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;
@@ -670,16 +646,16 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCFCMC_thermodynamic_integration_methane)
 
 TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC_thermodynamic_integration_methane)
 {
-  ForceField forceField = TestFactories::makeDefaultFF(12.0, true, false, true);
+  ForceField forceField = ForceField::makeZeoliteForceField(12.0, true, false, true);
   forceField.gridPseudoAtomIndices = {3, 4, 5, 6, 7, 8, 9};
 
-  Framework f = TestFactories::makeFAU(forceField, int3(1, 1, 1));
+  Framework f = Framework::makeFAU(forceField, int3(1, 1, 1));
 
   MCMoveProbabilities probabilities_co2 = MCMoveProbabilities();
-  probabilities_co2.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_co2.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_co2.setProbability(MoveTypes::SwapCBCFCMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::Translation, 1.0);
+  probabilities_co2.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_co2.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_co2.setProbability(Move::Types::SwapCBCFCMC, 1.0);
 
   Component co2 = Component(0, forceField, "CO2", 304.1282, 7377300.0, 0.22394,
                             {Atom({0, 0, 1.149}, -0.3256, 1.0, 0, 4, 0, false, false),
@@ -688,19 +664,19 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC_thermodynamic_integration_methane)
                             {}, {}, 5, 21, probabilities_co2, std::nullopt, false);
 
   MCMoveProbabilities probabilities_methane = MCMoveProbabilities();
-  probabilities_methane.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_methane.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
-  probabilities_methane.setProbability(MoveTypes::SwapCBCFCMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::Translation, 1.0);
+  probabilities_methane.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_methane.setProbability(Move::Types::ReinsertionCBMC, 1.0);
+  probabilities_methane.setProbability(Move::Types::SwapCBCFCMC, 1.0);
 
   Component methane = Component(1, forceField, "methane", 190.564, 45599200, 0.01142,
                                 {Atom({0, 0, 0}, 0.0, 1.0, 0, 2, 1, false, false)}, {}, {}, 5, 21,
                                 probabilities_methane, std::nullopt, true);
 
   MCMoveProbabilities probabilities_water = MCMoveProbabilities();
-  probabilities_water.setProbability(MoveTypes::Translation, 1.0);
-  probabilities_water.setProbability(MoveTypes::Rotation, 1.0);
-  probabilities_water.setProbability(MoveTypes::ReinsertionCBMC, 1.0);
+  probabilities_water.setProbability(Move::Types::Translation, 1.0);
+  probabilities_water.setProbability(Move::Types::Rotation, 1.0);
+  probabilities_water.setProbability(Move::Types::ReinsertionCBMC, 1.0);
 
   Component water = Component(
       2, forceField, "water", 0.0, 0.0, 0.0,
@@ -711,7 +687,8 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC_thermodynamic_integration_methane)
        Atom(double3(0.0, 0.57154330164408200866, 0.40415127656087122858), -0.241, 1.0, 0, 9, 2, false, false)},
       {}, {}, 5, 21, probabilities_water, std::nullopt, false);
 
-  System system = System(0, forceField, std::nullopt, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
+  System system =
+      System(0, forceField, std::nullopt, false, 300.0, 1e5, 1.0, {f}, {co2, methane, water}, {}, {10, 15, 8}, 5);
 
   std::vector<System> systems{system};
   size_t numberOfCycles{1000};
@@ -724,15 +701,13 @@ TEST(MC_MUVT_GRIDS_DRIFT, insertionCBCFCMC_thermodynamic_integration_methane)
   size_t numberOfBlocks{5};
   bool outputToFiles{false};
 
-  RandomNumber randomSeed(std::nullopt);
-
   MonteCarlo mc = MonteCarlo(numberOfCycles, numberOfInitializationCycles, numberOfEquilibrationCycles, printEvery,
-                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, randomSeed,
+                             writeBinaryRestartEvery, rescaleWangLandauEvery, optimizeMCMovesEvery, systems, {},
                              numberOfBlocks, outputToFiles);
 
   mc.run();
 
-  for (System &s : mc.systems)
+  for (System& s : mc.systems)
   {
     RunningEnergy recomputedEnergies = s.computeTotalEnergies();
     RunningEnergy drift = s.runningEnergies - recomputedEnergies;

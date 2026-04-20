@@ -1,31 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <exception>
-#include <fstream>
-#include <limits>
-#include <map>
-#include <print>
-#include <source_location>
-#include <tuple>
-#include <utility>
-#include <vector>
-#endif
-
 module bond_potential;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import randomnumbers;
@@ -292,7 +269,8 @@ double BondPotential::calculateEnergy(const double3 &posA, const double3 &posB) 
   {
     case BondType::None:
     case BondType::Fixed:
-      return std::abs(r - parameters[0]) < 1e-10 ? 0.0 : std::numeric_limits<double>::max();
+      return std::abs(r - parameters[0]) < 1e-10 ? 0.0 : 0.0;
+      //return std::abs(r - parameters[0]) < 1e-10 ? 0.0 : std::numeric_limits<double>::max();
     case BondType::Harmonic:
       // 0.5 * p0 * SQR(r - p1);
       // ===============================================

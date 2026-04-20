@@ -1,31 +1,8 @@
 module;
 
-#ifdef USE_PRECOMPILED_HEADERS
-#include "pch.h"
-#endif
-
-#ifdef USE_LEGACY_HEADERS
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <complex>
-#include <cstddef>
-#include <exception>
-#include <fstream>
-#include <map>
-#include <numbers>
-#include <print>
-#include <source_location>
-#include <tuple>
-#include <utility>
-#include <vector>
-#endif
-
 module torsion_potential;
 
-#ifdef USE_STD_IMPORT
 import std;
-#endif
 
 import archive;
 import randomnumbers;
@@ -387,6 +364,8 @@ std::string TorsionPotential::print() const
           parameters[1] * Units::EnergyToKelvin, parameters[2] * Units::EnergyToKelvin,
           parameters[3] * Units::EnergyToKelvin, parameters[4] * Units::EnergyToKelvin,
           parameters[5] * Units::EnergyToKelvin);
+    default:
+      std::unreachable();
   }
 }
 
@@ -575,6 +554,8 @@ double TorsionPotential::calculateEnergy(const double3 &posA, const double3 &pos
                            cos_phi2 * (parameters[5] * (3.0 - 4.0 * cos_phi2) * (3.0 - 4.0 * cos_phi2) +
                                        4.0 * parameters[3] * (cos_phi2 - 1.0) +
                                        2.0 * cos_phi * (parameters[2] + parameters[4] * (4.0 * cos_phi2 - 5.0)))));
+    default:
+      std::unreachable();
   }
 }
 
